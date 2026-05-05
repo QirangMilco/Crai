@@ -81,3 +81,73 @@ export interface Artifact {
   createdAt: Timestamp
   metadata?: Metadata
 }
+
+/** 记忆作用域：决定记忆的生命周期和注入优先级。 */
+export type MemoryScope = 'global' | 'project' | 'session'
+
+/** 记忆溯源：记录每条记忆的来源信息。 */
+export interface MemoryProvenance {
+  sessionId: ID
+  sourceKind: string
+  sourceId: string
+}
+
+/** MemoryEntry 是长期记忆的最小单元，采用多视图索引模型。 */
+export interface MemoryEntry {
+  id: ID
+
+  losslessRestatement: string
+  embedding?: number[]
+
+  keywords: string[]
+
+  scope: MemoryScope
+  projectId?: string
+  timestamp?: string
+  location?: string
+  persons: string[]
+  entities: string[]
+  topic?: string
+
+  importance: number
+  createdAt: Timestamp
+  validFrom?: Timestamp
+  validTo?: Timestamp
+  supersededBy?: ID
+  provenance?: MemoryProvenance
+}
+
+/** SessionSummary 是会话结束时生成的摘要，用于快速恢复上下文。 */
+export interface SessionSummary {
+  id: ID
+  sessionId: ID
+  request?: string
+  investigated?: string
+  learned?: string
+  completed?: string
+  nextSteps?: string
+  observationCount: number
+  memoryEntriesStored: number
+  createdAt: Timestamp
+}
+
+/** Observation 是会话过程中提取的细粒度发现或决策。 */
+export interface Observation {
+  id: ID
+  sessionId: ID
+  type: 'decision' | 'bugfix' | 'feature' | 'refactor' | 'discovery' | 'change'
+  title: string
+  subtitle?: string
+  narrative?: string
+  facts?: Record<string, unknown>
+  files?: string[]
+  createdAt: Timestamp
+}
+
+/** ContextBundle 是 Session 启动时注入的上下文包，携带 Token 预算估算。 */
+export interface ContextBundle {
+  sessionSummaries: SessionSummary[]
+  observations: Observation[]
+  memoryEntries: MemoryEntry[]
+  totalTokensEstimate: number
+}

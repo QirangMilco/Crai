@@ -1,4 +1,4 @@
-import type { Artifact, ID, Metadata, Message, Session, TextPart, ImagePart, ToolCallPart } from './types'
+import type { Artifact, ContextBundle, ID, MemoryEntry, Metadata, Message, Observation, Session, SessionSummary, TextPart, ImagePart, ToolCallPart } from './types'
 
 /** 事件只表达“发生了什么”，不直接承担业务逻辑。 */
 export interface CoreEvent<TType extends string = string, TPayload = unknown> {
@@ -41,6 +41,11 @@ export interface EventMap {
 
   'extension.loaded': { name: string }
   'extension.unloaded': { name: string }
+
+  'session.memoryInjected': { session: Session; bundle: ContextBundle }
+  'session.summaryGenerated': { session: Session; summary: SessionSummary }
+  'memory.entriesStored': { session: Session; entries: MemoryEntry[] }
+  'observations.extracted': { session: Session; observations: Observation[] }
 }
 
 export type RuntimeInput =

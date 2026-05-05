@@ -1,5 +1,5 @@
 import type { EventMap, ModelRequest, ModelResponse, ModelStreamEvent, RuntimeInput, ToolDefinition, ToolExecutionRequest, ToolExecutionResult } from './events'
-import type { Artifact, ID, Metadata, Message, Session, ToolCallPart } from './types'
+import type { Artifact, ContextBundle, ID, MemoryEntry, MemoryProvenance, MemoryScope, Metadata, Message, Observation, Session, SessionSummary, ToolCallPart } from './types'
 
 /** 统一可释放对象，便于卸载扩展时回收资源。 */
 export interface Disposable {
@@ -37,6 +37,11 @@ export interface HookMap {
   'persist:after': { session: Session }
   'permission:check': { session: Session; request: PermissionCheckRequest; decision: PermissionDecision }
   'artifact:save': { session: Session; artifact: Artifact }
+
+  'session:beforeStart': { session: Session; input?: RuntimeInput }
+  'session:afterStop': { session: Session; messages: Message[] }
+  'turn:beforeModel': { session: Session; request: ModelRequest }
+  'turn:afterToolExec': { session: Session; result: ToolExecutionResult }
 }
 
 export interface HookBus<THooks extends Record<string, any>> {
@@ -89,6 +94,25 @@ export interface CacheAdapter {
   getCacheKey?(request: ModelRequest): string
   beforeModel?(request: ModelRequest): Promise<ModelRequest> | ModelRequest
   afterModel?(request: ModelRequest, response: ModelResponse): Promise<void> | void
+}
+
+export interface MemoryQueryInput {
+  query: string
+  scope?: MemoryScope
+  projectId?: string
+  topK?: number
+  filter?: Record<string, unknown>
+}
+
+/** 记忆适配器：记忆条目存储与检索的抽象契约。 */
+export interface MemoryAdapter {
+  name: string
+  store(entries: MemoryEntry[]): Promise<void>
+  query(input: MemoryQueryInput): Promise<MemoryEntry[]>
+  remove(entryId: ID): Promise<void>
+  list(scope?: MemoryScope, projectId?: string): Promise<MemoryEntry[]>
+  storeSummary(summary: SessionSummary): Promise<void>
+  storeObservations(observations: Observation[]): Promise<void>
 }
 
 export interface PermissionCheckRequest {
@@ -160,6 +184,7 @@ export interface RuntimeRegistries {
   tools: Registry<ToolProvider>
   storages: Registry<StorageAdapter>
   caches: Registry<CacheAdapter>
+  memories: Registry<MemoryAdapter>
   permissions: Registry<PermissionAdapter>
   transports: Registry<TransportAdapter>
   promptPipelines: Registry<PromptPipeline>
