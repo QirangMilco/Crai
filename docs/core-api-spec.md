@@ -168,77 +168,33 @@ export interface EventMap {
 }
 ```
 
-## 5. Hook Model
+## 5. 钩子与中间件 (Hooks & Middleware)
 
-Hooks may observe and mutate values.
-
-```ts
-export interface Disposable {
-  dispose(): void | Promise<void>
-}
-
-export type HookResult<T> =
-  | void
-  | { continue?: true }
-  | { stop: true; reason?: string }
-  | { replace: T }
-  | { patch: Partial<T> }
-
-export interface HookContext {
-  runtime: RuntimeHandle
-  signal?: AbortSignal
-}
-
-export type HookHandler<T> = (
-  value: T,
-  ctx: HookContext,
-) => Promise<HookResult<T> | void> | HookResult<T> | void
-```
-
-### 5.1 HookMap
+### 5.1 Hook
 
 ```ts
-export interface HookMap {
-  "session:create": { input?: Metadata; session: Session }
-  "input:before": { session: Session; input: RuntimeInput }
-  "context:build": { session: Session; messages: Message[] }
-  "model:request:before": { session: Session; request: ModelRequest }
-  "model:response:after": { session: Session; response: ModelResponse }
-  "tool:before": { session: Session; toolCall: ToolCallPart }
-  "tool:after": { session: Session; result: ToolExecutionResult }
-  "turn:after": { session: Session; turnId: ID; messages: Message[] }
-  "persist:before": { session: Session }
-  "persist:after": { session: Session }
-  "permission:check": { session: Session; request: PermissionCheckRequest; decision: PermissionDecision }
-  "artifact:save": { session: Session; artifact: Artifact }
+export type HookHandler<T = unknown> = (context: HookContext, data: T) => Promise<T | void>
+
+export interface HookRegistry {
+  on(event: string, handler: HookHandler): void
+  emit(event: string, data: unknown): Promise<void>
 }
 ```
 
-### 5.2 Hook execution rules
+### 5.2 Middleware (借鉴自 Eino)
 
-1. Handlers run in ascending `priority` order; default is `0`.
-2. Each handler receives the latest value.
-3. `{ continue: true }` leaves the value unchanged.
-4. `{ stop: true }` stops the pipeline early.
-5. `{ replace: T }` replaces the current value.
-6. `{ patch: Partial<T> }` shallow-merges the value.
-
-### 5.3 HookBus
+中间件提供了一种比钩子更强的封装能力，允许在执行前后进行状态包装或完全替换行为。
 
 ```ts
-export interface HookBus<THooks extends Record<string, any>> {
-  on<TKey extends keyof THooks & string>(
-    key: TKey,
-    handler: HookHandler<THooks[TKey]>,
-    options?: { priority?: number },
-  ): Disposable
-
-  run<TKey extends keyof THooks & string>(
-    key: TKey,
-    value: THooks[TKey],
-    ctx: HookContext,
-  ): Promise<THooks[TKey]>
+export interface Middleware<TInput, TOutput> {
+  before?: (input: TInput) => Promise<TInput>
+  after?: (output: TOutput) => Promise<TOutput>
+  // 环绕模式，允许完全控制执行流
+  wrap?: (input: TInput, next: (input: TInput) => Promise<TOutput>) => Promise<TOutput>
 }
+
+// 具体的模型中间件示例
+export type ModelMiddleware = Middleware<ModelRequest, ModelResponse>
 ```
 
 ## 6. EventBus

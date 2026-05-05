@@ -18,6 +18,7 @@
 - [x] 实现 `packages/runtime` 的最小内核骨架
 - [ ] 实现 `packages/extension-sdk`
 - [ ] 实现 `packages/loader-ts`
+- [ ] 实现 Middleware 与 Checkpoint 核心调度逻辑 (借鉴 Eino)
 - [ ] 增加最小示例与最小测试
 - [x] 创建独立的 `packages/preset-default`
 - [ ] 创建 `packages/devtools`

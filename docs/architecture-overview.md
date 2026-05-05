@@ -66,6 +66,9 @@ Crai 不打算：
 - 加载扩展
 - 通过注入的适配器或预设扩展持久化状态
 
+### 3.5 工业标准对齐 (Industry Alignment)
+Crai 在设计上积极参考成熟的行业框架（如 [CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)），吸收其在组件抽象、中间件模式和检查点机制上的优秀实践，并将其适配到 TypeScript 的轻量化和跨端生态中。
+
 ## 4. 推荐包边界
 
 ```txt

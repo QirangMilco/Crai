@@ -53,6 +53,9 @@ Session 内部的一次执行周期。一个 Turn 通常从输入开始，可能
 ### Hook (钩子)
 一个拦截点，可以观测、阻塞、替换或补丁运行时生命周期中的值。
 
+### Middleware / Interceptor (中间件/拦截器)
+借鉴自 Eino 的设计，指代可以包裹在模型调用或工具执行外层的可组合逻辑单元。相比于 Hook 的点状拦截，Middleware 强调对整个调用过程的“包裹”和“转换”。
+
 ### Command (命令)
 注册到运行时命令注册表中的命名操作。命令对于 UI、CLI、自动化和扩展非常有用。
 
@@ -69,8 +72,8 @@ Session 内部的一次执行周期。一个 Turn 通常从输入开始，可能
 ### Storage Adapter (存储适配器)
 用于 Session、消息、产物以及最终用于 Turn/快照的具体实现。
 
-### Snapshot (快照)
-当前 Session 状态的持久化摘要，用于避免重放整个追加日志 (Append log)。
+### Snapshot / Checkpoint (快照/检查点)
+`Snapshot` 是当前 Session 状态的持久化摘要。`Checkpoint`（借鉴自 Eino）特指在 Turn 执行过程中的关键状态保存点，用于在发生中断（如人机确认）后能够精确恢复执行流。
 
 ### Append Log (追加日志)
 只增的消息、事件或 Turn 追踪记录序列。
