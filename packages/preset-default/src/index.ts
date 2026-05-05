@@ -31,7 +31,7 @@ export function createDefaultPresetExtensions(): Extension[] {
       }
 
       const defaultPromptPipeline: PromptPipeline = {
-        async run(input, options): Promise<PromptResult> {
+        async run(_input, options): Promise<PromptResult> {
           const session = options?.sessionId
             ? await ctx.runtime.getSession(options.sessionId) ?? await ctx.runtime.createSession(options.metadata)
             : await ctx.runtime.createSession(options?.metadata)
@@ -40,7 +40,7 @@ export function createDefaultPresetExtensions(): Extension[] {
             id: `msg_${Date.now()}`,
             role: 'assistant' as const,
             createdAt: Date.now(),
-            parts: [{ type: 'text', text: 'Preset 默认 pipeline 已接入，后续可替换为真实 turn flow。' }],
+            parts: [{ type: 'text' as const, text: 'Preset 默认 pipeline 已接入，后续可替换为真实 turn flow。' }],
           }
 
           return {
@@ -58,9 +58,9 @@ export function createDefaultPresetExtensions(): Extension[] {
       ctx.registry.promptPipelines.register('default', defaultPromptPipeline)
 
       // 这些 hook 作为默认行为占位存在，后续可逐步替换为真正的默认策略。
-      ctx.hooks.on('context:build', async (value) => value)
-      ctx.hooks.on('persist:before', async (value) => value)
-      ctx.hooks.on('persist:after', async (value) => value)
+      ctx.hooks.on('context:build', async () => ({ continue: true }))
+      ctx.hooks.on('persist:before', async () => ({ continue: true }))
+      ctx.hooks.on('persist:after', async () => ({ continue: true }))
     },
   }
 

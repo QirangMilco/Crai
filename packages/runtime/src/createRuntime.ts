@@ -22,6 +22,7 @@ import {
 import { bootstrapRuntimeExtensions } from './bootstrap'
 import { SessionManager } from './sessionManager'
 
+/** 创建 runtime 时的可选注入项。kernel 不内置任何 adapter 默认实现。 */
 export interface RuntimeOptions {
   storage?: StorageAdapter
   cache?: CacheAdapter
@@ -30,6 +31,7 @@ export interface RuntimeOptions {
   logger?: Logger
 }
 
+/** runtime 内部依赖汇总，由 createDeps 统一组装，不暴露给外部。 */
 interface RuntimeDeps {
   hooks: HookBus<HookMap>
   events: EventBus<any>
@@ -52,6 +54,10 @@ function createDeps(options?: RuntimeOptions): RuntimeDeps {
   return { hooks, events, registries, commands, settings, logger, sessions }
 }
 
+/**
+ * 创建 runtime 实例并完成扩展引导。
+ * kernel 本身是纯调度器，所有默认行为（模型、持久化等）都在 preset extensions 中提供。
+ */
 export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHandle> {
   const deps = createDeps(options)
   const runtimeId = `runtime_${Date.now()}`

@@ -1,3 +1,7 @@
+/**
+ * runtime 内部基础设施工厂函数。
+ * 每个函数创建独立的实例，便于后续替换为持久化或分布式版本。
+ */
 import type {
   EventMap,
   Logger,
@@ -15,6 +19,7 @@ import type {
   HookMap,
   ModelAdapter,
   PermissionAdapter,
+  PromptPipeline,
   Registry,
   StorageAdapter,
   ToolProvider,
@@ -51,6 +56,7 @@ export function createRuntimeRegistries(): RuntimeRegistries {
     caches: createRegistry<CacheAdapter>(),
     permissions: createRegistry<PermissionAdapter>(),
     transports: createRegistry<TransportAdapter>(),
+    promptPipelines: createRegistry<PromptPipeline>(),
   }
 }
 
@@ -109,8 +115,8 @@ export function createHookBus(): HookBus<HookMap> {
 export function createSettingsStore(): SettingsStore {
   const map = new Map<string, unknown>()
   return {
-    async get(key) {
-      return map.get(key)
+    async get<T = unknown>(key: string): Promise<T | undefined> {
+      return map.get(key) as T | undefined
     },
     async set(key, value) {
       map.set(key, value)

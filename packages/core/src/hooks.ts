@@ -1,4 +1,4 @@
-import type { EventMap, ModelRequest, ModelResponse, RuntimeError, RuntimeInput, ToolDefinition, ToolExecutionRequest, ToolExecutionResult } from './events'
+import type { EventMap, ModelRequest, ModelResponse, ModelStreamEvent, RuntimeInput, ToolDefinition, ToolExecutionRequest, ToolExecutionResult } from './events'
 import type { Artifact, ID, Metadata, Message, Session, ToolCallPart } from './types'
 
 /** 统一可释放对象，便于卸载扩展时回收资源。 */
@@ -65,6 +65,7 @@ export interface EventBus<TEvents extends Record<string, any>> {
   ): Disposable
 }
 
+/** 适配器执行上下文，携带 session、日志和取消信号。 */
 export interface AdapterContext {
   signal?: AbortSignal
   logger: Logger
@@ -72,6 +73,7 @@ export interface AdapterContext {
   turnId?: ID
 }
 
+/** 存储适配器：session/message/artifact 的持久化。 */
 export interface StorageAdapter {
   name: string
   createSession(session: Session): Promise<void>
@@ -81,6 +83,7 @@ export interface StorageAdapter {
   saveArtifact(artifact: Artifact): Promise<void>
 }
 
+/** 缓存适配器：在模型请求前后介入，用于缓存命中/写入。 */
 export interface CacheAdapter {
   name: string
   getCacheKey?(request: ModelRequest): string
@@ -101,6 +104,7 @@ export interface PermissionDecision {
   metadata?: Metadata
 }
 
+/** 权限适配器：扩展可注册自定义权限策略。 */
 export interface PermissionAdapter {
   name: string
   check(request: PermissionCheckRequest): Promise<PermissionDecision>
@@ -111,17 +115,20 @@ export interface ToolHandler {
   execute(request: ToolExecutionRequest, ctx: AdapterContext): Promise<ToolExecutionResult> | ToolExecutionResult
 }
 
+/** 工具提供者：向 runtime 注册一组工具。 */
 export interface ToolProvider {
   name: string
   listTools(): Promise<ToolDefinition[]> | ToolDefinition[]
   getTool(name: string): Promise<ToolHandler | undefined> | ToolHandler | undefined
 }
 
+/** 工具解析器：决定 multi-provider 场景下如何合并与查找工具。 */
 export interface ToolResolver {
   listTools(): Promise<ToolDefinition[]> | ToolDefinition[]
   resolve(name: string): Promise<ToolHandler | undefined> | ToolHandler | undefined
 }
 
+/** 传输层上下文：连接 runtime 与外部输入输出通道（CLI、WebSocket、IM 等）。 */
 export interface TransportContext {
   signal?: AbortSignal
   logger: Logger
@@ -137,6 +144,7 @@ export interface TransportAdapter {
   sendEvent?<TKey extends keyof EventMap & string>(type: TKey, payload: EventMap[TKey]): Promise<void>
 }
 
+/** 通用注册表：runtime 中所有 adapter/extensions 的注册与发现入口。 */
 export interface Registry<T> {
   register(name: string, value: T): Disposable
   get(name: string): T | undefined
@@ -169,12 +177,14 @@ export interface CommandRegistry {
   list(): Command[]
 }
 
+/** 扩展在 setup 时可声明的权限需求。 */
 export interface ExtensionPermissionDeclaration {
   kind: PermissionCheckRequest['kind']
   action: string
   payload?: unknown
 }
 
+/** 扩展 setup 时接收的上下文：持有 runtime、hooks、events、registries 的访问权。 */
 export interface ExtensionContext {
   runtime: RuntimeHandle
   hooks: HookBus<HookMap>
@@ -183,6 +193,7 @@ export interface ExtensionContext {
   logger: Logger
 }
 
+/** 扩展是 Crai 的能力单元：setup 中注册 hooks/adapters/commands，dispose 时清理资源。 */
 export interface Extension {
   name: string
   permissions?: ExtensionPermissionDeclaration[]

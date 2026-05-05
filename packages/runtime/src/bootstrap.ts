@@ -1,8 +1,9 @@
 import type { Extension, ExtensionContext } from '../../core/src'
 
 /**
- * 运行时启动辅助。
- * 这里只负责装配扩展，不负责具体默认策略定义。
+ * 扩展引导加载器。
+ * 先加载内置扩展（如 preset-default），再加载用户传入的 runtime extensions。
+ * 扩展的卸载（dispose）由 RuntimeHandle.dispose 统一触发。
  */
 export async function bootstrapRuntimeExtensions(
   runtimeExtensions: Array<Extension | string> | undefined,
@@ -20,6 +21,7 @@ export async function bootstrapRuntimeExtensions(
     }
   }
 
+  // 内置扩展先加载，确保默认能力先于用户扩展就绪
   await load(builtinExtensions)
   await load(runtimeExtensions)
 }
