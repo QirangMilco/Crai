@@ -11,6 +11,7 @@ The goal is not to build a heavy all-in-one agent product. The goal is to provid
 - storage/cache backends
 - permissions policies
 - external TypeScript extensions
+- preset extensions that provide default behaviors
 
 ## 2. Non-goals
 
@@ -63,7 +64,7 @@ Even with no provider, no UI, and no IM transport, the runtime should still be a
 - create sessions
 - accept events
 - load extensions
-- persist state through injected adapters
+- persist state through injected adapters or preset extensions
 
 ## 4. Recommended Package Boundary
 
@@ -138,6 +139,7 @@ If a piece of code would force provider/UI/IM into core, rewrite it instead of r
 - one model adapter
 - one storage adapter
 - minimal UI or CLI entry point
+- preset extensions for default behaviors
 
 ### Phase 2
 - richer transport adapters

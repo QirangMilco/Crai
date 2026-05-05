@@ -143,6 +143,10 @@ export interface Registry<T> {
   list(): Array<{ name: string; value: T }>
 }
 
+export interface PromptPipeline {
+  run(input: RuntimeInput, options?: PromptOptions): Promise<PromptResult>
+}
+
 export interface RuntimeRegistries {
   models: Registry<ModelAdapter>
   tools: Registry<ToolProvider>
@@ -150,6 +154,7 @@ export interface RuntimeRegistries {
   caches: Registry<CacheAdapter>
   permissions: Registry<PermissionAdapter>
   transports: Registry<TransportAdapter>
+  promptPipelines: Registry<PromptPipeline>
 }
 
 export interface Command {

@@ -10,6 +10,7 @@ This document describes the runtime execution order for input handling, context 
 input received
   -> normalize input
   -> emit input event
+  -> run preset/default extensions
   -> build context
   -> run before-model hooks
   -> call model adapter
@@ -33,7 +34,7 @@ If no session is provided, runtime should either:
 - create a new session
 - or resolve a default session policy
 
-The exact policy should be explicit in implementation.
+The exact policy should be explicit in implementation or supplied by a preset extension.
 
 ### 3.3 Context build
 
@@ -44,7 +45,7 @@ Context building should gather:
 - model settings
 - extension modifications
 
-Before context is used, `context:build` hooks may inspect or modify the data.
+Before context is used, `context:build` hooks or preset extensions may inspect or modify the data.
 
 ### 3.4 Model request
 
@@ -94,6 +95,8 @@ Recommended persistence order:
 3. persist model and tool results
 4. persist turn completion state
 5. run `persist:after`
+
+Default persistence behavior may live in a preset extension, but the kernel still owns the checkpoint order.
 
 ## 6. Extension Load / Unload Flow
 

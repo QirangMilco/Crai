@@ -4,23 +4,30 @@
 
 ## 1. 当前聚焦
 
-- 目前阶段：Phase 1 基础内核实现前准备
+- 目前阶段：Phase 1 基础内核实现
 - 当前策略：小步推进、逐块 review、避免一次性生成大量代码
 - 当前目标：先实现最小 runtime kernel，再逐步补充周边能力
+- 设计方向：runtime 作为纯调度器，默认行为优先放入独立 preset 包
+- 开发辅助能力：作为通用 devtools，而不是自举专属层
 
 ## 2. Todo
 
-- [ ] 确认 Phase 1 的首个代码单元
+- [ ] 确认 Phase 1 的第一个代码单元
 - [ ] 建立最小仓库骨架
-- [ ] 实现 `packages/core` 的基础类型与接口
-- [ ] 实现 `packages/runtime` 的最小内核
+- [x] 实现 `packages/core` 的基础类型与接口
+- [x] 实现 `packages/runtime` 的最小内核骨架
 - [ ] 实现 `packages/extension-sdk`
 - [ ] 实现 `packages/loader-ts`
 - [ ] 增加最小示例与最小测试
+- [x] 创建独立的 `packages/preset-default`
+- [ ] 创建 `packages/devtools`
 
 ## 3. 进行中
 
-- 暂无
+- runtime 主文件继续瘦身中，通用基础设施已拆出到 helper 文件
+- 默认行为迁移到独立 preset 包
+- 开发辅助能力命名统一为 devtools
+- prompt capability 通过 registry 交给 preset-default
 
 ## 4. 已完成
 
@@ -29,6 +36,13 @@
 - [x] 补充术语表、决策记录、仓库目录结构草案
 - [x] 收敛 runtime 为最小内核 + 可选服务的结构
 - [x] 补充错误恢复、最小示例、迁移策略、权限声明等文档
+- [x] 实现 `packages/core` 的基础类型与接口
+- [x] 实现 `packages/runtime` 的最小内核骨架
+- [x] 统一 docs 为“runtime 纯调度器 + preset extensions”方向
+- [x] 将默认行为迁移为独立 preset 包的长期方向
+- [x] 将自举相关能力统一重命名为通用 devtools
+- [x] 明确 `sessionManager` 只是 runtime 内部实现，不作为 extension public API
+- [x] 将 prompt capability 通过 registry 交给 preset 侧实现
 
 ## 5. 阻塞项
 
@@ -47,13 +61,19 @@
 - D-009：数据记录需要显式版本与迁移机制
 - D-010：错误默认要显式暴露，不应静默吞掉
 - D-011：自举能力优先放在扩展或应用层，不污染 core
+- D-012：默认行为优先落到 preset extensions，runtime 尽量保持纯调度器
+- D-013：preset 默认行为应长期放在 runtime 之外的独立包中
+- D-014：开发辅助能力应统一视为 devtools，而不是自举专属层
+- D-015：`sessionManager` 保持为 runtime 内部实现细节，不作为 extension public API
 
 ## 7. 下一步建议
 
 1. 先确认 Phase 1 的第一个代码单元
 2. 再建立最小仓库骨架
-3. 然后从 `packages/core` 开始写最薄的类型定义
-4. 再决定哪些自举能力属于 extension / app layer，而不是 core
+3. 然后从 `packages/extension-sdk` 开始补最薄的扩展辅助层
+4. 再创建 `packages/preset-default` 并把默认行为逐步迁出 runtime
+5. 再创建 `packages/devtools`
+6. 再决定哪些开发辅助能力应该进入 preset 包或 devtools，而不是 core
 
 ## 8. 说明
 

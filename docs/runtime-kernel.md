@@ -4,7 +4,7 @@
 
 This document defines the smallest runtime that Crai must keep in order to function as an extensible agent core.
 
-The kernel should stay as thin as possible. Higher-level services may exist, but they should be treated as optional layers rather than mandatory kernel responsibilities.
+The preferred direction is: **runtime = pure scheduler**, while default behaviors live in preset extension packages outside the runtime package. The kernel should therefore stay as thin as possible, and only keep what is required to schedule and coordinate the runtime loop.
 
 ## 2. Kernel Responsibilities
 
@@ -14,11 +14,10 @@ The runtime kernel should own only:
 - input normalization
 - event emission
 - hook execution
-- model request dispatch
-- tool call dispatch
-- persistence checkpoints
 - extension lifecycle hooks
-- minimal tool resolution through registered tool providers
+- minimal tool resolution
+- adapter dispatch
+- scheduling persistence checkpoints through injected capabilities
 
 ## 3. What the Kernel Should Not Own
 
@@ -31,7 +30,7 @@ The kernel should not directly own product-layer concerns such as:
 - advanced permission UX
 - product-specific settings screens
 
-These concerns may be implemented by app-layer services or adapters.
+These concerns may be implemented by app-layer services or preset extensions.
 
 ## 4. Recommended Kernel Shape
 
@@ -65,7 +64,7 @@ Responsible for calling the currently registered model, tool, storage, cache, pe
 
 ## 5. Optional Runtime Services
 
-These capabilities are useful, but they should remain optional services layered on top of the kernel:
+These capabilities are useful, but they should remain optional services layered on top of the kernel or moved into preset extension packages outside runtime:
 - command registry
 - settings store
 - transport coordination
@@ -74,12 +73,17 @@ These capabilities are useful, but they should remain optional services layered 
 - thin-client routing helpers
 - workspace-specific product logic
 - custom tool catalog merge policies
+- default context building
+- default persistence strategy
+- default telemetry/logging strategy
 
 ## 6. Boundary Rule
 
-If a feature is required to make the runtime loop work, it belongs in the kernel.
+If a feature is required to schedule and coordinate the runtime loop, it belongs in the kernel.
+If a feature can be expressed as a default behavior without changing the kernel contract, it should live in a preset extension package or app-layer service.
 If a feature exists mainly to support UI, product management, or external integration, it belongs outside the kernel.
 
 ## 7. Design Goal
 
 The kernel should be small enough that it can be understood as the executable heart of Crai, not as the full product platform.
+It should schedule behavior, not accumulate behavior.
