@@ -1,3 +1,10 @@
+/**
+ * Crai hook 与适配器契约。
+ *
+ * 本文件是 core 最宽的契约面：除 spec 定义的 HookMap / HookBus / EventBus / Adapter 外，
+ * 还包含 runtime 内部需要的 PromptPipeline、Command、SettingsStore 等扩展契约。
+ * 这些扩展契约不属于 spec 稳定面，后续可能随 Phase 2/3 演进或回移。
+ */
 import type { EventMap, ModelRequest, ModelResponse, RuntimeError, RuntimeInput, ToolDefinition, ToolExecutionRequest, ToolExecutionResult } from './events'
 import type { Artifact, ID, Metadata, Message, Session, ToolCallPart } from './types'
 
@@ -6,7 +13,7 @@ export interface Disposable {
   dispose(): void | Promise<void>
 }
 
-/** Hook 允许观察、继续、阻断、替换或局部修补当前值。 */
+/** Hook 执行语义：void/continue 放行，stop 阻断，replace 替换整体，patch 浅合并。 */
 export type HookResult<T> =
   | void
   | { continue?: true }
@@ -24,6 +31,7 @@ export type HookHandler<T> = (
   ctx: HookContext,
 ) => Promise<HookResult<T> | void> | HookResult<T> | void
 
+/** 生命周期拦截点。key 格式为 "阶段:时机"，handler 按 priority 升序执行。 */
 export interface HookMap {
   'session:create': { input?: Metadata; session: Session }
   'input:before': { session: Session; input: RuntimeInput }
@@ -65,6 +73,10 @@ export interface EventBus<TEvents extends Record<string, any>> {
   ): Disposable
 }
 
+/**
+ * 适配器运行上下文，由 runtime 在调度时注入。
+ * signal 用于支持取消，logger 保证适配器无需自行创建日志实例。
+ */
 export interface AdapterContext {
   signal?: AbortSignal
   logger: Logger
@@ -117,6 +129,7 @@ export interface ToolProvider {
   getTool(name: string): Promise<ToolHandler | undefined> | ToolHandler | undefined
 }
 
+/** 工具解析器：合并多个 ToolProvider 的工具目录，同名取先注册者。 */
 export interface ToolResolver {
   listTools(): Promise<ToolDefinition[]> | ToolDefinition[]
   resolve(name: string): Promise<ToolHandler | undefined> | ToolHandler | undefined
@@ -143,10 +156,12 @@ export interface Registry<T> {
   list(): Array<{ name: string; value: T }>
 }
 
+/** [扩展契约] Prompt 流水线：将 input → session → turn 的完整调度封装为可替换策略。 */
 export interface PromptPipeline {
   run(input: RuntimeInput, options?: PromptOptions): Promise<PromptResult>
 }
 
+/** [扩展契约] 运行时注册表集合，promptPipelines 为 runtime 内部扩展，不在 spec 中。 */
 export interface RuntimeRegistries {
   models: Registry<ModelAdapter>
   tools: Registry<ToolProvider>
@@ -157,6 +172,7 @@ export interface RuntimeRegistries {
   promptPipelines: Registry<PromptPipeline>
 }
 
+/** [扩展契约] 命令系统，Phase 2 完整实现。 */
 export interface Command {
   name: string
   description?: string
@@ -194,6 +210,7 @@ export interface ExtensionModule {
   default: Extension
 }
 
+/** [扩展契约] 运行时键值配置存储，Phase 2 完整实现。 */
 export interface SettingsStore {
   get<T = unknown>(key: string): Promise<T | undefined>
   set<T = unknown>(key: string, value: T): Promise<void>
@@ -234,6 +251,11 @@ export interface PromptResult {
   response?: ModelResponse
 }
 
+/**
+ * 模型适配器契约。
+ * spec 只定义了 stream()；request() 是为非流式场景增加的便利方法，
+ * 具体实现可按需提供。
+ */
 export interface ModelAdapter {
   name: string
   request(request: ModelRequest): Promise<ModelResponse>

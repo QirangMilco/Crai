@@ -1,3 +1,14 @@
+/**
+ * 默认 preset 扩展包。
+ *
+ * 作为可替换的默认策略层，提供：
+ * 1. 占位模型适配器 — 未接入真实 provider 时保证 runtime 可启动
+ * 2. 默认 PromptPipeline — 将 prompt 委托为 session 创建 + 固定响应
+ *    （后续应替换为调用 turnRunner 的真实流程）
+ * 3. 空 hook 占位 — 确保 context:build / persist 管道有默认 handler
+ *
+ * 此包不属于 runtime kernel，可被其他 preset 完全替换。
+ */
 import type {
   Extension,
   ModelAdapter,
@@ -30,6 +41,8 @@ export function createDefaultPresetExtensions(): Extension[] {
         },
       }
 
+      // 默认 prompt 流水线：创建/复用 session → 返回固定响应
+      // TODO: 替换为调用 turnRunner.runTurn 的真实流程
       const defaultPromptPipeline: PromptPipeline = {
         async run(input, options): Promise<PromptResult> {
           const session = options?.sessionId
@@ -57,7 +70,7 @@ export function createDefaultPresetExtensions(): Extension[] {
       ctx.registry.models.register(placeholderModel.name, placeholderModel)
       ctx.registry.promptPipelines.register('default', defaultPromptPipeline)
 
-      // 这些 hook 作为默认行为占位存在，后续可逐步替换为真正的默认策略。
+      // 空 hook 占位：后续 preset 可用更高 priority 的 handler 覆盖默认行为
       ctx.hooks.on('context:build', async (value) => value)
       ctx.hooks.on('persist:before', async (value) => value)
       ctx.hooks.on('persist:after', async (value) => value)

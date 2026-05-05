@@ -1,3 +1,13 @@
+/**
+ * Turn 运行器：执行一次 input → context → model → persist 的最小调度循环。
+ *
+ * 当前实现与 spec runtime-flow.md 的差距：
+ * - 未发射 context.built 事件（仅有 hook）
+ * - 未执行 model:response:after hook
+ * - 未实现工具执行循环（model 返回 tool-call 后应解析并执行）
+ * - 未处理流式输出（model.delta 等）
+ * 这些能力应随 Phase 1 后续迭代补全，或由 preset 扩展提供。
+ */
 import type {
   EventMap,
   ModelContext,
@@ -20,6 +30,7 @@ export interface TurnRunResult {
   response?: ModelResponse
 }
 
+/** Turn 运行所需的外部依赖，由调用方注入，便于测试和替换。 */
 export interface TurnRunnerDeps {
   hooks: HookBus<HookMap>
   emitEvent: <TKey extends keyof EventMap & string>(
@@ -46,6 +57,7 @@ export async function runTurn(
   await deps.emitEvent('input.received', { session, input })
   await deps.emitEvent('turn.started', { session, turnId })
 
+  // input:before hook 允许扩展拦截或修改输入
   const normalized = await deps.hooks.run('input:before', { session, input }, { runtime })
   const context = await deps.buildContext(session)
   const toolList = deps.resolveTools ? await deps.resolveTools() : []
@@ -54,6 +66,7 @@ export async function runTurn(
     tools: toolList,
   }
 
+  // context:build hook 允许扩展修改上下文（如注入 system prompt）
   await deps.hooks.run(
     'context:build',
     { session, messages: contextWithTools.messages },
@@ -67,6 +80,7 @@ export async function runTurn(
     context: contextWithTools,
   }
 
+  // model:request:before hook 允许扩展修改请求参数（如切换模型、调整 temperature）
   const preparedRequest = await deps.hooks.run(
     'model:request:before',
     { session, request },
@@ -75,6 +89,7 @@ export async function runTurn(
 
   await deps.emitEvent('model.requested', { session, request: preparedRequest.request })
 
+  // 模型请求失败时发射 turn.failed 并抛出结构化错误（与 error-recovery.md 一致）
   let response: ModelResponse | undefined
   try {
     response = await deps.requestModel(preparedRequest.request)
@@ -90,9 +105,11 @@ export async function runTurn(
 
   await deps.emitEvent('model.completed', { session, response })
 
+  // TODO: 此处应检查 response.message.parts 中的 tool-call 并进入工具执行循环
   const messages = [response.message]
   await deps.emitEvent('message.appended', { session, message: response.message })
 
+  // 持久化与收尾 hook：persist:before → turn:after → persist:after
   await deps.hooks.run('persist:before', { session }, { runtime })
   await deps.hooks.run('turn:after', { session, turnId, messages }, { runtime })
   await deps.hooks.run('persist:after', { session }, { runtime })

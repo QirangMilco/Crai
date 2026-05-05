@@ -1,3 +1,10 @@
+/**
+ * Runtime 内置 preset 扩展。
+ *
+ * 提供最小可运行默认行为：占位模型适配器 + 空 hook 占位。
+ * 注意：preset-default 包提供了更完整的默认 PromptPipeline 实现，
+ * 两者存在占位模型适配器的重复定义，后续应统一到 preset-default。
+ */
 import type { Extension, ModelAdapter, RuntimeError } from '../../core/src'
 
 /**
@@ -8,7 +15,7 @@ export function createBuiltinPresetExtensions(): Extension[] {
   const builtinDefaults: Extension = {
     name: 'builtin-defaults',
     setup(ctx) {
-      // 这里先只注册一个最小的占位模型适配器，方便 dev 启动时有默认行为。
+      // 占位模型：未接入真实 provider 时保证 runtime 可启动（hollow-by-default）
       const placeholderModel: ModelAdapter = {
         name: 'placeholder-model',
         async request() {
@@ -27,7 +34,7 @@ export function createBuiltinPresetExtensions(): Extension[] {
 
       ctx.registry.models.register(placeholderModel.name, placeholderModel)
 
-      // 默认上下文策略留作 preset 可扩展点，先保留 Hook 入口但不写死业务逻辑。
+      // 空 hook 占位：确保管道中至少有一个 handler，后续 preset 可用 replace/patch 覆盖
       ctx.hooks.on('context:build', async (value) => value)
       ctx.hooks.on('persist:before', async (value) => value)
       ctx.hooks.on('persist:after', async (value) => value)

@@ -1,6 +1,8 @@
 /**
  * Crai core 基础类型。
+ *
  * 只放稳定、跨包共享的契约，不放产品层语义。
+ * 与 core-api-spec.md §2-§3 对齐。
  */
 
 export type ID = string
@@ -56,6 +58,7 @@ export interface ToolCallPart {
   arguments: Record<string, unknown>
 }
 
+/** 工具调用结果，通过 toolCallId 与 ToolCallPart 关联。 */
 export interface ToolResultPart {
   type: 'tool-result'
   toolCallId: ID

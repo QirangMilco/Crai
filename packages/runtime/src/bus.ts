@@ -1,3 +1,10 @@
+/**
+ * Runtime 基础设施工厂。
+ *
+ * 提供 EventBus、HookBus、Registry 等核心组件的内存实现，
+ * 以及 Logger、SettingsStore、CommandRegistry 等辅助工具。
+ * 所有工厂均无外部依赖，保证 runtime 可在无 provider/UI 的条件下启动。
+ */
 import type {
   EventMap,
   Logger,
@@ -25,6 +32,7 @@ export function createDisposable(dispose: () => void | Promise<void>): Disposabl
   return { dispose }
 }
 
+/** 通用注册表：register 返回 Disposable 用于扩展卸载时自动清理。 */
 export function createRegistry<T>(): Registry<T> {
   const map = new Map<string, T>()
   return {
@@ -43,6 +51,7 @@ export function createRegistry<T>(): Registry<T> {
   }
 }
 
+/** 创建全部适配器注册表，与 RuntimeRegistries 契约一一对应。 */
 export function createRuntimeRegistries(): RuntimeRegistries {
   return {
     models: createRegistry<ModelAdapter>(),
@@ -54,6 +63,10 @@ export function createRuntimeRegistries(): RuntimeRegistries {
   }
 }
 
+/**
+ * 内存事件总线实现。
+ * 注意：当前 emit 未填充 sessionId，需由调用方在 payload 中携带或后续补全。
+ */
 export function createEventBus(): EventBus<EventMap> {
   const listeners = new Map<keyof EventMap & string, Array<(event: any) => void | Promise<void>>>()
   return {
@@ -76,6 +89,16 @@ export function createEventBus(): EventBus<EventMap> {
   }
 }
 
+/**
+ * Hook 总线实现。
+ * 执行规则（与 spec §5.2 一致）：
+ * 1. handler 按 priority 升序执行
+ * 2. 每个 handler 接收最新值
+ * 3. void / continue → 放行
+ * 4. stop → 中断管道
+ * 5. replace → 替换当前值
+ * 6. patch → 浅合并到当前值
+ */
 export function createHookBus(): HookBus<HookMap> {
   const handlers = new Map<keyof HookMap & string, Array<{ priority: number; handler: HookHandler<any> }>>()
   return {
@@ -106,6 +129,7 @@ export function createHookBus(): HookBus<HookMap> {
   }
 }
 
+/** 内存键值存储，Phase 2 可替换为持久化实现。 */
 export function createSettingsStore(): SettingsStore {
   const map = new Map<string, unknown>()
   return {
@@ -124,6 +148,7 @@ export function createSettingsStore(): SettingsStore {
   }
 }
 
+/** 命令注册表，Phase 2 完整实现。 */
 export function createCommandRegistry(): CommandRegistry {
   const map = new Map<string, Command>()
   return {
@@ -142,6 +167,7 @@ export function createCommandRegistry(): CommandRegistry {
   }
 }
 
+/** 默认日志器，直接输出到 console。生产环境应通过 RuntimeOptions 注入自定义实现。 */
 export function createDefaultLogger(): Logger {
   return {
     debug(message, metadata) {

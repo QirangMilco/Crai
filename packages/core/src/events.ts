@@ -1,3 +1,10 @@
+/**
+ * Crai 事件与模型/工具契约。
+ *
+ * 本文件定义运行时核心事件（EventMap）、模型交互（ModelRequest/Response/StreamEvent）、
+ * 工具交互（ToolDefinition/ExecutionResult）以及 RuntimeInput 等跨包共享的数据结构。
+ * 与 core-api-spec.md §4-§7 对齐。
+ */
 import type { Artifact, ID, Metadata, Message, Session, TextPart, ImagePart, ToolCallPart } from './types'
 
 /** 事件只表达“发生了什么”，不直接承担业务逻辑。 */
@@ -43,6 +50,7 @@ export interface EventMap {
   'extension.unloaded': { name: string }
 }
 
+/** 运行时输入的联合类型，覆盖文本、完整消息和命令三种入口。 */
 export type RuntimeInput =
   | { type: 'text'; text: string; metadata?: Metadata }
   | { type: 'message'; message: Message }
@@ -70,6 +78,7 @@ export interface ModelRequest {
   metadata?: Metadata
 }
 
+/** 模型流式输出事件，stream() 方法按此协议逐个产出。 */
 export type ModelStreamEvent =
   | { type: 'text-start' }
   | { type: 'text-delta'; delta: string }
@@ -106,6 +115,7 @@ export interface ToolExecutionRequest {
   messages: Message[]
 }
 
+/** 工具执行结果，terminate=true 时通知 runtime 终止当前 turn。 */
 export interface ToolExecutionResult {
   toolCallId: ID
   name: string
