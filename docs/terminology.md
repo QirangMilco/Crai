@@ -54,7 +54,7 @@ Session 内部的一次执行周期。一个 Turn 通常从输入开始，可能
 一个拦截点，可以观测、阻塞、替换或补丁运行时生命周期中的值。
 
 ### Middleware / Interceptor (中间件/拦截器)
-借鉴自 Eino 的设计，指代可以包裹在模型调用或工具执行外层的可组合逻辑单元。相比于 Hook 的点状拦截，Middleware 强调对整个调用过程的“包裹”和“转换”。
+借鉴自 Eino 的设计，指代可以包裹在模型调用或工具执行外层的可组合逻辑单元。相比于 Hook 的点状拦截，Middleware 强调对整个调用过程的"包裹"和"转换"。
 
 ### Command (命令)
 注册到运行时命令注册表中的命名操作。命令对于 UI、CLI、自动化和扩展非常有用。
@@ -84,11 +84,54 @@ Session 内部的一次执行周期。一个 Turn 通常从输入开始，可能
 ### Append Log (追加日志)
 只增的消息、事件或 Turn 追踪记录序列。
 
+## 记忆术语 (Memory Terms)
+
+### MemoryEntry (记忆条目)
+长期记忆的最小单元，采用多视图索引模型。包含语义层（密集向量）、词汇层（稀疏关键词）和符号层（结构化元数据）三个索引维度。一个 MemoryEntry 通常表示一个自包含的、无歧义的事实陈述。
+
+### MemoryScope (记忆作用域)
+记忆条目的作用域层级，决定记忆的生命周期和注入优先级：
+- `global`（全局）：用户偏好、安全规则、系统级约束，持久有效
+- `project`（项目）：项目规范、架构决策、代码约定，跨 Session 有效
+- `session`（会话）：当前对话上下文，Session 级有效
+
+### MemoryAdapter (记忆适配器)
+记忆存储与检索的抽象契约。Core 层定义接口，具体的策略实现由 Preset/Extension 提供。
+
+### Context Injection (上下文注入)
+在 Session 启动时，将历史记忆（摘要、观察、相关条目）按 Token 预算注入到系统提示中的过程。注入遵循"摘要优先 → 观察次之 → 语义检索补充"的优先级顺序。
+
+### ContextBundle (上下文包)
+上下文注入的输出结果，包含 Session 摘要、观察条目和记忆条目，附带 Token 预算估算。
+
+### Hybrid Retrieval (混合检索)
+融合语义检索（密集向量）、关键词检索（BM25）和结构化检索（元数据过滤）三种方式的检索策略，在三路结果上执行去重合并。
+
+### Pyramid Retrieval (金字塔检索)
+在 Token 成本敏感场景下按代价逐级展开检索结果：Preview（摘要，低成本）→ Details（全文+元数据，中成本）→ Evidence（原始内容，高成本）。
+
+### Consolidation (记忆整理)
+对记忆库进行周期性维护的机制，包括：
+- Decay（衰减）：基于重要性和时间降低旧条目权重
+- Merge（合并）：检测重复/相似条目并合并
+- Prune（裁剪）：移除过期或被取代的条目
+
+### Observation (观察)
+在 Session 过程中提取的细粒度发现或决策，类型包括 decision、bugfix、feature、refactor、discovery、change 六类。Observation 比 MemoryEntry 更细粒度，通常携带溯源信息。
+
+### SessionSummary (会话摘要)
+Session 结束时生成的紧凑摘要，包含请求、调查内容、收获、完成事项和后续步骤。用于快速恢复跨会话上下文。
+
+### Memory Provenance (记忆溯源)
+记录每条记忆的来源信息（源 Session、源事件类型、源事件 ID），确保每条记忆都可追溯到其产生上下文。
+
 ## 命名规则 (Naming Rules)
 
 - 在核心文档中，首选 `Session` 而不是 `Conversation`。
-- 对于一次“从输入到完成”的周期，首选 `Turn` 而不是 `Run`。
+- 对于一次"从输入到完成"的周期，首选 `Turn` 而不是 `Run`。
 - 首选 `Transport` 而不是 `Notification`，除非该能力仅限于出站通知。
 - 在 API 契约中，首选 `ModelAdapter` 而不是 `Provider`。
 - 仅对运行时循环所需的行为使用内核特定的术语。
 - 避免在核心实体中放置纯 UI 术语。
+- 在记忆相关的 API 中，首选 `MemoryEntry` 而不是 `Memory` 或 `Fact`。
+- 在作用域讨论中，首选 `MemoryScope` 而不是 `MemoryLevel`。

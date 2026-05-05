@@ -100,8 +100,6 @@ export interface Message extends BaseMessage {
   parts: MessagePart[]
 }
 ```
-}
-```
 
 ### 3.3 Artifact
 

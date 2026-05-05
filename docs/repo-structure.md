@@ -5,10 +5,10 @@
 ## 1. 分层原则
 
 Crai 应当围绕五个层级进行组织：
-- **core**: 最小契约与类型
-- **runtime**: 可执行内核与编排
+- **core**: 最小契约与类型（包括记忆类型定义与适配器契约）
+- **runtime**: 可执行内核与编排（包括记忆事件/钩子触发点）
 - **extension**: 可选行为与 SDK 助手
-- **preset**: 保持在运行时之外的默认行为捆绑包
+- **preset**: 保持在运行时之外的默认行为捆绑包（包括记忆策略实现）
 - **devtools**: 开发自动化、工作流助手和通用编码辅助
 - **app**: 产品表面、演示和开发工具
 
@@ -23,11 +23,13 @@ packages/
   extension-sdk/
   loader-ts/
   preset-default/
+  preset-memory/           (新增) 完整记忆策略：压缩/检索/注入/整理
   devtools/
   provider-openai/
   provider-anthropic/
   provider-deepseek/
   storage-fs/
+  storage-vector/          (可选) 向量存储适配器（LanceDB/FAISS 等）
   cache-default/
   transport-websocket/
   transport-cli/
@@ -63,6 +65,7 @@ packages/
 - 一个存储 (Storage) 包
 - 一个最小的传输层 (Transport) 包
 - 一个开发工具 (Developer-tools) 包（当且仅当它保持在核心之外时）
+- **记忆类型与适配器契约 (MemoryEntry/MemoryAdapter，仅 Core 层)**
 
 ## 4. 包职责
 
@@ -73,6 +76,8 @@ packages/
 - 适配器契约 (Adapter contracts)
 - 运行时错误
 - 日志类型
+- 记忆类型定义 (`MemoryEntry`, `MemoryScope`, `MemoryProvenance`)
+- 记忆适配器契约 (`MemoryAdapter`)
 - 仅包含运行时内核所需的契约
 
 ### 4.2 `packages/runtime`
@@ -102,9 +107,19 @@ packages/
 - 默认持久化行为 (default persistence behavior)
 - 默认遥测/日志行为 (default telemetry/logging behavior)
 - 默认模型连接占位符 (default model wiring placeholders)
+- 默认轻量级 Summary 记忆策略（Session 摘要生成与注入）
 - 此包的存在是为了保持运行时的精简且同时可用
 
-### 4.6 `packages/devtools`
+### 4.6 `packages/preset-memory` (新增)
+- 完整的记忆策略实现（借鉴 SimpleMem）
+- 语义结构化压缩：MemoryBuilder — 滑窗分割 + LLM 提取 → 多视图索引
+- 混合检索：HybridRetriever — 语义/关键词/结构化三路并行检索 + 反思轮次
+- 分层上下文注入：ContextInjector — Token 预算优先级注入
+- 记忆整理：Consolidation — 衰减/合并/裁剪
+- 记忆生命周期编排：MemoryOrchestrator
+- 此包属于 Phase 2 范畴
+
+### 4.7 `packages/devtools`
 - 任务追踪助手 (task tracking helpers)
 - 仓库巡检助手 (repo inspection helpers)
 - AI 辅助补丁协调 (AI-assisted patch coordination)
@@ -153,3 +168,10 @@ packages/
 - `packages/loader-ts/src/index.ts`
 - `packages/preset-default/src/index.ts`
 - `packages/devtools/src/index.ts`
+
+### 记忆首批文件 (Memory First Files)
+
+当开始实现记忆策略时，从以下文件开始：
+- `packages/core/src/types.ts`（追加 MemoryEntry/MemoryScope 类型）
+- `packages/core/src/hooks.ts`（追加 memoryEvents 相关钩子定义）
+- `packages/preset-default/src/memory-builder.ts`（摘要生成与注入）

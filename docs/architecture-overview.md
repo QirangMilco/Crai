@@ -26,12 +26,25 @@ Crai 不打算：
 
 ## 3. 架构原则
 
+### 3.0 记忆是跨层关注点 (Memory is Cross-Layer)
+
+记忆是 Crai 体系中一个特殊的跨层关注点，不归属单一层级：
+
+- **Core 层**：定义 `MemoryEntry` 类型和 `MemoryAdapter` 契约，仅关注记忆的数据形状和抽象能力
+- **Runtime 层**：在 Session 生命周期中提供记忆触发点（事件/钩子），不实现任何记忆策略
+- **Preset/Extension 层**：实现具体的记忆策略（Summary 注入、向量检索、知识图谱等）
+
+Runtime 内核不应拥有记忆策略实现。默认的轻量级 Summary 记忆策略由 `preset-default` 提供，更高级的策略由独立 preset 或扩展提供。
+
+> 详细的记忆体系设计请参见 [memory-design.md](memory-design.md)。
+
 ### 3.1 核心只感知能力 (Capabilities)
 核心 (Core) 应该只理解抽象的能力，例如：
 - `ModelAdapter`
 - `ToolProvider`
 - `StorageAdapter`
 - `CacheAdapter`
+- `MemoryAdapter`
 - `PermissionAdapter`
 - `TransportAdapter`
 - `Extension`
@@ -70,9 +83,10 @@ Crai 不打算：
 Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **[CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)**：借鉴其组件抽象、中间件模式和检查点机制，用于增强内核的治理能力。
 - **[pi-mono](file:///Users/qirang/Documents/Projects/Crai/refs/pi-mono)**：借鉴其极简的 Agent 循环设计与 Provider 适配层抽象。
-- **[reasonix](file:///Users/qirang/Documents/Projects/Crai/refs/reasonix)**：借鉴其以缓存为中心的语义索引与状态持久化机制。
+- **[reasonix](file:///Users/qirang/Documents/Projects/Crai/refs/reasonix)**：借鉴其以缓存为中心的语义索引与状态持久化机制，以及三层记忆作用域（user/project/session）设计。
 - **[crystalagents](file:///Users/qirang/Documents/Projects/Crai/refs/crystalagents)**：借鉴其优雅的前端交互风格与高性能 Markdown 渲染实现。
 - **[snow-cli](file:///Users/qirang/Documents/Projects/Crai/refs/snow-cli)**：借鉴其完善的 MCP 集成、LSP 支持以及工具确认流（Tool Confirmation Flow）的交互设计。
+- **[SimpleMem](file:///Users/qirang/Documents/Projects/Crai/refs/SimpleMem)**：借鉴其三阶段记忆流水线（语义压缩 → 混合检索 → 答案生成）、多视图索引模型（语义/词汇/符号三层）、跨会话记忆生命周期管理以及 Token 预算分层上下文注入策略。
 
 ## 4. 推荐包边界
 
@@ -91,6 +105,8 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 适配器契约 (Adapter contracts)
 - 注册表契约 (Registry contracts)
 - 错误与日志类型
+- 记忆类型定义 (`MemoryEntry`, `MemoryScope`, `MemoryProvenance`)
+- 记忆适配器契约 (`MemoryAdapter`)
 
 ### 4.2 `@crai/runtime`
 包含：
@@ -131,7 +147,11 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **crystalagents**: 吸收其现代化的前端 UI 风格、主题系统以及基于 Markdown 的产物渲染逻辑，落位到 `apps/web` 或 `packages/ui-kit`。
 - **snow-cli**: 吸收其 LSP (Language Server Protocol) 集成和仓库分析逻辑，落位到 `packages/devtools`。
 
-### 5.4 经验法则
+### 5.4 记忆层 (Memory) - 吸收自 SimpleMem / reasonix
+- **SimpleMem**: 吸收其三阶段记忆流水线（语义压缩→混合检索→答案生成）、多视图索引模型（语义/词汇/符号三层）以及 Token 预算分层上下文注入策略，作为 `packages/preset-memory` 的参考实现。
+- **reasonix**: 吸收其三层记忆作用域（user/project/session）设计，作为 MemoryScope 分层模型参考。
+
+### 5.5 经验法则
 如果一段代码会将供应商/UI/IM 强制引入核心，那么请重写它，或者将其落位到应用层/扩展层。
 
 ## 6. 阶段划分 (Phase Split)
@@ -145,6 +165,8 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 一个存储适配器
 - 最小 UI 或 CLI 入口点
 - 提供默认行为的预设扩展
+- **记忆类型定义与适配器契约 (MemoryEntry/MemoryAdapter，仅 Core 层)**
+- **Session 生命周期中的记忆事件/钩子触发点 (仅 Runtime 层)**
 
 ### Phase 2
 - 更丰富的传输适配器
@@ -152,12 +174,17 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 命令系统
 - 更好的持久化和快照/检查点能力
 - 更多可选的运行时服务
+- **完整的记忆策略实现 (packages/preset-memory)**
+- **分层 Token 预算上下文注入**
+- **混合检索与记忆整理机制**
 
 ### Phase 3
 - 更强的权限模型
 - 沙箱选项
 - 多传输层协调
 - 高级 UI 壳层 / 瘦客户端支持
+- **多模态记忆支持 (向量 + 知识图谱)**
+- **可插拔的记忆后端**
 
 ## 7. 文档规则 (Documentation Rules)
 

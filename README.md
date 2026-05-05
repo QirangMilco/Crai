@@ -21,6 +21,7 @@ Crai 是一个 **极简的、默认空心的、高度可扩展的 AI Agent 运�
 11. [仓库结构草案](docs/repo-structure.md) — 仓库目录结构草案
 12. [实现跟踪](docs/implementation-tracker.md) — 中文实现跟踪文档
 13. [自举策略](docs/bootstrap-strategy.md) — 自举策略与核心/扩展边界
+
 ## 核心原则
 
 - **核心只感知能力**：Core 应该只理解抽象的能力（ModelAdapter, StorageAdapter 等），不感知具体实现。

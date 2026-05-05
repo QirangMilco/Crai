@@ -8,6 +8,7 @@
 - 当前策略：小步推进、逐块 review、避免一次性生成大量代码
 - 当前目标：先实现最小 runtime kernel，再逐步补充周边能力
 - 设计方向：runtime 作为纯调度器，默认行为优先放入独立 preset 包
+- 记忆方向：Core 定义契约，Runtime 提供触发点，策略主体在 Preset 层
 - 开发辅助能力：作为通用 devtools，而不是自举专属层
 
 ## 2. Todo
@@ -26,6 +27,10 @@
 - [ ] 增加最小示例与最小测试
 - [x] 创建独立的 `packages/preset-default`
 - [ ] 创建 `packages/devtools`
+- [ ] **在 `packages/core` 中定义 MemoryEntry/MemoryScope/MemoryAdapter 类型**
+- [ ] **在 `packages/runtime` 的 Session 生命周期中加入记忆事件/钩子触发点**
+- [ ] **调研并借鉴 SimpleMem 的三阶段记忆流水线与多视图索引模型**
+- [ ] **在 `packages/preset-default` 中实现最小 Summary 记忆策略（摘要生成与注入）**
 
 ## 3. 进行中
 
@@ -33,6 +38,7 @@
 - 默认行为迁移到独立 preset 包
 - 开发辅助能力命名统一为 devtools
 - prompt capability 通过 registry 交给 preset-default
+- **记忆体系设计文档已合并，等待 Phase 1 记忆契约实现**
 
 ## 4. 已完成
 
@@ -43,11 +49,13 @@
 - [x] 补充错误恢复、最小示例、迁移策略、权限声明等文档
 - [x] 实现 `packages/core` 的基础类型与接口
 - [x] 实现 `packages/runtime` 的最小内核骨架
-- [x] 统一 docs 为“runtime 纯调度器 + preset extensions”方向
+- [x] 统一 docs 为"runtime 纯调度器 + preset extensions"方向
 - [x] 将默认行为迁移为独立 preset 包的长期方向
 - [x] 将自举相关能力统一重命名为通用 devtools
 - [x] 明确 `sessionManager` 只是 runtime 内部实现，不作为 extension public API
 - [x] 将 prompt capability 通过 registry 交给 preset 侧实现
+- [x] **完成记忆体系设计文档：memory-design.md 创建，各模块 docs 更新**
+- [x] **更新所有 docs 以反映记忆体系设计决策**
 
 ## 5. 阻塞项
 
@@ -70,6 +78,14 @@
 - D-013：preset 默认行为应长期放在 runtime 之外的独立包中
 - D-014：开发辅助能力应统一视为 devtools，而不是自举专属层
 - D-015：`sessionManager` 保持为 runtime 内部实现细节，不作为 extension public API
+- D-016：引入中间件 (Middleware) 模式以增强生命周期包裹能力
+- D-017：引入检查点 (Checkpoint) 机制以支持可中断执行
+- D-018：核心设计借鉴 pi-mono
+- D-019：缓存机制借鉴 reasonix
+- D-020：记忆是跨层关注点，不归属单一层级
+- D-021：借鉴 SimpleMem 的多视图索引模型与三阶段流水线
+- D-022：记忆按作用域分三层：全局/项目/会话
+- D-023：默认 Summary 记忆策略由 preset-default 提供
 
 ## 7. 下一步建议
 
@@ -79,6 +95,10 @@
 4. 再创建 `packages/preset-default` 并把默认行为逐步迁出 runtime
 5. 再创建 `packages/devtools`
 6. 再决定哪些开发辅助能力应该进入 preset 包或 devtools，而不是 core
+7. **在 `packages/core` 中追加 MemoryEntry/MemoryScope/MemoryProvenance 类型定义**
+8. **在 `packages/core` 中定义 MemoryAdapter 接口**
+9. **在 `packages/runtime` 的 Session/Turn 生命周期中加入记忆相关的 Hook 触发点**
+10. **调研并借鉴 SimpleMem 的核心实现，为 Phase 2 的 preset-memory 做准备**
 
 ## 8. 说明
 

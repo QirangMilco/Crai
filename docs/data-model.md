@@ -79,6 +79,106 @@ Artifact 存储生成的或附加的内容，例如：
 
 Artifact 应当同时支持内联内容和外部 URI 引用。
 
+### 2.6 MemoryEntry
+
+MemoryEntry 是长期记忆的最小单元，采用多视图索引模型：
+
+建议字段：
+```ts
+interface MemoryEntry {
+  id: string
+  scope: "global" | "project" | "session"
+  projectId?: string
+  
+  // 语义层
+  losslessRestatement: string
+  embedding?: number[]
+  
+  // 词汇层
+  keywords: string[]
+  
+  // 符号层
+  timestamp?: string
+  location?: string
+  persons: string[]
+  entities: string[]
+  topic?: string
+  
+  // 生命周期
+  importance: number
+  createdAt: number
+  validFrom?: number
+  validTo?: number
+  supersededBy?: string
+  provenance?: {
+    sessionId: string
+    sourceKind: string
+    sourceId: string
+  }
+}
+```
+
+MemoryEntry 的用途：
+- 存储跨会话的持久化知识
+- 支持语义、关键词、结构化三种检索方式
+- 携带溯源信息以便追踪到源事件
+- 支持衰减与过期管理
+
+### 2.7 SessionSummary
+
+SessionSummary 是会话结束时生成的摘要，用于快速恢复上下文：
+
+建议字段：
+```ts
+interface SessionSummary {
+  id: string
+  sessionId: string
+  request?: string
+  investigated?: string
+  learned?: string
+  completed?: string
+  nextSteps?: string
+  observationCount: number
+  memoryEntriesStored: number
+  createdAt: number
+}
+```
+
+### 2.8 Observation
+
+Observation 是会话过程中提取的观察/发现：
+
+建议字段：
+```ts
+interface Observation {
+  id: string
+  sessionId: string
+  type: "decision" | "bugfix" | "feature" | "refactor" | "discovery" | "change"
+  title: string
+  subtitle?: string
+  narrative?: string
+  facts?: Record<string, unknown>
+  files?: string[]
+  createdAt: number
+}
+```
+
+### 2.9 ContextBundle
+
+ContextBundle 是 Session 启动时注入的上下文包：
+
+建议字段：
+```ts
+interface ContextBundle {
+  sessionSummaries: SessionSummary[]
+  observations: Observation[]
+  memoryEntries: MemoryEntry[]
+  totalTokensEstimate: number
+}
+```
+
+> 详细的记忆数据模型设计请参见 [memory-design.md → 3. 核心数据模型](memory-design.md#3-核心数据模型)。
+
 ## 3. 状态关系
 
 建议关系：
@@ -86,6 +186,10 @@ Artifact 应当同时支持内联内容和外部 URI 引用。
 - Session 1 -> N Turn
 - Session 1 -> N Message
 - Session 1 -> N Artifact
+- Session 1 -> N SessionSummary
+- Session 1 -> N Observation
+- Session 1 -> N MemoryEntry
+- MemoryEntry N -> N Session（跨会话引用）
 - Turn 1 -> N 工具执行记录
 
 ## 4. 版本化规则
