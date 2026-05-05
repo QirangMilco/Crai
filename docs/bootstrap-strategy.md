@@ -13,21 +13,21 @@ Crai 的目标不是一开始就完全自给自足，而是先依赖外部 codin
 
 ### 2.2 开发能力优先放在扩展与应用层
 凡是与“帮助开发工作”直接相关的能力，优先放在：
-- extension
-- app layer
-- dev server
-- example tooling
-- developer-tools package
+- 扩展层 (extension)
+- 应用层 (app layer)
+- 开发服务器 (dev server)
+- 示例工具 (example tooling)
+- 开发工具包 (developer-tools package)
 
 而不是放进 `@crai/core`。
 
 ### 2.3 核心只提供必要钩子
 核心可以提供：
-- 事件
-- hook
-- registry
-- command contract
-- settings / permission / storage 等抽象接口
+- 事件 (events)
+- 钩子 (hook)
+- 注册表 (registry)
+- 命令契约 (command contract)
+- 设置/权限/存储等抽象接口 (settings / permission / storage)
 
 但核心不应该内建：
 - 自动拆任务器
@@ -55,19 +55,20 @@ Crai 的目标不是一开始就完全自给自足，而是先依赖外部 codin
 ### 3.1 `@crai/core`
 只放最小运行时契约：
 - 基础类型
-- events
-- hooks
-- adapters
-- runtime handle
-- extension contract
+- 事件 (events)
+- 中间件与钩子 (middleware & hooks)
+- 适配器 (adapters)
+- 运行时句柄 (runtime handle)
+- 扩展契约 (extension contract)
 
 ### 3.2 `@crai/runtime`
 只放最小内核与执行循环：
-- session / turn flow
-- tool dispatch
-- extension load / unload
-- event bus / hook bus
-- adapter dispatch
+- Session / Turn 流程 (session / turn flow)
+- 中间件与钩子执行 (middleware & hook execution)
+- 工具分发 (tool dispatch)
+- 扩展加载/卸载
+- 事件总线 / 中间件与钩子总线 (event bus / middleware & hook bus)
+- 适配器分发 (adapter dispatch)
 
 ### 3.3 `@crai/extension-sdk`
 提供扩展开发所需的辅助 API。

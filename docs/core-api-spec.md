@@ -132,7 +132,7 @@ export interface CoreEvent<TType extends string = string, TPayload = unknown> {
 
 ### 4.1 EventMap
 
-Recommended first-class events:
+推荐的一等公民事件：
 
 ```ts
 export interface EventMap {
@@ -159,6 +159,10 @@ export interface EventMap {
   "tool.requested": { session: Session; toolCall: ToolCallPart }
   "tool.completed": { session: Session; result: ToolExecutionResult }
   "tool.failed": { session: Session; result: ToolExecutionResult }
+
+  "middleware.before": { session: Session; turnId: ID; kind: string; input: unknown }
+  "middleware.after": { session: Session; turnId: ID; kind: string; output: unknown }
+  "checkpoint.saved": { session: Session; turnId: ID; kind: string; artifactId: ID }
 
   "artifact.created": { session: Session; artifact: Artifact }
   "artifact.updated": { session: Session; artifact: Artifact }
@@ -319,11 +323,11 @@ export interface ToolProvider {
 }
 
 /**
- * Tool resolution rule:
- * - the runtime kernel may merge tools from all registered ToolProvider instances
- * - tool names must be de-duplicated by `name`
- * - if multiple providers expose the same tool name, the runtime should use the first registered provider unless a custom resolver is injected
- * - the merged list should be treated as the canonical tool catalog for `ModelContext.tools`
+ * 工具解析规则 (Tool resolution rule):
+ * - 运行时内核可以合并来自所有已注册 ToolProvider 实例的工具
+ * - 工具名称必须通过 `name` 进行去重
+ * - 如果多个提供者暴露相同的工具名称，运行时应当使用第一个注册的提供者，除非注入了自定义解析器
+ * - 合并后的列表应当被视为 `ModelContext.tools` 的规范工具目录
  */
 export interface ToolResolver {
   listTools(): Promise<ToolDefinition[]> | ToolDefinition[]
@@ -346,8 +350,8 @@ export interface StorageAdapter {
 export interface CacheAdapter {
   name: string
   /**
-   * Optional helper for deriving a stable cache key from the request.
-   * If omitted, the runtime should still be able to fall back to an internal key strategy.
+   * 用于从请求中导出稳定缓存键的可选辅助方法。
+   * 如果省略，运行时仍应能够回退到内部键策略。
    */
   getCacheKey?(request: ModelRequest): string
   beforeModel?(request: ModelRequest): Promise<ModelRequest> | ModelRequest
@@ -376,8 +380,8 @@ export interface TransportContext {
   signal?: AbortSignal
   logger: Logger
   /**
-   * Inject external input into the runtime.
-   * The transport may resolve session identity itself, but the protocol should make the chosen session explicit in the input payload or metadata.
+   * 将外部输入注入运行时。
+   * 传输层可以自行解析会话身份，但协议应当使选择的会话在输入负载或元数据中保持显式。
    */
   onInput: (input: RuntimeInput) => Promise<void>
   emitEvent: <TKey extends keyof EventMap & string>(
@@ -470,8 +474,8 @@ export interface ExtensionPermissionDeclaration {
 export interface Extension {
   name: string
   /**
-   * Optional declarative permission hints used during extension loading.
-   * The runtime may evaluate these before running setup and may refuse to load the extension if a required permission is denied.
+   * 扩展加载期间使用的可选声明式权限提示。
+   * 运行时可以在运行 setup 之前对其进行评估，如果拒绝了所需的权限，则可以拒绝加载该扩展。
    */
   permissions?: ExtensionPermissionDeclaration[]
   setup(ctx: ExtensionContext): void | Promise<void>
@@ -525,8 +529,8 @@ export interface RuntimeFactory {
 export declare function createRuntime(options?: RuntimeOptions): Promise<RuntimeHandle>
 ```
 
-## 12. Stability Notes
+## 12. 稳定性说明 (Stability Notes)
 
-- This spec is intended to stay narrow and dependency-light.
-- UI, provider, and transport details should remain outside core contracts unless they are truly cross-cutting.
-- Breaking changes should be introduced deliberately and documented before implementation.
+- 本规格旨在保持精简且轻量依赖。
+- UI、供应商和传输层细节应当保持在核心契约之外，除非它们真正具有跨领域性。
+- 破坏性变更应当谨慎引入，并在实现前进行记录。

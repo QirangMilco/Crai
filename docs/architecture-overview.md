@@ -66,8 +66,13 @@ Crai 不打算：
 - 加载扩展
 - 通过注入的适配器或预设扩展持久化状态
 
-### 3.5 工业标准对齐 (Industry Alignment)
-Crai 在设计上积极参考成熟的行业框架（如 [CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)），吸收其在组件抽象、中间件模式和检查点机制上的优秀实践，并将其适配到 TypeScript 的轻量化和跨端生态中。
+### 3.5 行业基准对齐 (Industry Alignment)
+Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
+- **[CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)**：借鉴其组件抽象、中间件模式和检查点机制，用于增强内核的治理能力。
+- **[pi-mono](file:///Users/qirang/Documents/Projects/Crai/refs/pi-mono)**：借鉴其极简的 Agent 循环设计与 Provider 适配层抽象。
+- **[reasonix](file:///Users/qirang/Documents/Projects/Crai/refs/reasonix)**：借鉴其以缓存为中心的语义索引与状态持久化机制。
+- **[crystalagents](file:///Users/qirang/Documents/Projects/Crai/refs/crystalagents)**：借鉴其优雅的前端交互风格与高性能 Markdown 渲染实现。
+- **[snow-cli](file:///Users/qirang/Documents/Projects/Crai/refs/snow-cli)**：借鉴其完善的 MCP 集成、LSP 支持以及工具确认流（Tool Confirmation Flow）的交互设计。
 
 ## 4. 推荐包边界
 
@@ -101,65 +106,62 @@ Crai 在设计上积极参考成熟的行业框架（如 [CloudWeGo/Eino](file:/
 包含：
 - `defineExtension()`
 - 辅助工具类 (Helper utilities)
-- typed hook helpers
-- re-exported core types
+- 类型化的钩子辅助方法 (typed hook helpers)
+- 重导出的核心类型 (re-exported core types)
 
 ### 4.4 `@crai/loader-ts`
-Contains:
-- local TypeScript extension loading
-- reload and unload support
-- watch-mode helpers for development
+包含：
+- 本地 TypeScript 扩展加载
+- 支持重新加载和卸载
+- 用于开发的监听模式 (watch-mode) 辅助工具
 
-## 5. Source Absorption Policy
+## 5. 源码吸收与落位原则 (Source Absorption & Placement)
 
-This project follows **selective project absorption**, not full repo copying.
+本项目遵循 **选择性的项目吸收**，而不是完整的仓库复制。吸收的代码必须严格按照层级进行落位。
 
-### 5.1 Good candidates to absorb
-- agent event flow
-- turn loop structure
-- model stream representation
-- context transform pipeline
-- tool dispatch sequencing
-- runtime hook mechanics
+### 5.1 核心层 (Core / Runtime) - 吸收自 pi-mono / Eino
+- **pi-mono**: 借鉴其轻量级的 `AgentLoop` 调度逻辑、`ModelProvider` 接口定义，确保内核足够薄。
+- **Eino**: 借鉴其中间件 (Middleware) 管道设计和检查点 (Checkpoint) 机制，增强执行流的可控性。
 
-### 5.2 Things to rewrite for Crai
-- product-specific state containers
-- provider binding style that couples core and provider
-- UI components
-- storage layout tied to another product
-- naming that reflects source project branding
+### 5.2 扩展层 (Extensions / Presets) - 吸收自 reasonix / snow-cli
+- **reasonix**: 吸收其语义缓存 (Semantic Cache) 逻辑和状态持久化策略，作为 `CacheAdapter` 的参考实现落位到 `packages/cache-default`。
+- **snow-cli**: 吸收其 MCP (Model Context Protocol) 客户端实现和工具确认工作流，落位到 `@crai/extension-sdk` 或独立的 `packages/extension-mcp`。
 
-### 5.3 Rule of thumb
-If a piece of code would force provider/UI/IM into core, rewrite it instead of reusing it.
+### 5.3 应用与 UI 层 (App / Shell) - 吸收自 crystalagents / snow-cli
+- **crystalagents**: 吸收其现代化的前端 UI 风格、主题系统以及基于 Markdown 的产物渲染逻辑，落位到 `apps/web` 或 `packages/ui-kit`。
+- **snow-cli**: 吸收其 LSP (Language Server Protocol) 集成和仓库分析逻辑，落位到 `packages/devtools`。
 
-## 6. Phase Split
+### 5.4 经验法则
+如果一段代码会将供应商/UI/IM 强制引入核心，那么请重写它，或者将其落位到应用层/扩展层。
+
+## 6. 阶段划分 (Phase Split)
 
 ### Phase 1
-- core types
-- minimal runtime kernel
-- extension loading
-- basic event/hook pipeline
-- one model adapter
-- one storage adapter
-- minimal UI or CLI entry point
-- preset extensions for default behaviors
+- 核心类型
+- 最小运行时内核
+- 扩展加载
+- 基础事件/钩子流水线
+- 一个模型适配器
+- 一个存储适配器
+- 最小 UI 或 CLI 入口点
+- 提供默认行为的预设扩展
 
 ### Phase 2
-- richer transport adapters
-- cache strategy
-- command system
-- better persistence and snapshotting
-- more optional runtime services
+- 更丰富的传输适配器
+- 缓存策略
+- 命令系统
+- 更好的持久化和快照/检查点能力
+- 更多可选的运行时服务
 
 ### Phase 3
-- stronger permission model
-- sandboxing options
-- multi-transport coordination
-- advanced UI shell / thin client support
+- 更强的权限模型
+- 沙箱选项
+- 多传输层协调
+- 高级 UI 壳层 / 瘦客户端支持
 
-## 7. Documentation Rules
+## 7. 文档规则 (Documentation Rules)
 
-- keep architecture separate from API spec
-- keep data model separate from flow diagrams
-- keep implementation plan separate from design intent
-- prefer short, focused docs over one giant mixed draft
+- 将架构与 API 规格分离
+- 将数据模型与流程图分离
+- 将实施计划与设计意图分离
+- 优先选择短小、专注的文档，而不是一份巨大的混合草案

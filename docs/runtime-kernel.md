@@ -13,7 +13,7 @@
 - Turn 编排 (Turn orchestration)
 - 输入规范化 (Input normalization)
 - 事件触发 (Event emission)
-- 钩子执行 (Hook execution)
+- 中间件与钩子执行 (Middleware & Hook execution)
 - 扩展生命周期钩子
 - 最小工具解析
 - 适配器分发 (Adapter dispatch)
@@ -39,7 +39,7 @@ kernel/
   session manager (Session 管理器)
   turn runner (Turn 执行器)
   event bus (事件总线)
-  hook bus (钩子总线)
+  middleware & hook bus (中间件与钩子总线)
   extension lifecycle (扩展生命周期)
   adapter dispatch (适配器分发)
 ```
@@ -53,8 +53,8 @@ kernel/
 ### 4.3 事件总线
 负责广播运行时事实。
 
-### 4.4 钩子总线
-负责在定义的生命周期点进行拦截和变异。
+### 4.4 中间件与钩子总线
+负责在定义的生命周期点进行拦截、变异或包裹执行流。
 
 ### 4.5 扩展生命周期
 负责加载、卸载和重新加载扩展。

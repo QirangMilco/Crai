@@ -28,8 +28,15 @@ session.created
 input.received
 turn.started
 context.built
+middleware.before (Model)
 model.requested
 model.completed
+middleware.after (Model)
+checkpoint.saved (PostModel)
+middleware.before (Tool)
+tool.requested
+tool.completed
+middleware.after (Tool)
 message.appended
 turn.completed
 runtime.stopped

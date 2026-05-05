@@ -19,6 +19,10 @@
 - [ ] 实现 `packages/extension-sdk`
 - [ ] 实现 `packages/loader-ts`
 - [ ] 实现 Middleware 与 Checkpoint 核心调度逻辑 (借鉴 Eino)
+- [ ] 调研并集成 pi-mono 的 Agent 循环优化逻辑
+- [ ] 调研并集成 reasonix 的语义缓存机制
+- [ ] 在 `packages/devtools` 中集成 snow-cli 的 LSP 支持
+- [ ] 调研并集成 crystalagents 的现代 UI 与 Markdown 渲染风格
 - [ ] 增加最小示例与最小测试
 - [x] 创建独立的 `packages/preset-default`
 - [ ] 创建 `packages/devtools`

@@ -73,7 +73,7 @@ Message 是交互单元的持久化表示。
 Artifact 存储生成的或附加的内容，例如：
 - 源文件
 - 渲染输出
-- 快照 (Snapshots)
+- 快照 / 检查点 (Snapshots / Checkpoints)
 - 日志
 - 图像
 
@@ -106,11 +106,11 @@ interface RecordEnvelope<T> {
 }
 ```
 
-### 4.2 Migration hook
+### 4.2 迁移钩子 (Migration hook)
 
-A storage adapter or runtime service should be able to migrate old records before they are used by the kernel.
+存储适配器或运行时服务应当能够在核心内核使用旧记录之前对其进行迁移。
 
-Suggested helper shape:
+建议的辅助形状：
 ```ts
 interface MigrationContext {
   fromVersion: number
@@ -125,63 +125,63 @@ interface MigrationStep<T = unknown> {
 }
 ```
 
-Suggested call timing:
-- read record from storage
-- inspect type and version
-- run the applicable migration chain
-- hand the migrated record to the runtime
+建议的调用时机：
+- 从存储中读取记录
+- 检查类型和版本
+- 运行适用的迁移链
+- 将迁移后的记录交给运行时
 
-### 4.3 Backward compatibility
+### 4.3 向后兼容性 (Backward compatibility)
 
-Prefer additive changes over breaking changes.
+优先考虑增加性变更，而不是破坏性变更。
 
-Good changes:
-- add optional field
-- add new message part subtype
-- add new event type
+好的变更：
+- 添加可选字段
+- 添加新的消息部分子类型
+- 添加新的事件类型
 
-Risky changes:
-- rename required field
-- change semantic meaning of existing field
-- remove a currently persisted property
+高风险变更：
+- 重命名必需字段
+- 更改现有字段的语义
+- 删除当前已持久化的属性
 
-## 5. Persistence Strategy
+## 5. 持久化策略 (Persistence Strategy)
 
-### 5.1 Append-first
+### 5.1 追加优先 (Append-first)
 
-Where possible, prefer append-only writes for:
-- messages
-- turns
-- events
-- tool execution traces
+在可能的情况下，优先为以下内容使用“仅追加”写入：
+- 消息 (Messages)
+- Turn
+- 事件 (Events)
+- 工具执行追踪 (Tool execution traces)
 
-### 5.2 Snapshot plus log
+### 5.2 快照与日志 (Snapshot plus log)
 
-For long-running sessions, a practical strategy is:
-- append detailed events or messages
-- periodically write a session snapshot
-- rebuild the current state from snapshot + tail log
+对于长期运行的会话，一个实用的策略是：
+- 追加详细的事件或消息
+- 定期写入会话快照或检查点 (Session Snapshot / Checkpoint)
+- 从快照 + 尾部日志重建当前状态
 
-## 6. Recommended Missing Entities
+## 6. 建议的缺失实体 (Recommended Missing Entities)
 
-These are not mandatory in the first core API draft, but they should be considered before implementation:
+这些在第一个核心 API 草案中不是强制性的，但在实现之前应当予以考虑：
 - Workspace
 - Turn
-- Attachment / File
-- Task / Job
-- Snapshot
-- Execution trace
+- 附件 / 文件 (Attachment / File)
+- 任务 / 作业 (Task / Job)
+- 检查点 / 快照 (Checkpoint / Snapshot)
+- 执行追踪 (Execution trace)
 
-## 7. Migration Example
+## 7. 迁移示例 (Migration Example)
 
-A simple example of a version upgrade could be:
-- `Session v1` stores `title`
-- `Session v2` renames it to `name`
-- a migration step reads v1, maps `title -> name`, and returns the v2 shape
+一个简单的版本升级示例：
+- `Session v1` 存储 `title`
+- `Session v2` 将其重命名为 `name`
+- 迁移步骤读取 v1，执行 `title -> name` 的映射，并返回 v2 形状的数据
 
-This keeps migration behavior explicit and avoids each storage adapter inventing its own upgrade style.
+这保持了迁移行为的显式化，并避免了每个存储适配器都发明自己的升级风格。
 
-## 8. Notes for Implementation
+## 8. 实现注意事项 (Notes for Implementation)
 
 - Do not store UI-only state in core entities.
 - Do not overload Metadata to replace proper schema fields.

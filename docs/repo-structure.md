@@ -79,7 +79,7 @@ packages/
 - 最小运行时内核
 - Prompt 流程调度
 - Session 管理
-- 钩子执行
+- 中间件与钩子执行 (Middleware & Hook execution)
 - 事件触发
 - 扩展生命周期
 - 适配器分发
@@ -98,52 +98,52 @@ packages/
 
 ### 4.5 `packages/preset-default`
 - 默认 Prompt 流水线
-- default context behavior
-- default persistence behavior
-- default telemetry/logging behavior
-- default model wiring placeholders
-- this package exists to keep runtime thin and usable at the same time
+- 默认上下文行为 (default context behavior)
+- 默认持久化行为 (default persistence behavior)
+- 默认遥测/日志行为 (default telemetry/logging behavior)
+- 默认模型连接占位符 (default model wiring placeholders)
+- 此包的存在是为了保持运行时的精简且同时可用
 
 ### 4.6 `packages/devtools`
-- task tracking helpers
-- repo inspection helpers
-- AI-assisted patch coordination
-- development workflow helpers
-- generic coding assistance for Crai and other projects
-- this package must not modify `packages/core` boundaries
+- 任务追踪助手 (task tracking helpers)
+- 仓库巡检助手 (repo inspection helpers)
+- AI 辅助补丁协调 (AI-assisted patch coordination)
+- 开发工作流助手 (development workflow helpers)
+- 针对 Crai 和其他项目的通用编码辅助
+- 此包不得修改 `packages/core` 的边界
 
-## 5. App Layer
+## 5. 应用层 (App Layer)
 
 ### `apps/dev-server`
-A local development server for testing runtime behavior and loading extensions.
-It may auto-load `preset-default` during development startup.
+用于测试运行时行为和加载扩展的本地开发服务器。
+它可能在开发启动期间自动加载 `preset-default`。
 
 ### `apps/web`
-A web UI shell that consumes runtime events and interacts with transport adapters.
+一个 Web UI 壳层，它消费运行时事件并与传输适配器交互。
 
 ### `apps/bootstrap-console`
-A product surface for developer workflows, task tracking, and assistant-assisted coding.
+一个用于开发工作流、任务追踪和助手辅助编码的产品表面。
 
-## 6. Example Layer
+## 6. 示例层 (Example Layer)
 
-Examples should stay small and focused:
-- minimal runtime bootstrap
-- web chat demo
-- Feishu bot demo
+示例应当保持小型且专注：
+- 最小运行时自举
+- Web 聊天演示
+- 飞书机器人演示
 
-## 7. Directory Rules
+## 7. 目录规则 (Directory Rules)
 
-- keep implementation code under `packages/`
-- keep runnable demos under `apps/` or `examples/`
-- keep design/spec material under `docs/`
-- avoid placing product-specific logic in `packages/core`
-- keep developer-tooling helpers outside `packages/core`
-- keep default behaviors outside `packages/runtime`
-- if a feature mainly helps development work, prefer `packages/devtools` or `apps/bootstrap-console`
+- 将实现代码保持在 `packages/` 下
+- 将可运行的演示保持在 `apps/` 或 `examples/` 下
+- 将设计/规格材料保持在 `docs/` 下
+- 避免在 `packages/core` 中放置特定于产品的逻辑
+- 将开发工具助手保持在 `packages/core` 之外
+- 将默认行为保持在 `packages/runtime` 之外
+- 如果一个功能主要帮助开发工作，优先考虑 `packages/devtools` 或 `apps/bootstrap-console`
 
-## 8. Recommended First Files
+## 8. 推荐的首批文件 (Recommended First Files)
 
-When implementation begins, start with:
+当开始实现时，从以下文件开始：
 - `packages/core/src/types.ts`
 - `packages/core/src/events.ts`
 - `packages/core/src/hooks.ts`

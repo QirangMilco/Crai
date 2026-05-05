@@ -106,3 +106,51 @@ Phase 1 应当聚焦于运行时外壳、扩展加载、事件/钩子流水线�
 - 支持 Human-in-the-loop 场景
 - 增强系统的容错与故障恢复能力
 - 优化长会话的上下文重载效率
+
+## D-018 — 核心设计借鉴 pi-mono
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+Crai 的 Agent 循环设计和模型提供者（Provider）适配层将参考 pi-mono 的实现，保持执行引擎的精简和高效。
+
+### 理由
+- pi-mono 证明了 TS 环境下高性能 Agent 循环的可行性
+- 减少在执行引擎底层设计上的探索成本
+
+## D-019 — 缓存机制借鉴 reasonix
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+Crai 将引入以缓存为中心的语义索引和状态持久化机制，参考 reasonix 的设计。
+
+### 理由
+- 显著提升重复任务的响应速度
+- 降低 Token 消耗，提高 Token 利用率
+
+## D-020 — UI 与 Markdown 渲染借鉴 crystalagents
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+Crai 的前端应用层（apps/*）将参考 crystalagents 的现代交互风格和 Markdown 渲染逻辑。
+
+### 理由
+- 提升开发者体验 (DX) 和产物展示质量
+- 保持 UI 层与核心内核的解耦
+
+## D-021 — 扩展能力借鉴 snow-cli (MCP/LSP)
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+Crai 将吸收 snow-cli 在 MCP (Model Context Protocol) 和 LSP (Language Server Protocol) 集成方面的经验。
+
+### 理由
+- 增强对外部工具链和代码分析能力的连接
+- 复用成熟的工具确认流 (Tool Confirmation Flow) 设计

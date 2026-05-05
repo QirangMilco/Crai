@@ -101,56 +101,56 @@
 
 默认的持久化行为可能存在于预设扩展中，但内核仍然拥有检查点 (Checkpoint) 的顺序。
 
-## 6. Extension Load / Unload Flow
+## 6. 扩展加载/卸载流程 (Extension Load / Unload Flow)
 
-### 6.1 Load
+### 6.1 加载 (Load)
 
-On extension load:
-1. import module
-2. resolve extension default export
-3. run `setup(ctx)`
-4. register hooks, commands, and other side effects
-5. emit `extension.loaded`
+在扩展加载时：
+1. 导入模块
+2. 解析扩展的默认导出 (default export)
+3. 运行 `setup(ctx)`
+4. 注册钩子、命令和其他副作用
+5. 触发 `extension.loaded`
 
-### 6.2 Unload
+### 6.2 卸载 (Unload)
 
-On extension unload:
-1. call `dispose()` on extension if available
-2. remove registered hooks and commands
-3. clean up registries if owned by the extension
-4. emit `extension.unloaded`
+在扩展卸载时：
+1. 如果可用，调用扩展上的 `dispose()`
+2. 移除已注册的钩子和命令
+3. 如果注册表项由该扩展拥有，则清理注册表
+4. 触发 `extension.unloaded`
 
-### 6.3 Reload
+### 6.3 重新加载 (Reload)
 
-Reload should be treated as:
-- unload old instance
-- re-import module
-- load new instance
+重新加载应当被视为：
+- 卸载旧实例
+- 重新导入模块
+- 加载新实例
 
-## 7. Concurrency Rules
+## 7. 并发规则 (Concurrency Rules)
 
-### Phase 1 rule
-- same session: serialized turns
-- different sessions: allowed to run in parallel
+### Phase 1 规则
+- 相同 Session：串行执行 Turn
+- 不同 Session：允许并行运行
 
-This keeps the runtime simple while leaving room for later upgrade.
+这保持了运行时的简单性，同时为以后的升级留出了空间。
 
-## 8. UI and Transport Integration
+## 8. UI 与传输层集成 (UI and Transport Integration)
 
-UI and transport should consume events rather than depend on runtime internals.
+UI 和传输层应当消费事件，而不是依赖于运行时内部实现。
 
-Recommended pattern:
-- runtime emits events
-- transport forwards user input into runtime
-- UI listens to events and renders state
-- IM channels map to transport adapters, not to core objects
+建议模式：
+- 运行时触发事件
+- 传输层将用户输入转发到运行时
+- UI 监听事件并渲染状态
+- IM 通道映射到传输适配器，而不是核心对象
 
-These integrations are important, but they should be treated as layers around the kernel rather than part of the kernel itself.
+这些集成很重要，但它们应当被视为内核周围的层，而不是内核本身的一部分。
 
-## 9. Implementation Notes
+## 9. 实现注意事项 (Implementation Notes)
 
-- keep the flow deterministic
-- avoid hidden side effects in adapters
-- keep hook order explicit
-- make reload and teardown safe
-- prefer the smallest possible kernel surface that still supports this flow
+- 保持流程的确定性
+- 避免在适配器中隐藏副作用
+- 保持钩子顺序显式化
+- 使重新加载和销毁过程安全
+- 优先选择支持此流程的最小内核表面

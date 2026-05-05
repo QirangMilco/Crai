@@ -62,6 +62,12 @@ Session 内部的一次执行周期。一个 Turn 通常从输入开始，可能
 ### Transport (传输层)
 将运行时连接到外部输入/输出通道的适配器，例如 WebSocket、CLI 或 IM。
 
+### MCP (Model Context Protocol)
+一种标准化协议（借鉴自 snow-cli 的集成经验），允许 AI 模型以统一的方式连接到外部工具、数据源和上下文。
+
+### LSP (Language Server Protocol)
+用于在开发工具（如 VS Code）中提供智能代码分析能力的协议。在 Crai 中（借鉴自 snow-cli），主要用于 `devtools` 层增强代码库巡检能力。
+
 ### Provider (提供者)
 模型服务实现，例如 OpenAI、Anthropic、DeepSeek 或自定义模型端点。在 Crai 文档中，提及核心契约时首选使用 `ModelAdapter`。
 
