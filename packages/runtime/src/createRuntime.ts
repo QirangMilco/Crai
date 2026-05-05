@@ -72,9 +72,20 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       return pipeline.run(input, promptOptions)
     },
     async createSession(input) {
+      await deps.hooks.run('session:beforeStart', { session: { id: '', createdAt: 0, updatedAt: 0 }, input }, { runtime })
       const session = await deps.sessions.create(input)
       await deps.events.emit('session.created', { session })
       return session
+    },
+    async stopSession(sessionId, messages) {
+      const session = deps.sessions.get(sessionId)
+      if (!session) {
+        throw new Error(`Session ${sessionId} 不存在`)
+      }
+      session.updatedAt = Date.now()
+      await deps.sessions.update(session)
+      await deps.hooks.run('session:afterStop', { session, messages: messages ?? [] }, { runtime })
+      await deps.events.emit('session.updated', { session })
     },
     async getSession(sessionId) {
       return deps.sessions.get(sessionId)

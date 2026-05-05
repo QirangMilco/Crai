@@ -257,7 +257,7 @@ Crai 将引入以缓存为中心的语义索引和状态持久化机制，参考
 记忆功能不归属于 Core、Runtime 或 Preset 中的单一层级，而是分布在三个层面上：
 
 - **Core 层**：定义 `MemoryEntry` 类型、`MemoryScope` 枚举和 `MemoryAdapter` 接口，仅关注记忆的数据形状和抽象契约
-- **Runtime 层**：在 Session 生命周期中提供记忆事件/钩子触发点（`session:beforeStart`、`session:afterStop`、`turn:beforeContext`、`turn:afterToolExecution`），不实现任何记忆策略
+- **Runtime 层**：在 Session 生命周期中提供记忆事件/钩子触发点（`session:beforeStart`、`session:afterStop`、`turn:beforeModel`、`turn:afterToolExec`），不实现任何记忆策略
 - **Preset/Extension 层**：实现具体的记忆策略，包括摘要生成、上下文注入、混合检索、记忆整理等
 
 ### 理由

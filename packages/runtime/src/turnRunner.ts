@@ -76,6 +76,12 @@ export async function runTurn(
     { runtime },
   )
 
+  await deps.hooks.run(
+    'turn:beforeModel',
+    { session, request: preparedRequest.request },
+    { runtime },
+  )
+
   await deps.emitEvent('model.requested', { session, request: preparedRequest.request })
 
   // 请求模型，失败时发出结构化错误事件

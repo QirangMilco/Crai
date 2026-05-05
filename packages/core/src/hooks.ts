@@ -1,5 +1,5 @@
 import type { EventMap, ModelRequest, ModelResponse, ModelStreamEvent, RuntimeInput, ToolDefinition, ToolExecutionRequest, ToolExecutionResult } from './events'
-import type { Artifact, ContextBundle, ID, MemoryEntry, MemoryProvenance, MemoryScope, Metadata, Message, Observation, Session, SessionSummary, ToolCallPart } from './types'
+import type { Artifact, ID, MemoryEntry, MemoryScope, Metadata, Message, Observation, Session, SessionSummary, ToolCallPart } from './types'
 
 /** 统一可释放对象，便于卸载扩展时回收资源。 */
 export interface Disposable {
@@ -38,7 +38,7 @@ export interface HookMap {
   'permission:check': { session: Session; request: PermissionCheckRequest; decision: PermissionDecision }
   'artifact:save': { session: Session; artifact: Artifact }
 
-  'session:beforeStart': { session: Session; input?: RuntimeInput }
+  'session:beforeStart': { session: Session; input?: Metadata }
   'session:afterStop': { session: Session; messages: Message[] }
   'turn:beforeModel': { session: Session; request: ModelRequest }
   'turn:afterToolExec': { session: Session; result: ToolExecutionResult }
@@ -248,6 +248,7 @@ export interface RuntimeHandle {
   id: ID
   prompt(input: RuntimeInput, options?: PromptOptions): Promise<PromptResult>
   createSession(input?: Metadata): Promise<Session>
+  stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
   listMessages(sessionId: ID): Promise<Message[]>
   loadExtension(source: string): Promise<void>

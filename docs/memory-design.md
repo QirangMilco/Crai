@@ -161,7 +161,7 @@ Session 启动
 |-------------------|-----------|------|
 | `session:beforeStart` | ContextInjection Hook | 注入历史记忆到系统提示 |
 | `turn:beforeModel` | MemoryQuery Middleware | 按需补充相关记忆 |
-| `turn:afterToolExecution` | ObservationExtraction Hook | 提取观察/发现 |
+| `turn:afterToolExec` | ObservationExtraction Hook | 提取观察/发现 |
 | `session:afterStop` | MemoryFinalization Hook | 生成摘要、提取记忆、整理、持久化 |
 
 ## 5. 检索策略

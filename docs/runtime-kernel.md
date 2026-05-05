@@ -57,8 +57,8 @@ kernel/
 负责执行 `input -> context -> model -> tool -> persist` 循环。
 
 **记忆相关的触发点：**
-- `turn:beforeContext` — 触发记忆补充钩子（用于按需注入当前 Turn 需要的记忆）
-- `turn:afterToolExecution` — 触发观察提取钩子（用于提取工具执行中产生的发现/决策）
+- `turn:beforeModel` — 触发记忆补充钩子（用于按需注入当前 Turn 需要的记忆）
+- `turn:afterToolExec` — 触发观察提取钩子（用于提取工具执行中产生的发现/决策）
 
 ### 4.3 事件总线
 负责广播运行时事实。
