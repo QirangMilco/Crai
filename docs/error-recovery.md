@@ -1,51 +1,51 @@
-# Crai Error and Recovery Policy
+# Crai 错误与恢复策略 (Error and Recovery Policy)
 
-## 1. Purpose
+## 1. 目的
 
-This document defines the default runtime behavior when failures happen during model calls, tool execution, extension loading, or persistence.
+本文档定义了在模型调用、工具执行、扩展加载或持久化过程中发生失败时的默认运行时行为。
 
-## 2. Default Behavior
+## 2. 默认行为
 
-### 2.1 Model failure
-If a model request fails:
-- the current turn should fail
-- the runtime should emit `turn.failed`
-- any partial messages already produced should remain available for diagnostics
-- the error should be surfaced as a `RuntimeError`
+### 2.1 模型失败 (Model failure)
+如果模型请求失败：
+- 当前 Turn 应当失败
+- 运行时应当触发 `turn.failed`
+- 任何已经产生的部分消息应当保留以供诊断
+- 错误应当作为 `RuntimeError` 抛出
 
-### 2.2 Tool failure
-If a tool fails or times out:
-- the runtime should emit `tool.failed`
-- the current turn should continue or fail according to the tool result and hook policy
-- the failure should be captured in a structured result when possible
+### 2.2 工具失败 (Tool failure)
+如果工具执行失败或超时：
+- 运行时应当触发 `tool.failed`
+- 当前 Turn 应当根据工具结果和钩子策略继续或失败
+- 失败应当尽可能记录在结构化的结果中
 
-### 2.3 Extension failure
-If an extension throws during load or setup:
-- the runtime should stop loading that extension
-- the runtime should emit an error event or log entry
-- the runtime should keep running unless the failure is fatal to the boot sequence
+### 2.3 扩展失败 (Extension failure)
+如果扩展在加载或设置期间抛出异常：
+- 运行时应当停止加载该扩展
+- 运行时应当触发错误事件或记录日志
+- 除非该失败对启动序列是致命的，否则运行时应当继续运行
 
-### 2.4 Persistence failure
-If persistence fails:
-- the runtime should report the error clearly
-- the turn should not silently succeed
-- the runtime may keep in-memory state temporarily, but persistence recovery should be explicit
+### 2.4 持久化失败 (Persistence failure)
+如果持久化失败：
+- 运行时应当清晰地报告错误
+- Turn 不应当静默成功
+- 运行时可以暂时保留内存状态，但持久化恢复应当是显式的
 
-## 3. Recovery Principles
+## 3. 恢复原则
 
-- prefer failing the current turn over hiding errors
-- preserve partial state when it helps debugging
-- keep retry policy outside the core default unless explicitly configured
-- make recovery behavior visible to extensions and transports
+- 宁愿让当前 Turn 失败，也不要隐藏错误
+- 当有助于调试时，保留部分状态
+- 将重试策略保留在核心默认值之外，除非有显式配置
+- 使恢复行为对扩展和传输层可见
 
-## 4. Retry Policy
+## 4. 重试策略 (Retry Policy)
 
-The kernel should not hardcode aggressive retries.
+内核不应硬编码激进的重试机制。
 
-Recommended default:
-- no automatic retry for deterministic errors
-- bounded retry only when a policy adapter or higher-level service explicitly enables it
+推荐默认：
+- 对于确定性错误不进行自动重试
+- 仅当策略适配器 (Policy adapter) 或更高级别的服务显式启用时，才进行有界的重试
 
-## 5. Implementation Note
+## 5. 实现说明
 
-The runtime should not collapse all failures into a generic error string. Use structured `RuntimeError` values and keep the original cause when possible.
+运行时不应将所有失败都折叠成一个通用的错误字符串。应当使用结构化的 `RuntimeError` 值，并尽可能保留原始原因 (Original cause)。

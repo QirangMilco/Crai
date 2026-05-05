@@ -1,26 +1,26 @@
-# Crai Minimal Kernel Example
+# Crai 最小内核示例 (Minimal Kernel Example)
 
-## 1. Purpose
+## 1. 目的
 
-This note describes the smallest end-to-end example that should be available in Phase 1.
+本笔记描述了 Phase 1 中应当可用的最小端到端示例。
 
-The goal is to make the architecture concrete for contributors and reviewers.
+目标是为贡献者和评审者使架构变得具体。
 
-## 2. Example Behavior
+## 2. 示例行为
 
-A minimal runtime example should be able to:
-- start the runtime
-- register one model adapter
-- register one storage adapter
-- load one extension
-- create one session
-- process one prompt
-- emit lifecycle events
-- unload the extension cleanly
+一个最小运行时示例应当能够：
+- 启动运行时
+- 注册一个模型适配器
+- 注册一个存储适配器
+- 加载一个扩展
+- 创建一个 Session
+- 处理一个 Prompt
+- 触发生命周期事件
+- 干净地卸载扩展
 
-## 3. Expected Event Sequence
+## 3. 预期的事件序列
 
-A simple happy path should produce a sequence similar to:
+一个简单的快乐路径应当产生类似于以下的序列：
 
 ```txt
 runtime.started
@@ -35,15 +35,15 @@ turn.completed
 runtime.stopped
 ```
 
-## 4. Example Output Expectations
+## 4. 示例输出预期
 
-The example should make it easy to observe:
-- the session id
-- the turn id
-- the emitted events
-- any tool calls
-- the final response
+示例应当使以下内容易于观测：
+- Session ID
+- Turn ID
+- 触发的事件
+- 任何工具调用
+- 最终响应
 
-## 5. Why This Matters
+## 5. 为什么这很重要
 
-A minimal runnable example helps verify that the kernel is truly small and that the end-to-end flow is understandable before more services are added.
+一个最小的可运行示例有助于验证内核是否真正精简，以及在添加更多服务之前端到端流程是否易于理解。

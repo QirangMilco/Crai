@@ -1,89 +1,89 @@
-# Crai Runtime Kernel
+# Crai 运行时内核 (Runtime Kernel)
 
-## 1. Purpose
+## 1. 目的
 
-This document defines the smallest runtime that Crai must keep in order to function as an extensible agent core.
+本文档定义了 Crai 为了作为可扩展的 Agent 核心而必须保留的最小运行时。
 
-The preferred direction is: **runtime = pure scheduler**, while default behaviors live in preset extension packages outside the runtime package. The kernel should therefore stay as thin as possible, and only keep what is required to schedule and coordinate the runtime loop.
+首选方向是：**运行时 = 纯调度器**，而默认行为存在于运行时包之外的预设扩展 (Preset Extension) 包中。因此，内核应当保持尽可能薄，仅保留调度和协调运行时循环所必需的内容。
 
-## 2. Kernel Responsibilities
+## 2. 内核职责
 
-The runtime kernel should own only:
-- session lifecycle
-- turn orchestration
-- input normalization
-- event emission
-- hook execution
-- extension lifecycle hooks
-- minimal tool resolution
-- adapter dispatch
-- scheduling persistence checkpoints through injected capabilities
+运行时内核应当仅拥有：
+- Session 生命周期
+- Turn 编排 (Turn orchestration)
+- 输入规范化 (Input normalization)
+- 事件触发 (Event emission)
+- 钩子执行 (Hook execution)
+- 扩展生命周期钩子
+- 最小工具解析
+- 适配器分发 (Adapter dispatch)
+- 通过注入的能力调度持久化检查点 (Persistence checkpoints)
 
-## 3. What the Kernel Should Not Own
+## 3. 内核不应拥有的职责
 
-The kernel should not directly own product-layer concerns such as:
-- workspace management
-- UI state
-- window management
-- IM-specific workflows
-- command palette UI behavior
-- advanced permission UX
-- product-specific settings screens
+内核不应直接拥有产品层面的关注点，例如：
+- Workspace 管理
+- UI 状态
+- 窗口管理
+- IM 特定的工作流
+- 命令面板 UI 行为
+- 高级权限 UX
+- 产品特定的设置屏幕
 
-These concerns may be implemented by app-layer services or preset extensions.
+这些关注点应当由应用层服务或预设扩展来实现。
 
-## 4. Recommended Kernel Shape
+## 4. 建议的内核形态
 
 ```txt
 kernel/
-  session manager
-  turn runner
-  event bus
-  hook bus
-  extension lifecycle
-  adapter dispatch
+  session manager (Session 管理器)
+  turn runner (Turn 执行器)
+  event bus (事件总线)
+  hook bus (钩子总线)
+  extension lifecycle (扩展生命周期)
+  adapter dispatch (适配器分发)
 ```
 
-### 4.1 Session manager
-Responsible for creating, loading, and updating session state.
+### 4.1 Session 管理器
+负责创建、加载和更新 Session 状态。
 
-### 4.2 Turn runner
-Responsible for executing the input -> context -> model -> tool -> persist loop.
+### 4.2 Turn 执行器
+负责执行 `input -> context -> model -> tool -> persist` 循环。
 
-### 4.3 Event bus
-Responsible for broadcasting runtime facts.
+### 4.3 事件总线
+负责广播运行时事实。
 
-### 4.4 Hook bus
-Responsible for interception and mutation at defined lifecycle points.
+### 4.4 钩子总线
+负责在定义的生命周期点进行拦截和变异。
 
-### 4.5 Extension lifecycle
-Responsible for loading, unloading, and reloading extensions.
+### 4.5 扩展生命周期
+负责加载、卸载和重新加载扩展。
 
-### 4.6 Adapter dispatch
-Responsible for calling the currently registered model, tool, storage, cache, permission, and transport adapters.
+### 4.6 适配器分发
+负责调用当前注册的模型、工具、存储、缓存、权限和传输适配器。
 
-## 5. Optional Runtime Services
+## 5. 可选的运行时服务
 
-These capabilities are useful, but they should remain optional services layered on top of the kernel or moved into preset extension packages outside runtime:
-- command registry
-- settings store
-- transport coordination
-- permission policy orchestration
-- cache policy orchestration
-- thin-client routing helpers
-- workspace-specific product logic
-- custom tool catalog merge policies
-- default context building
-- default persistence strategy
-- default telemetry/logging strategy
+这些能力很有用，但它们应当作为分层在内核之上的可选服务，或移动到运行时之外的预设扩展包中：
+- 命令注册表 (Command registry)
+- 设置存储
+- 传输协调
+- 权限策略编排
+- 缓存策略编排
+- 瘦客户端路由助手
+- 特定于 Workspace 的产品逻辑
+- 自定义工具目录合并策略
+- 默认上下文构建
+- 默认持久化策略
+- 默认遥测/日志策略
 
-## 6. Boundary Rule
+## 6. 边界规则
 
-If a feature is required to schedule and coordinate the runtime loop, it belongs in the kernel.
-If a feature can be expressed as a default behavior without changing the kernel contract, it should live in a preset extension package or app-layer service.
-If a feature exists mainly to support UI, product management, or external integration, it belongs outside the kernel.
+如果一个功能是调度和协调运行时循环所必需的，它属于内核。
+如果一个功能可以在不改变内核契约的情况下表达为默认行为，它应当存在于预设扩展包或应用层服务中。
+如果一个功能的存在主要是为了支持 UI、产品管理或外部集成，它属于内核之外。
 
-## 7. Design Goal
+## 7. 设计目标
 
-The kernel should be small enough that it can be understood as the executable heart of Crai, not as the full product platform.
-It should schedule behavior, not accumulate behavior.
+内核应当足够小，以便被理解为 Crai 的执行心脏，而不是完整的平台产品。
+它应当调度行为，而不是累积行为。

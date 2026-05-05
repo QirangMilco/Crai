@@ -1,21 +1,21 @@
-# Crai Data Model
+# Crai 数据模型 (Data Model)
 
-## 1. Model Goals
+## 1. 模型目标
 
-The data model should be:
-- small
-- explicit
-- versionable
-- append-friendly
-- suitable for replay and persistence
+数据模型应当具备以下特性：
+- 小型化
+- 显式化
+- 可版本化
+- 追加友好 (Append-friendly)
+- 适用于重放 (Replay) 和持久化
 
-## 2. Core Entities
+## 2. 核心实体
 
 ### 2.1 Workspace
 
-A workspace is the top-level project container. It is optional in the core API draft, but should exist at the product level if Crai manages multiple projects or environments.
+Workspace 是顶级项目容器。它在核心 API 草案中是可选的，但如果 Crai 管理多个项目或环境，它应该存在于产品层。
 
-Suggested fields:
+建议字段：
 ```ts
 interface Workspace {
   id: string
@@ -28,19 +28,19 @@ interface Workspace {
 
 ### 2.2 Session
 
-A session is the primary runtime container for conversation and tool activity.
+Session 是对话和工具活动的主要运行时容器。
 
-Suggested semantics:
-- one session groups a continuous task or thread of work
-- session state should be durable
-- session metadata should remain small and descriptive
-- session should be enough to reconstruct context from storage
+建议语义：
+- 一个 Session 归组一个连续的任务或工作线程
+- Session 状态应当是持久的
+- Session 元数据 (Metadata) 应当保持精简且具有描述性
+- Session 应当足以从存储中重建上下文
 
 ### 2.3 Turn
 
-A turn is one request/response execution cycle inside a session.
+Turn 是 Session 内部的一次“请求/响应”执行周期。
 
-Suggested fields:
+建议字段：
 ```ts
 interface Turn {
   id: string
@@ -52,52 +52,52 @@ interface Turn {
 }
 ```
 
-Turn is useful for:
-- tracing one model call cycle
-- grouping tool calls
-- recording retry or failure state
-- supporting stream replay
+Turn 的用途：
+- 追踪一次模型调用周期
+- 归组工具调用 (Tool calls)
+- 记录重试或失败状态
+- 支持流式重放 (Stream replay)
 
 ### 2.4 Message
 
-A message is the persisted representation of an interaction unit.
+Message 是交互单元的持久化表示。
 
-Recommended behavior:
-- message should be append-only
-- parts should carry concrete payloads
-- tool calls and tool results should remain traceable by `toolCallId`
-- avoid mixing UI-only data into message core fields
+建议行为：
+- Message 应当是只增的 (Append-only)
+- Part 应当携带具体的有效负载 (Payloads)
+- 工具调用和工具结果应当通过 `toolCallId` 保持可追溯性
+- 避免将纯 UI 数据混入 Message 核心字段
 
 ### 2.5 Artifact
 
-An artifact stores generated or attached content such as:
-- source files
-- rendered outputs
-- snapshots
-- logs
-- images
+Artifact 存储生成的或附加的内容，例如：
+- 源文件
+- 渲染输出
+- 快照 (Snapshots)
+- 日志
+- 图像
 
-Artifact should support both inline content and external URI references.
+Artifact 应当同时支持内联内容和外部 URI 引用。
 
-## 3. State Relationships
+## 3. 状态关系
 
-Recommended relationships:
+建议关系：
 - Workspace 1 -> N Session
 - Session 1 -> N Turn
 - Session 1 -> N Message
 - Session 1 -> N Artifact
-- Turn 1 -> N Tool execution records
+- Turn 1 -> N 工具执行记录
 
-## 4. Versioning Rules
+## 4. 版本化规则
 
-### 4.1 Schema versioning
+### 4.1 Schema 版本化
 
-Every persisted record should have a version strategy. At minimum, the storage layer should know:
-- record type
-- record schema version
-- migration path if needed
+每一条持久化记录都应当有版本策略。至少存储层应当知道：
+- 记录类型
+- 记录 Schema 版本
+- 如果需要，提供迁移路径
 
-Recommended record envelope:
+建议的记录封装 (Envelope)：
 ```ts
 interface RecordEnvelope<T> {
   type: string

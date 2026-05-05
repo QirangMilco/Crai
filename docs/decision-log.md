@@ -1,82 +1,82 @@
-# Crai Decision Log
+# Crai 决策记录 (Decision Log)
 
-This log captures decisions that should remain stable unless there is a strong reason to change them.
+本日志记录了应当保持稳定的决策，除非有强有力的理由进行更改。
 
-## D-001 — Use TypeScript as the primary implementation language
+## D-001 — 使用 TypeScript 作为主要实现语言
 
-### Status
-Accepted
+### 状态
+已接受 (Accepted)
 
-### Decision
-Crai will use TypeScript for core, runtime, extensions, and UI-facing infrastructure.
+### 决策
+Crai 将在核心 (Core)、运行时 (Runtime)、扩展 (Extensions) 和面向 UI 的基础设施中使用 TypeScript。
 
-### Reasoning
-- better fit for dynamic extension loading
-- shared language across runtime and UI
-- lower friction for provider and transport integration
-- faster iteration for a small team / single developer workflow
+### 理由
+- 更好地契合动态扩展加载
+- 运行时与 UI 之间共享语言
+- 降低供应商 (Provider) 和传输层 (Transport) 集成的摩擦
+- 为小团队/单人开发工作流提供更快的迭代速度
 
-## D-002 — Use a hollow core architecture
+## D-002 — 采用空心核心架构 (Hollow core architecture)
 
-### Status
-Accepted
+### 状态
+已接受 (Accepted)
 
-### Decision
-Core will stay dependency-light and will not depend on provider SDKs, UI frameworks, IM SDKs, or concrete storage engines.
+### 决策
+核心将保持轻量依赖，不依赖于供应商 SDK、UI 框架、IM SDK 或具体的存储引擎。
 
-### Reasoning
-- keeps the runtime extensible
-- makes the system easier to test and swap
-- reduces coupling between product concerns and execution concerns
+### 理由
+- 保持运行时可扩展性
+- 使系统更易于测试和更换
+- 减少产品关注点与执行关注点之间的耦合
 
-## D-003 — Prefer event-driven and hookable runtime flow
+## D-003 — 首选事件驱动且可钩入的运行时流程
 
-### Status
-Accepted
+### 状态
+已接受 (Accepted)
 
-### Decision
-Important runtime steps should be represented as events, and key lifecycle points should be interceptable by hooks.
+### 决策
+重要的运行时步骤应当表示为事件 (Events)，关键的生命周期点应当可以通过钩子 (Hooks) 拦截。
 
-### Reasoning
-- supports extension-driven customization
-- allows observability and policy enforcement
-- keeps the core runtime reusable across multiple surfaces
+### 理由
+- 支持扩展驱动的定制化
+- 实现可观测性和策略强制执行
+- 保持核心运行时在多个表面上的可重用性
 
-## D-004 — Keep provider, transport, storage, and UI external to core
+## D-004 — 将提供者、传输层、存储和 UI 保持在核心之外
 
-### Status
-Accepted
+### 状态
+已接受 (Accepted)
 
-### Decision
-These capabilities are extension points, not built-in product dependencies.
+### 决策
+这些能力是扩展点，而不是内置的产品依赖。
 
-### Reasoning
-- avoids premature product coupling
-- allows multiple front ends and transports
-- makes future migration easier
+### 理由
+- 避免过早的产品耦合
+- 支持多个前端和传输层
+- 使未来的迁移更容易
 
-## D-005 — Phase 1 should remain minimal
+## D-005 — Phase 1 应当保持极简
 
-### Status
-Accepted
+### 状态
+已接受 (Accepted)
 
-### Decision
-Phase 1 should focus on runtime shell, extension loading, event/hook pipeline, and one minimal adapter path.
+### 决策
+Phase 1 应当聚焦于运行时外壳、扩展加载、事件/钩子流水线以及一个最小的适配器路径。
 
-### Reasoning
-- reduces implementation risk
-- makes the first milestone shippable
-- avoids overbuilding before the runtime shape is proven
+### 理由
+- 降低实现风险
+- 使第一个里程碑可交付
+- 避免在运行时形态得到验证之前过度构建
 
-## D-006 — Prefer `Session` and `Turn` as core conversation terms
+## D-006 — 首选使用 `Session` 和 `Turn` 作为核心对话术语
 
-### Status
-Accepted
+### 状态
+已接受 (Accepted)
 
-### Decision
-Core docs and APIs should use `Session` and `Turn` as the default terms.
+### 决策
+核心文档和 API 应当默认使用 `Session` 和 `Turn` 术语。
 
-### Reasoning
-- clearer lifecycle semantics
-- fits runtime-oriented execution flow
-- avoids ambiguity between product-level and runtime-level concepts
+### 理由
+- 更清晰的生命周期语义
+- 契合面向运行时的执行流程
+- 避免产品级概念与运行时概念之间的歧义

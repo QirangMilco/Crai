@@ -1,26 +1,26 @@
-# Crai Core API Spec
+# Crai 核心 API 规格 (Core API Spec)
 
-> This document defines the stable core-facing contracts for runtime, extensions, events, hooks, and adapters.
+> 本文档定义了运行时 (Runtime)、扩展 (Extensions)、事件 (Events)、钩子 (Hooks) 和适配器 (Adapters) 的稳定核心契约。
 
-## 1. Scope
+## 1. 范围
 
-This spec covers:
-- base types
-- session/message/artifact entities
-- event model
-- hook model
-- adapter contracts
-- runtime handle
-- extension contract
-- command registry
+本规格涵盖：
+- 基础类型
+- Session / Message / Artifact 实体
+- 事件模型 (Event model)
+- 钩子模型 (Hook model)
+- 适配器契约 (Adapter contracts)
+- 运行时句柄 (Runtime handle)
+- 扩展契约 (Extension contract)
+- 命令注册表 (Command registry)
 
-This spec does not cover:
-- UI implementation details
-- provider-specific request formats
-- storage engine internals
-- transport protocol specifics
+本规格不涵盖：
+- UI 实现细节
+- 模型供应商特定的请求格式
+- 存储引擎内部实现
+- 传输协议的具体细节
 
-## 2. Base Types
+## 2. 基础类型
 
 ```ts
 export type ID = string
@@ -37,7 +37,7 @@ export type JsonValue =
 export type Metadata = Record<string, JsonValue | undefined>
 ```
 
-## 3. Entities
+## 3. 实体
 
 ### 3.1 Session
 
@@ -98,6 +98,8 @@ export type MessagePart = TextPart | ImagePart | ToolCallPart | ToolResultPart
 
 export interface Message extends BaseMessage {
   parts: MessagePart[]
+}
+```
 }
 ```
 

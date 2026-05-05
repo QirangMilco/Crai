@@ -1,20 +1,20 @@
-# Crai Repository Structure Draft
+# Crai 仓库结构草案 (Repository Structure Draft)
 
-This draft reflects the current documentation split and the intended monorepo layout.
+本草案反映了当前的文档拆分和预期的 monorepo 布局。
 
-## 1. Layering Principles
+## 1. 分层原则
 
-Crai should be organized around five layers:
-- **core**: minimal contracts and types
-- **runtime**: executable kernel and orchestration
-- **extension**: optional behavior and SDK helpers
-- **preset**: default behavior bundles that stay outside runtime
-- **devtools**: developer automation, workflow helpers, and general coding assistance
-- **app**: product surfaces, demos, and developer tooling
+Crai 应当围绕五个层级进行组织：
+- **core**: 最小契约与类型
+- **runtime**: 可执行内核与编排
+- **extension**: 可选行为与 SDK 助手
+- **preset**: 保持在运行时之外的默认行为捆绑包
+- **devtools**: 开发自动化、工作流助手和通用编码辅助
+- **app**: 产品表面、演示和开发工具
 
-The goal is to keep `packages/core` clean, keep `packages/runtime` thin, and prevent self-bootstrapping or product logic from leaking into the core layer.
+目标是保持 `packages/core` 干净，保持 `packages/runtime` 精简，并防止自举或产品逻辑泄露到核心层。
 
-## 2. Top-Level Layout
+## 2. 顶级布局
 
 ```txt
 packages/
@@ -45,9 +45,9 @@ examples/
 docs/
 ```
 
-## 3. Phase 1 Target Layout
+## 3. Phase 1 目标布局
 
-Start with only the minimum packages needed to prove the architecture:
+仅从证明架构所需的最小包开始：
 
 ```txt
 packages/
@@ -58,46 +58,46 @@ packages/
   preset-default/
 ```
 
-Optional Phase 1 add-ons if needed:
-- one provider package
-- one storage package
-- one minimal transport package
-- one developer-tools package, if and only if it stays outside core
+可选的 Phase 1 补充（如果需要）：
+- 一个供应商 (Provider) 包
+- 一个存储 (Storage) 包
+- 一个最小的传输层 (Transport) 包
+- 一个开发工具 (Developer-tools) 包（当且仅当它保持在核心之外时）
 
-## 4. Package Responsibilities
+## 4. 包职责
 
 ### 4.1 `packages/core`
-- shared types
-- events
-- hooks
-- adapter contracts
-- runtime errors
-- logging types
-- only the contracts required by the runtime kernel
+- 共享类型
+- 事件 (Events)
+- 钩子 (Hooks)
+- 适配器契约 (Adapter contracts)
+- 运行时错误
+- 日志类型
+- 仅包含运行时内核所需的契约
 
 ### 4.2 `packages/runtime`
-- minimal runtime kernel
-- prompt flow scheduling
-- session management
-- hook execution
-- event emission
-- extension lifecycle
-- adapter dispatch
-- minimal tool resolution
+- 最小运行时内核
+- Prompt 流程调度
+- Session 管理
+- 钩子执行
+- 事件触发
+- 扩展生命周期
+- 适配器分发
+- 最小工具解析
 
 ### 4.3 `packages/extension-sdk`
 - `defineExtension()`
-- helper utilities
-- typed re-exports from core
-- extension authoring helpers
+- 辅助工具类
+- 来自核心的类型化重导出
+- 扩展编写助手
 
 ### 4.4 `packages/loader-ts`
-- load local `.ts` extensions
-- reload and unload support
-- watch-mode utilities
+- 加载本地 `.ts` 扩展
+- 支持重新加载和卸载
+- 监听模式 (Watch-mode) 工具
 
 ### 4.5 `packages/preset-default`
-- default prompt pipeline
+- 默认 Prompt 流水线
 - default context behavior
 - default persistence behavior
 - default telemetry/logging behavior
