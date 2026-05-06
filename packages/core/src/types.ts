@@ -18,6 +18,42 @@ export type JsonValue =
 /** 扩展元数据。不要用 metadata 代替应显式建模的核心字段。 */
 export type Metadata = Record<string, JsonValue | undefined>
 
+// ============================================================
+// 安全类型 (Safety types)
+// ============================================================
+
+/** 工具安全级别：每个 ToolDefinition 必须声明。 */
+export type ToolSafetyLevel = 'safe' | 'restricted' | 'dangerous'
+
+/** 运行时权限模式。 */
+export type PermissionMode = 'safe' | 'ask' | 'execute'
+
+/** 文件系统沙箱作用域。 */
+export interface SandboxScope {
+  rootDir: string
+  allowWrite?: string[]
+  denyWrite?: string[]
+  denyRead?: string[]
+  maxReadBytes?: number
+}
+
+/** 权限检查请求。 */
+export interface PermissionCheckRequest {
+  kind: 'tool' | 'transport' | 'storage' | 'extension' | 'custom'
+  action: string
+  payload?: unknown
+  session?: Session
+}
+
+/** 权限检查决策。 */
+export interface PermissionDecision {
+  allow: boolean
+  reason?: string
+  metadata?: Metadata
+}
+
+// ============================================================
+
 /** Session 是 runtime 的最小隔离容器，承载一次连续任务或对话。 */
 export interface Session {
   id: ID

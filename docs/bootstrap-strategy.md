@@ -50,6 +50,24 @@ Crai 的目标不是一开始就完全自给自足，而是先依赖外部 codin
 
 而不是直接让 extension 依赖 `SessionManager` 本体。
 
+### 2.5 安全是不可协商的核心关注点
+工具安全性不应推迟到 Phase 3 再处理。以下能力必须从架构设计的第一天就内建：
+
+- **工具安全级别声明**：每个 `ToolDefinition` 必须标记自己是 `safe`（只读）/ `restricted`（受限写）/ `dangerous`（危险操作）
+- **危险命令静态识别**：`rm -rf /`、`mkfs`、`dd`、`sudo` 等操作在匹配阶段即被识别并无条件拦截或要求确认
+- **文件系统沙箱**：通过 `rootDir` 限制 + 路径遍历检测，杜绝 agent 读写非授权路径
+- **权限模式（PermissionMode）**：`safe`（只读探索）/ `ask`（每次确认）/ `execute`（全权执行）三级模式
+
+这些不是"产品层功能"，而是 runtime 的执行契约——缺少它们，runtime 就无法安全地执行任何第三方工具。
+
+### 2.6 纵深防御（Defense in Depth）
+安全防护应在四层同时生效，单层失误不应导致灾难性后果：
+
+- **核心契约层（Core）**：定义安全类型枚举（`ToolSafetyLevel`、`PermissionMode`、`SandboxScope`）和 `PermissionAdapter` 接口
+- **运行时层（Runtime）**：在 turn runner 的工具执行路径上强制执行安全检查
+- **预设/扩展层（Preset/Extension）**：提供默认的危险命令列表、默认权限策略适配器、危险命令正则匹配器
+- **应用/UI 层（App/Transport）**：负责权限确认的交互呈现（确认对话框、权限面板）
+
 ## 3. 建议分层
 
 ### 3.1 `@crai/core`
@@ -98,12 +116,17 @@ Crai 的目标不是一开始就完全自给自足，而是先依赖外部 codin
 - session / turn / message / artifact 基础契约
 - events / hooks / adapters
 - 最小错误与权限语义
+- **工具安全级别枚举（`ToolSafetyLevel`）**
+- **权限模式枚举（`PermissionMode`）**
+- **沙箱作用域类型（`SandboxScope`）**
 
 ### 放进 runtime
 - 最小执行循环
 - 状态调度
 - 扩展生命周期
 - 工具与模型调用编排
+- **工具执行前的安全检查拦截**
+- **文件路径沙箱校验**
 
 ### 放进 extension 或 app
 - 开发工作流

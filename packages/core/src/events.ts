@@ -1,4 +1,4 @@
-import type { Artifact, ContextBundle, ID, MemoryEntry, Metadata, Message, Observation, Session, SessionSummary, TextPart, ImagePart, ToolCallPart } from './types'
+import type { Artifact, ContextBundle, ID, MemoryEntry, Metadata, Message, Observation, PermissionCheckRequest, PermissionDecision, Session, SessionSummary, TextPart, ImagePart, ToolCallPart, ToolSafetyLevel, SandboxScope } from './types'
 
 /** 事件只表达“发生了什么”，不直接承担业务逻辑。 */
 export interface CoreEvent<TType extends string = string, TPayload = unknown> {
@@ -46,6 +46,10 @@ export interface EventMap {
   'session.summaryGenerated': { session: Session; summary: SessionSummary }
   'memory.entriesStored': { session: Session; entries: MemoryEntry[] }
   'observations.extracted': { session: Session; observations: Observation[] }
+
+  'tool.blocked': { session: Session; toolCall: ToolCallPart; reason: string }
+  'permission.requested': { session: Session; request: PermissionCheckRequest }
+  'permission.resolved': { session: Session; request: PermissionCheckRequest; decision: PermissionDecision }
 }
 
 export type RuntimeInput =
@@ -97,11 +101,13 @@ export interface ModelResponse {
   metadata?: Metadata
 }
 
-/** 工具声明面向模型暴露；执行逻辑由 ToolHandler 承担。 */
+/** 工具声明面向模型暴露；执行逻辑由 ToolHandler 承担。每个工具必须声明 safetyLevel。 */
 export interface ToolDefinition {
   name: string
   description?: string
   inputSchema?: Record<string, unknown>
+  safetyLevel: ToolSafetyLevel
+  sandbox?: SandboxScope
   metadata?: Metadata
 }
 

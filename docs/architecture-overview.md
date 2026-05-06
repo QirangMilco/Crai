@@ -79,13 +79,24 @@ Runtime 内核不应拥有记忆策略实现。默认的轻量级 Summary 记忆
 - 加载扩展
 - 通过注入的适配器或预设扩展持久化状态
 
-### 3.5 行业基准对齐 (Industry Alignment)
+### 3.5 安全是跨层关注点 (Safety is Cross-Layer)
+
+安全防护采用纵深防御策略，在四层同时生效：
+
+- **Core 层**：定义 `ToolSafetyLevel`（安全/受限/危险）、`PermissionMode`（探索/确认/执行）、`SandboxScope`（文件系统根路径、可写路径白名单、禁止路径黑名单）和 `PermissionAdapter` 契约
+- **Runtime 层**：在 turnRunner 的工具执行路径上强制执行安全检查；每个 `ToolDefinition` 必须有 safetyLevel 声明；路径沙箱在工具分发层校验
+- **Preset/Extension 层**：提供默认的危险命令列表、默认权限策略适配器、OS 级沙箱集成（可选）
+- **App/UI 层**：负责权限确认的交互呈现（确认对话框 / permission panel）
+
+> 详细的安全模型设计请参见 [security-model.md](security-model.md)。
+
+### 3.6 行业基准对齐 (Industry Alignment)
 Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
-- **[CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)**：借鉴其组件抽象、中间件模式和检查点机制，用于增强内核的治理能力。
-- **[pi-mono](file:///Users/qirang/Documents/Projects/Crai/refs/pi-mono)**：借鉴其极简的 Agent 循环设计与 Provider 适配层抽象。
-- **[reasonix](file:///Users/qirang/Documents/Projects/Crai/refs/reasonix)**：借鉴其以缓存为中心的语义索引与状态持久化机制，以及三层记忆作用域（user/project/session）设计。
-- **[crystalagents](file:///Users/qirang/Documents/Projects/Crai/refs/crystalagents)**：借鉴其优雅的前端交互风格与高性能 Markdown 渲染实现。
-- **[snow-cli](file:///Users/qirang/Documents/Projects/Crai/refs/snow-cli)**：借鉴其完善的 MCP 集成、LSP 支持以及工具确认流（Tool Confirmation Flow）的交互设计。
+- **[CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)**：借鉴其组件抽象、中间件模式、检查点机制以及**中断/恢复（interrupt/resume）模式**，用于增强内核的治理能力和**人机确认流程**。
+- **[pi-mono](file:///Users/qirang/Documents/Projects/Crai/refs/pi-mono)**：借鉴其极简的 Agent 循环设计与 Provider 适配层抽象；以及**扩展级安全门（permission-gate / protected-paths）** 和 **OS 级沙箱（sandbox-exec/bubblewrap）** 实现。
+- **[reasonix](file:///Users/qirang/Documents/Projects/Crai/refs/reasonix)**：借鉴其以缓存为中心的语义索引与状态持久化机制，三层记忆作用域（user/project/session）设计；以及**文件系统沙箱（rootDir 强制校验 + 路径遍历检测 + 读写字节上限）**。
+- **[crystalagents](file:///Users/qirang/Documents/Projects/Crai/refs/crystalagents)**：借鉴其优雅的前端交互风格与高性能 Markdown 渲染实现；以及**三级权限模式（safe/ask/allow-all）、危险命令黑名单（DANGEROUS_COMMANDS）、工作空间级 permissions.json 配置**。
+- **[snow-cli](file:///Users/qirang/Documents/Projects/Crai/refs/snow-cli)**：借鉴其完善的 MCP 集成、LSP 支持以及工具确认流（Tool Confirmation Flow）的交互设计；以及**自毁命令检测（防止 agent 杀掉自身进程）和技能级 allowed-tools 白名单**。
 - **[SimpleMem](file:///Users/qirang/Documents/Projects/Crai/refs/SimpleMem)**：借鉴其三阶段记忆流水线（语义压缩 → 混合检索 → 答案生成）、多视图索引模型（语义/词汇/符号三层）、跨会话记忆生命周期管理以及 Token 预算分层上下文注入策略。
 
 ## 4. 推荐包边界
@@ -107,6 +118,8 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 错误与日志类型
 - 记忆类型定义 (`MemoryEntry`, `MemoryScope`, `MemoryProvenance`)
 - 记忆适配器契约 (`MemoryAdapter`)
+- **安全类型定义 (`ToolSafetyLevel`, `PermissionMode`, `SandboxScope`)**
+- **权限适配器契约 (`PermissionAdapter`)**
 
 ### 4.2 `@crai/runtime`
 包含：
@@ -117,6 +130,8 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 钩子总线 (Hook bus)
 - 扩展生命周期管理
 - 适配器分发 (Adapter dispatch)
+- **工具执行前的安全检查拦截**
+- **文件路径沙箱校验**
 
 ### 4.3 `@crai/extension-sdk`
 包含：
@@ -151,7 +166,13 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **SimpleMem**: 吸收其三阶段记忆流水线（语义压缩→混合检索→答案生成）、多视图索引模型（语义/词汇/符号三层）以及 Token 预算分层上下文注入策略，作为 `packages/preset-memory` 的参考实现。
 - **reasonix**: 吸收其三层记忆作用域（user/project/session）设计，作为 MemoryScope 分层模型参考。
 
-### 5.5 经验法则
+### 5.5 安全层 (Safety) - 吸收自 CrystalAgents / reasonix / snow-cli / pi-mono
+- **CrystalAgents**: 吸收其三级权限模式（safe/ask/allow-all）、危险命令黑名单（`DANGEROUS_COMMANDS`）和工作空间级 `permissions.json` 配置，作为 `packages/preset-default` 安全配置的参考实现。
+- **reasonix**: 吸收其文件系统沙箱（`safePath` 路径遍历检测 + `rootDir` 强制校验 + 读写字节上限）和只读模式开关，作为 runtime 层面 `SandboxScope` 校验逻辑的参考实现。
+- **snow-cli**: 吸收其自毁命令检测（`isSelfDestructiveCommand`）和危险命令正则模式（`DANGEROUS_PATTERNS`），作为 `packages/preset-default` 匹配器的参考实现。
+- **pi-mono**: 吸收其 OS 级沙箱集成模式（sandbox-exec / bubblewrap 作为 extension），作为 Phase 3 的可选沙箱策略参考。
+
+### 5.6 经验法则
 如果一段代码会将供应商/UI/IM 强制引入核心，那么请重写它，或者将其落位到应用层/扩展层。
 
 ## 6. 阶段划分 (Phase Split)
@@ -167,6 +188,11 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 提供默认行为的预设扩展
 - **记忆类型定义与适配器契约 (MemoryEntry/MemoryAdapter，仅 Core 层)**
 - **Session 生命周期中的记忆事件/钩子触发点 (仅 Runtime 层)**
+- **工具安全级别系统：ToolDefinition 必须声明 safetyLevel**
+- **危险命令模式检测：默认危险命令列表 + 可扩展匹配器**
+- **权限模式运行时切换：safe / ask / execute 三级模式**
+- **文件系统路径沙箱：rootDir 校验 + 路径遍历检测**
+- **扩展权限声明强制执行：bootstrap 中实现权限验证**
 
 ### Phase 2
 - 更丰富的传输适配器
@@ -179,10 +205,9 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **混合检索与记忆整理机制**
 
 ### Phase 3
-- 更强的权限模型
-- 沙箱选项
 - 多传输层协调
 - 高级 UI 壳层 / 瘦客户端支持
+- **OS 级沙箱选项（sandbox-exec / bubblewrap）**
 - **多模态记忆支持 (向量 + 知识图谱)**
 - **可插拔的记忆后端**
 

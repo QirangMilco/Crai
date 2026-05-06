@@ -22,6 +22,10 @@
 - **记忆类型定义 (`MemoryEntry`, `MemoryScope`, `MemoryProvenance`)**
 - **记忆适配器契约 (`MemoryAdapter`)**
 - **Session 记忆事件触发点 (`session:beforeStart`, `session:afterStop`)**
+- **安全类型定义 (`ToolSafetyLevel`, `PermissionMode`, `SandboxScope`)**
+- **权限适配器契约 (`PermissionAdapter`)**
+- **默认危险命令列表与匹配器**
+- **权限模式运行时切换**
 
 ### 验收标准
 - 运行时可以在没有 UI 的情况下启动
@@ -30,6 +34,9 @@
 - 运行时可以加载和卸载一个扩展
 - 运行时可以触发核心事件 (Core events)
 - 扩展加载可以在设置前咨询声明的权限
+- **每个 ToolDefinition 必须携带 safetyLevel 声明**
+- **dangerous 级工具在 safe 模式下被直接拒绝**
+- **dangerous 级工具在 ask 模式下触发 permission 事件**
 
 ## Phase 2: 产品集成层 (Product Integration Layer)
 

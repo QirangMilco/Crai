@@ -1,5 +1,5 @@
 import type { EventMap, ModelRequest, ModelResponse, ModelStreamEvent, RuntimeInput, ToolDefinition, ToolExecutionRequest, ToolExecutionResult } from './events'
-import type { Artifact, ID, MemoryEntry, MemoryScope, Metadata, Message, Observation, Session, SessionSummary, ToolCallPart } from './types'
+import type { Artifact, ID, MemoryEntry, MemoryScope, Metadata, Message, Observation, PermissionCheckRequest, PermissionDecision, PermissionMode, Session, SessionSummary, ToolCallPart } from './types'
 
 /** 统一可释放对象，便于卸载扩展时回收资源。 */
 export interface Disposable {
@@ -31,6 +31,7 @@ export interface HookMap {
   'model:request:before': { session: Session; request: ModelRequest }
   'model:response:after': { session: Session; response: ModelResponse }
   'tool:before': { session: Session; toolCall: ToolCallPart }
+  'tool:safetyCheck': { session: Session; toolCall: ToolCallPart; definition: ToolDefinition; mode: PermissionMode }
   'tool:after': { session: Session; result: ToolExecutionResult }
   'turn:after': { session: Session; turnId: ID; messages: Message[] }
   'persist:before': { session: Session }
@@ -115,20 +116,6 @@ export interface MemoryAdapter {
   storeObservations(observations: Observation[]): Promise<void>
 }
 
-export interface PermissionCheckRequest {
-  kind: 'tool' | 'transport' | 'storage' | 'custom'
-  action: string
-  payload?: unknown
-  session?: Session
-}
-
-export interface PermissionDecision {
-  allow: boolean
-  reason?: string
-  metadata?: Metadata
-}
-
-/** 权限适配器：扩展可注册自定义权限策略。 */
 export interface PermissionAdapter {
   name: string
   check(request: PermissionCheckRequest): Promise<PermissionDecision>

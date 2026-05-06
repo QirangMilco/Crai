@@ -16,6 +16,8 @@
 - 中间件与钩子执行 (Middleware & Hook execution)
 - 扩展生命周期钩子
 - 最小工具解析
+- **工具执行前的安全检查（Tool safety gate）**
+- **文件路径沙箱校验**
 - 适配器分发 (Adapter dispatch)
 - 通过注入的能力调度持久化检查点 (Persistence checkpoints)
 - **Session 生命周期中记忆事件的触发点（记忆注入/提取/持久化的钩子调度，不实现记忆策略）**
@@ -31,6 +33,9 @@
 - 高级权限 UX
 - 产品特定的设置屏幕
 - **具体的记忆策略实现（记忆压缩、检索、整理、摘要生成等——这些属于 preset/extension 的职责）**
+- **权限确认的 UI 交互（属于 App/Transport 层）**
+- **具体的危险命令列表（属于 preset-default 提供）**
+- **OS 级沙箱实现（属于可选的 sandbox extension）**
 
 这些关注点应当由应用层服务或预设扩展来实现。
 

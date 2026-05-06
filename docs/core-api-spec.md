@@ -37,6 +37,37 @@ export type JsonValue =
 export type Metadata = Record<string, JsonValue | undefined>
 ```
 
+## 2.1 安全类型 (Safety Types)
+
+```ts
+/** 工具安全级别：每个 ToolDefinition 必须声明 */
+export type ToolSafetyLevel = 'safe' | 'restricted' | 'dangerous'
+
+/**
+ * safe: 纯只读操作，不修改任何状态（如 read_file、search、grep）
+ * restricted: 受限写操作，仅在 sandbox 范围内生效（如 edit_file、write_file）
+ * dangerous: 可能造成不可逆损害的操作（如 rm、shell、sudo），必须显式用户确认
+ */
+
+/** 运行时权限模式 */
+export type PermissionMode = 'safe' | 'ask' | 'execute'
+
+/**
+ * safe: 只允许 safe 级工具，restricted 和 dangerous 被拒绝
+ * ask: safe 自动通过，restricted 和 dangerous 需用户确认
+ * execute: safe 和 restricted 自动通过，dangerous 需用户确认
+ */
+
+/** 文件系统沙箱作用域 */
+export interface SandboxScope {
+  rootDir: string
+  allowWrite?: string[]
+  denyWrite?: string[]
+  denyRead?: string[]
+  maxReadBytes?: number
+}
+```
+
 ## 3. 实体
 
 ### 3.1 Session
@@ -167,6 +198,11 @@ export interface EventMap {
 
   "extension.loaded": { name: string }
   "extension.unloaded": { name: string }
+
+  // Safety events
+  "tool.blocked": { session: Session; toolCall: ToolCallPart; reason: string }
+  "permission.requested": { session: Session; request: PermissionCheckRequest }
+  "permission.resolved": { session: Session; request: PermissionCheckRequest; decision: PermissionDecision }
 }
 ```
 
@@ -288,6 +324,8 @@ export interface ToolDefinition {
   name: string
   description?: string
   inputSchema?: Record<string, unknown>
+  safetyLevel: ToolSafetyLevel  // 必填：工具声明自身安全级别
+  sandbox?: SandboxScope
   metadata?: Metadata
 }
 
