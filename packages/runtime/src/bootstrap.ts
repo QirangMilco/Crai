@@ -1,10 +1,11 @@
 import type { Extension, ExtensionContext, PermissionCheckRequest, PermissionDecision } from '../../core/src'
+import { HOOKS } from '../../core/src'
 
 async function checkPermission(
   request: PermissionCheckRequest,
   ctx: ExtensionContext,
 ): Promise<PermissionDecision> {
-  const result = await ctx.hooks.run('permission:check', {
+  const result = await ctx.hooks.run(HOOKS.PERMISSION_CHECK, {
     session: request.session ?? { id: '', createdAt: 0, updatedAt: 0 },
     request,
     decision: { allow: false, reason: '默认拒绝：无权限适配器处理该请求' },

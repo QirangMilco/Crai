@@ -74,7 +74,8 @@ export interface ModelRequest {
   settings?: {
     temperature?: number
     maxTokens?: number
-    thinkingLevel?: 'off' | 'low' | 'medium' | 'high'
+    /** 思考强度（由各 provider 自行定义语义，core 只做透传） */
+    thinkingLevel?: string
   }
   metadata?: Metadata
 }

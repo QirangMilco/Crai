@@ -6,7 +6,7 @@ import type {
   RuntimeError,
   ToolSafetyLevel,
 } from '../../core/src'
-import { ERROR_CODES, HOOKS } from '../../core/src'
+import { ERROR_CODES, HOOKS, TOOL_SAFETY_LEVELS, PERMISSION_MODES } from '../../core/src'
 import { createDefaultI18nAdapter } from './i18n/index'
 
 // ============================================================
@@ -108,15 +108,15 @@ export function createDefaultPermissionAdapter(mode: 'safe' | 'ask' | 'execute' 
 
       const safetyLevel = request.payload as ToolSafetyLevel | undefined
 
-      if (mode === 'safe') {
-        if (safetyLevel === 'restricted' || safetyLevel === 'dangerous') {
+      if (mode === PERMISSION_MODES.SAFE) {
+        if (safetyLevel === TOOL_SAFETY_LEVELS.RESTRICTED || safetyLevel === TOOL_SAFETY_LEVELS.DANGEROUS) {
           return { allow: false, reason: `safe 模式下不允许 ${safetyLevel} 级工具` }
         }
         return { allow: true }
       }
 
-      if (mode === 'ask') {
-        if (safetyLevel === 'safe') {
+      if (mode === PERMISSION_MODES.ASK) {
+        if (safetyLevel === TOOL_SAFETY_LEVELS.SAFE) {
           return { allow: true }
         }
         // restricted 和 dangerous 需确认——返回 deny，由上层 hook 处理确认流程
@@ -124,7 +124,7 @@ export function createDefaultPermissionAdapter(mode: 'safe' | 'ask' | 'execute' 
       }
 
       // execute 模式
-      if (safetyLevel === 'dangerous') {
+      if (safetyLevel === TOOL_SAFETY_LEVELS.DANGEROUS) {
         return { allow: false, reason: '需要用户确认' }
       }
       return { allow: true }

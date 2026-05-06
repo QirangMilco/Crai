@@ -26,6 +26,8 @@
 - [ ] 调研并集成 crystalagents 的现代 UI 与 Markdown 渲染风格
 - [ ] 增加最小示例与最小测试
 - [x] 创建独立的 `packages/preset-default`
+- [x] 创建 `packages/provider`（统一 provider 包，首个实现为 OpenAI）
+- [x] 编写最小测试验证 prompt 完整流程
 - [ ] 创建 `packages/devtools`
 - [x] **在 `packages/core` 中定义 MemoryEntry/MemoryScope/MemoryAdapter 类型**
 - [x] **在 `packages/runtime` 的 Session 生命周期中加入记忆事件/钩子触发点**
@@ -36,10 +38,11 @@
 
 - 记忆体系设计文档已合并，记忆契约已在 core 中实现（MemoryEntry/MemoryScope/MemoryAdapter）
 - Runtime 的 Session/Turn 生命周期中已加入记忆事件/钩子触发点
-- Runtime 主文件继续瘦身中，通用基础设施已拆出到 helper 文件
-- 默认行为已迁移到独立 preset 包，已删除运行时内的旧 presets.ts
 - prompt() 与 runTurn() 已连通，替代了 preset-default 中的假 pipeline
-- 开发辅助能力命名统一为 devtools**
+- 首个 ModelAdapter 实现 `packages/provider`（OpenAI）已创建
+- 测试验证 prompt 完整流程通过（mock 模型）
+- 开发辅助能力命名统一为 devtools
+- 默认行为已迁移到独立 preset 包，旧 presets.ts 已删除
 
 ## 4. 已完成
 

@@ -262,6 +262,8 @@ export interface PromptResult {
 
 export interface ModelAdapter {
   name: string
+  /** 模型的上下文窗口长度（token）。用于 Token 预算管理，0 或 undefined 表示未知。 */
+  contextLength?: number
   request(request: ModelRequest): Promise<ModelResponse>
   stream(request: ModelRequest): AsyncIterable<ModelStreamEvent>
 }

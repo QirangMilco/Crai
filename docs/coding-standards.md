@@ -345,3 +345,119 @@ const BLOCKED_ENV_VARS = ['ANTHROPIC_API_KEY', ...] // 需要改代码才能变�
 | Runtime | `packages/runtime/src/constants.ts` | Runtime 内部私有常量 |
 | Preset | `packages/preset-default/src/constants.ts` | Preset 内部私有常量和默认值 |
 | Extension | `packages/<ext>/src/constants.ts` | 各扩展内部私有常量 |
+
+### 1.8 包内私有字符串（HTTP、类型字面量、API 内部值）
+
+裸字符串管理不仅适用于契约层（事件/Hook/错误码），也适用于**包内私有**的字符串值，包括但不限于：
+
+| 类别 | 示例 |
+|------|------|
+| HTTP 方法、路径、Header | `'POST'`, `'/chat/completions'`, `'Content-Type'`, `'Authorization'` |
+| 认证方案前缀 | `'Bearer'`, `'Basic'` |
+| SSE/流式协议标记 | `'data: '`, `'[DONE]'` |
+| 内部类型/角色映射 | `'system'`, `'user'`, `'assistant'`, `'tool'`（消息角色） |
+| Adapter 内部的 Part type | `'text'`, `'tool-call'`, `'image'` |
+| ID 前缀 | `'msg_'`, `'session_'`, `'turn_'`, `'evt_'` |
+| API 内部常量值 | `'function'`（OpenAI tool type） |
+| 流事件类型 | `'text-start'`, `'text-end'`, `'done'` |
+
+这些字符串应在对应包的 `constants.ts` 中定义为命名常量：
+
+```typescript
+// packages/provider/src/openai/constants.ts — ✅ 正确
+export const API = {
+  DEFAULT_BASE_URL: 'https://api.openai.com/v1',
+  CHAT_PATH: '/chat/completions',
+  METHOD: 'POST',
+  HEADER_CONTENT_TYPE: 'application/json',
+  AUTH_SCHEME: 'Bearer',
+  SSE_DATA_PREFIX: 'data: ',
+  SSE_DONE_SENTINEL: '[DONE]',
+  TOOL_TYPE: 'function',
+} as const
+
+export const OPENAI_ROLES = {
+  SYSTEM: 'system', USER: 'user', ASSISTANT: 'assistant', TOOL: 'tool',
+} as const
+```
+
+```typescript
+// 引用处 — ✅ 正确
+Authorization: `${API.AUTH_SCHEME} ${this.apiKey}`
+result.push({ role: OPENAI_ROLES.ASSISTANT, content: text?.text ?? null })
+```
+
+```typescript
+// — ❌ 错误：裸字符串散落在业务逻辑中
+result.push({ role: 'assistant', content: text?.text ?? null })
+Authorization: `Bearer ${this.apiKey}`
+```
+
+> **判断准则**：如果一个字符串代表一条**业务语义**（即使只在当前包内），它就是命名常量的候选。如果它只是算法中的通用字符（如 `'\n'`、`' '`、`''`），可以不抽象。
+
+---
+
+## 5. 注释规范 (Commenting Standards)
+
+### 5.1 注释的目的
+
+注释应当解释**为什么要这样做**，而不是**做了什么**。代码本身应当能表达"做了什么"。
+
+### 5.2 必须注释的地方
+
+| 位置 | 注释内容 |
+|------|---------|
+| 每个文件顶部 | 文件职责（一句话） |
+| 每个 class / 构造函数 | 类的职责、适用场景 |
+| 每个 export function | 函数做什么、参数含义、返回值 |
+| 每个 interface / type（非明显） | 类型的用途 |
+| 非显而易见的算法逻辑 | 算法思路，而非逐行翻译 |
+| 边界条件或 hack | 为什么需要特殊处理 |
+| 常量/配置文件 | 每个导出的常量的用途 |
+
+### 5.3 不应注释的地方
+
+- **不注释显而易见的代码**：`i++; // i 加一`
+- **不注释 Getter/Setter**：`getName() { return this.name } // 返回 name`
+- **不注释类型定义中的每个字段**（除非字段用途不直观）
+
+### 5.4 注释风格
+
+```typescript
+// JSDoc 风格的块注释 — 用于 class、public 函数、接口
+/** 将 Crai Message[] 转为 OpenAI API 请求体中的 messages 数组。 */
+function toOpenAIMessages(contextMessages: Message[], system?: string): OpenAIMessage[]
+
+// 行注释 — 用于解释非显而易见的逻辑
+// 跳过解析失败的 chunk（偶发的非 JSON SSE 行）
+} catch {
+  continue
+}
+
+// 节注释 — 用于在长文件中分隔逻辑块
+// ============================================================
+// Mock 模型工厂
+// ============================================================
+```
+
+### 5.5 文件头部注释
+
+每个源文件顶部应有一行简明的职责描述：
+
+```typescript
+/**
+ * OpenAI ModelAdapter 实现。
+ * 支持完整响应和 SSE 流式响应，自动在 Crai Message 与 OpenAI API 格式间双向转换。
+ */
+```
+
+```typescript
+// Mock 模型工厂 — 用于隔离测试，不依赖真实网络
+```
+
+### 5.6 注释与代码同步
+
+注释是代码的一部分，修改代码时必须同步更新相邻的注释。特别是：
+- 函数签名变化时更新 JSDoc
+- 逻辑变化时更新关联的行注释
+- 节注释与文件结构调整同步

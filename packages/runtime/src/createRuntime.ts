@@ -1,4 +1,4 @@
-import type { Logger, ModelAdapter, PromptOptions, PromptResult, Registry, RuntimeError, RuntimeHandle, RuntimeInput, StorageAdapter, ToolDefinition } from '../../core/src'
+import type { Logger, Message, ModelAdapter, PromptOptions, PromptResult, Registry, RuntimeError, RuntimeHandle, RuntimeInput, Session, StorageAdapter, ToolDefinition } from '../../core/src'
 import type {
   CacheAdapter,
   CommandRegistry,
@@ -11,6 +11,7 @@ import type {
   RuntimeRegistries,
   SettingsStore,
 } from '../../core/src'
+import { EVENTS, ERROR_CODES, HOOKS } from '../../core/src'
 import {
   createCommandRegistry,
   createDefaultLogger,
@@ -79,7 +80,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       }
 
       // 无自定义 pipeline 时走默认 turn 流程
-      let session: import('../../core/src').Session
+      let session: Session
       if (promptOptions?.sessionId) {
         const existing = deps.sessions.get(promptOptions.sessionId)
         session = existing ?? await runtime.createSession(promptOptions.metadata)
@@ -97,7 +98,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
         requestModel: async (request) => {
           const adapter = deps.registries.models.get(request.model)
           if (!adapter) {
-            const err: RuntimeError = { code: 'MODEL_NOT_FOUND', message: `模型 "${request.model}" 未注册` }
+            const err: RuntimeError = { code: ERROR_CODES.MODEL_REQUEST_FAILED, message: `模型 "${request.model}" 未注册` }
             throw err
           }
           return adapter.request(request)
@@ -118,14 +119,14 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       return {
         session: result.session,
         turnId: result.turnId,
-        messages: result.messages as import('../../core/src').Message[],
+        messages: result.messages as Message[],
         response: result.response,
       }
     },
     async createSession(input) {
-      await deps.hooks.run('session:beforeStart', { session: { id: '', createdAt: 0, updatedAt: 0 }, input }, { runtime })
+      await deps.hooks.run(HOOKS.SESSION_BEFORE_START, { session: { id: '', createdAt: 0, updatedAt: 0 }, input }, { runtime })
       const session = await deps.sessions.create(input)
-      await deps.events.emit('session.created', { session })
+      await deps.events.emit(EVENTS.SESSION_CREATED, { session })
       return session
     },
     async stopSession(sessionId, messages) {
@@ -135,8 +136,8 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       }
       session.updatedAt = Date.now()
       await deps.sessions.update(session)
-      await deps.hooks.run('session:afterStop', { session, messages: messages ?? [] }, { runtime })
-      await deps.events.emit('session.updated', { session })
+      await deps.hooks.run(HOOKS.SESSION_AFTER_STOP, { session, messages: messages ?? [] }, { runtime })
+      await deps.events.emit(EVENTS.SESSION_UPDATED, { session })
     },
     async getSession(sessionId) {
       return deps.sessions.get(sessionId)
@@ -151,7 +152,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       void name
     },
     async dispose() {
-      await deps.events.emit('runtime.stopped', { runtimeId })
+      await deps.events.emit(EVENTS.RUNTIME_STOPPED, { runtimeId })
     },
   }
 
@@ -163,7 +164,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     logger: deps.logger,
   }
 
-  await deps.events.emit('runtime.started', { runtimeId })
+  await deps.events.emit(EVENTS.RUNTIME_STARTED, { runtimeId })
   await bootstrapRuntimeExtensions(options?.extensions, [], extensionContext)
 
   return runtime

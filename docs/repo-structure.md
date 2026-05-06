@@ -25,9 +25,7 @@ packages/
   preset-default/
   preset-memory/           (新增) 完整记忆策略：压缩/检索/注入/整理
   devtools/
-  provider-openai/
-  provider-anthropic/
-  provider-deepseek/
+  provider/
   storage-fs/
   storage-vector/          (可选) 向量存储适配器（LanceDB/FAISS 等）
   cache-default/
@@ -61,7 +59,7 @@ packages/
 ```
 
 可选的 Phase 1 补充（如果需要）：
-- 一个供应商 (Provider) 包
+- provider 包（统一管理所有 LLM provider）
 - 一个存储 (Storage) 包
 - 一个最小的传输层 (Transport) 包
 - 一个开发工具 (Developer-tools) 包（当且仅当它保持在核心之外时）
@@ -110,7 +108,13 @@ packages/
 - 默认轻量级 Summary 记忆策略（Session 摘要生成与注入）
 - 此包的存在是为了保持运行时的精简且同时可用
 
-### 4.6 `packages/preset-memory` (新增)
+### 4.6 `packages/provider`
+- 所有 LLM provider 实现（OpenAI、Anthropic、DeepSeek 等）
+- 各 provider 以子模块形式组织（`src/openai/`、`src/anthropic/`）
+- 共享核心 `src/core/` 复用 SSE 解析等公共逻辑
+- 每个 provider 通过 Extension 工厂注册到 runtime，支持 loader-ts 热更新
+
+### 4.7 `packages/preset-memory` (新增)
 - 完整的记忆策略实现（借鉴 SimpleMem）
 - 语义结构化压缩：MemoryBuilder — 滑窗分割 + LLM 提取 → 多视图索引
 - 混合检索：HybridRetriever — 语义/关键词/结构化三路并行检索 + 反思轮次
@@ -119,7 +123,7 @@ packages/
 - 记忆生命周期编排：MemoryOrchestrator
 - 此包属于 Phase 2 范畴
 
-### 4.7 `packages/devtools`
+### 4.8 `packages/devtools`
 - 任务追踪助手 (task tracking helpers)
 - 仓库巡检助手 (repo inspection helpers)
 - AI 辅助补丁协调 (AI-assisted patch coordination)

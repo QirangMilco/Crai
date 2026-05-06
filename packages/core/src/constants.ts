@@ -102,6 +102,32 @@ export const OBSERVATION_TYPES = {
   CHANGE: 'change',
 } as const
 
+export const MESSAGE_ROLES = {
+  SYSTEM: 'system',
+  USER: 'user',
+  ASSISTANT: 'assistant',
+  TOOL: 'tool',
+  CUSTOM: 'custom',
+} as const
+
+export const MESSAGE_PART_TYPES = {
+  TEXT: 'text',
+  IMAGE: 'image',
+  TOOL_CALL: 'tool-call',
+  TOOL_RESULT: 'tool-result',
+} as const
+
+/** ModelStreamEvent 判别式。所有 provider 实现流式响应时都应引用此常量。 */
+export const STREAM_EVENT_TYPES = {
+  TEXT_START: 'text-start',
+  TEXT_DELTA: 'text-delta',
+  TEXT_END: 'text-end',
+  TOOL_CALL: 'tool-call',
+  MESSAGE: 'message',
+  DONE: 'done',
+  ERROR: 'error',
+} as const
+
 export type EventName = typeof EVENTS[keyof typeof EVENTS]
 export type HookName = typeof HOOKS[keyof typeof HOOKS]
 export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES]

@@ -22,10 +22,10 @@ export type Metadata = Record<string, JsonValue | undefined>
 // 安全类型 (Safety types)
 // ============================================================
 
-/** 工具安全级别：每个 ToolDefinition 必须声明。 */
+/** 工具安全级别：每个 ToolDefinition 必须声明。值常量见 constants.ts `TOOL_SAFETY_LEVELS`。 */
 export type ToolSafetyLevel = 'safe' | 'restricted' | 'dangerous'
 
-/** 运行时权限模式。 */
+/** 运行时权限模式。值常量见 constants.ts `PERMISSION_MODES`。 */
 export type PermissionMode = 'safe' | 'ask' | 'execute'
 
 /** 文件系统沙箱作用域。 */
@@ -118,7 +118,7 @@ export interface Artifact {
   metadata?: Metadata
 }
 
-/** 记忆作用域：决定记忆的生命周期和注入优先级。 */
+/** 记忆作用域：决定记忆的生命周期和注入优先级。值常量见 constants.ts `MEMORY_SCOPES`。 */
 export type MemoryScope = 'global' | 'project' | 'session'
 
 /** 记忆溯源：记录每条记忆的来源信息。 */
@@ -167,7 +167,7 @@ export interface SessionSummary {
   createdAt: Timestamp
 }
 
-/** Observation 是会话过程中提取的细粒度发现或决策。 */
+/** Observation 是会话过程中提取的细粒度发现或决策。类型常量见 constants.ts `OBSERVATION_TYPES`。 */
 export interface Observation {
   id: ID
   sessionId: ID
