@@ -31,6 +31,7 @@ Crai 是一个 **极简的、默认空心的、高度可扩展的 AI Agent 运�
 
 ## 开发指南
 
+- [编码规范](docs/coding-standards.md) — 裸字符串管理、i18n 国际化、类型与值一致性
 - [文档维护检查清单](docs/docs-maintenance.md)
 - [仓库目录结构](docs/repo-structure.md)
 

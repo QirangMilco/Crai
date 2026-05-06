@@ -13,8 +13,8 @@
 
 ## 2. Todo
 
-- [ ] 确认 Phase 1 的第一个代码单元
-- [ ] 建立最小仓库骨架
+- [x] 确认 Phase 1 的第一个代码单元
+- [x] 建立最小仓库骨架
 - [x] 实现 `packages/core` 的基础类型与接口
 - [x] 实现 `packages/runtime` 的最小内核骨架
 - [ ] 实现 `packages/extension-sdk`
@@ -27,18 +27,19 @@
 - [ ] 增加最小示例与最小测试
 - [x] 创建独立的 `packages/preset-default`
 - [ ] 创建 `packages/devtools`
-- [ ] **在 `packages/core` 中定义 MemoryEntry/MemoryScope/MemoryAdapter 类型**
-- [ ] **在 `packages/runtime` 的 Session 生命周期中加入记忆事件/钩子触发点**
+- [x] **在 `packages/core` 中定义 MemoryEntry/MemoryScope/MemoryAdapter 类型**
+- [x] **在 `packages/runtime` 的 Session 生命周期中加入记忆事件/钩子触发点**
 - [ ] **调研并借鉴 SimpleMem 的三阶段记忆流水线与多视图索引模型**
 - [ ] **在 `packages/preset-default` 中实现最小 Summary 记忆策略（摘要生成与注入）**
 
 ## 3. 进行中
 
-- runtime 主文件继续瘦身中，通用基础设施已拆出到 helper 文件
-- 默认行为迁移到独立 preset 包
-- 开发辅助能力命名统一为 devtools
-- prompt capability 通过 registry 交给 preset-default
-- **记忆体系设计文档已合并，等待 Phase 1 记忆契约实现**
+- 记忆体系设计文档已合并，记忆契约已在 core 中实现（MemoryEntry/MemoryScope/MemoryAdapter）
+- Runtime 的 Session/Turn 生命周期中已加入记忆事件/钩子触发点
+- Runtime 主文件继续瘦身中，通用基础设施已拆出到 helper 文件
+- 默认行为已迁移到独立 preset 包，已删除运行时内的旧 presets.ts
+- prompt() 与 runTurn() 已连通，替代了 preset-default 中的假 pipeline
+- 开发辅助能力命名统一为 devtools**
 
 ## 4. 已完成
 

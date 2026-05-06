@@ -1,5 +1,6 @@
 import type { EventMap, ModelRequest, ModelResponse, ModelStreamEvent, RuntimeInput, ToolDefinition, ToolExecutionRequest, ToolExecutionResult } from './events'
 import type { Artifact, ID, MemoryEntry, MemoryScope, Metadata, Message, Observation, PermissionCheckRequest, PermissionDecision, PermissionMode, Session, SessionSummary, ToolCallPart } from './types'
+import type { I18nAdapter } from './i18n'
 
 /** 统一可释放对象，便于卸载扩展时回收资源。 */
 export interface Disposable {
@@ -175,6 +176,7 @@ export interface RuntimeRegistries {
   permissions: Registry<PermissionAdapter>
   transports: Registry<TransportAdapter>
   promptPipelines: Registry<PromptPipeline>
+  i18n: Registry<I18nAdapter>
 }
 
 export interface Command {

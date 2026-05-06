@@ -5,3 +5,5 @@
 export * from './types'
 export * from './events'
 export * from './hooks'
+export * from './constants'
+export * from './i18n'

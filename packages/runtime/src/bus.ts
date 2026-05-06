@@ -17,6 +17,7 @@ import type {
   HookBus,
   HookHandler,
   HookMap,
+  I18nAdapter,
   MemoryAdapter,
   ModelAdapter,
   PermissionAdapter,
@@ -59,6 +60,7 @@ export function createRuntimeRegistries(): RuntimeRegistries {
     permissions: createRegistry<PermissionAdapter>(),
     transports: createRegistry<TransportAdapter>(),
     promptPipelines: createRegistry<PromptPipeline>(),
+    i18n: createRegistry<I18nAdapter>(),
   }
 }
 

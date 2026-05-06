@@ -8,6 +8,7 @@ import type {
   ToolDefinition,
 } from '../../core/src'
 import type { HookBus, HookMap, RuntimeHandle, Session } from '../../core/src'
+import { EVENTS, HOOKS, ERROR_CODES } from '../../core/src'
 
 /**
  * 最小 turn 运行结果。
@@ -42,14 +43,15 @@ export async function runTurn(
   session: Session,
   runtime: RuntimeHandle,
   deps: TurnRunnerDeps,
+  modelName?: string,
 ): Promise<TurnRunResult> {
   const turnId = `turn_${Date.now()}`
 
-  await deps.emitEvent('input.received', { session, input })
-  await deps.emitEvent('turn.started', { session, turnId })
+  await deps.emitEvent(EVENTS.INPUT_RECEIVED, { session, input })
+  await deps.emitEvent(EVENTS.TURN_STARTED, { session, turnId })
 
   // 输入归一化：让扩展有机会改写或阻断输入
-  await deps.hooks.run('input:before', { session, input }, { runtime })
+  await deps.hooks.run(HOOKS.INPUT_BEFORE, { session, input }, { runtime })
   const context = await deps.buildContext(session)
   const toolList = deps.resolveTools ? await deps.resolveTools() : []
   const contextWithTools: ModelContext = {
@@ -58,31 +60,33 @@ export async function runTurn(
   }
 
   await deps.hooks.run(
-    'context:build',
+    HOOKS.CONTEXT_BUILD,
     { session, messages: contextWithTools.messages },
     { runtime },
   )
 
+  await deps.emitEvent(EVENTS.CONTEXT_BUILT, { session, context: contextWithTools })
+
   const request: ModelRequest = {
     sessionId: session.id,
     turnId,
-    model: 'placeholder-model',
+    model: modelName ?? 'placeholder-model',
     context: contextWithTools,
   }
 
   const preparedRequest = await deps.hooks.run(
-    'model:request:before',
+    HOOKS.MODEL_REQUEST_BEFORE,
     { session, request },
     { runtime },
   )
 
   await deps.hooks.run(
-    'turn:beforeModel',
+    HOOKS.TURN_BEFORE_MODEL,
     { session, request: preparedRequest.request },
     { runtime },
   )
 
-  await deps.emitEvent('model.requested', { session, request: preparedRequest.request })
+  await deps.emitEvent(EVENTS.MODEL_REQUESTED, { session, request: preparedRequest.request })
 
   // 请求模型，失败时发出结构化错误事件
   let response: ModelResponse | undefined
@@ -90,25 +94,25 @@ export async function runTurn(
     response = await deps.requestModel(preparedRequest.request)
   } catch (cause) {
     const error: RuntimeError = {
-      code: 'MODEL_REQUEST_FAILED',
+      code: ERROR_CODES.MODEL_REQUEST_FAILED,
       message: '模型请求失败',
       cause,
     }
-    await deps.emitEvent('turn.failed', { session, turnId, error })
+    await deps.emitEvent(EVENTS.TURN_FAILED, { session, turnId, error })
     throw error
   }
 
-  await deps.emitEvent('model.completed', { session, response })
+  await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response })
 
   const messages = [response.message]
-  await deps.emitEvent('message.appended', { session, message: response.message })
+  await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: response.message })
 
   // 持久化阶段：具体存储行为由 preset 或 hook 实现，kernel 不直接写存储
-  await deps.hooks.run('persist:before', { session }, { runtime })
-  await deps.hooks.run('turn:after', { session, turnId, messages }, { runtime })
-  await deps.hooks.run('persist:after', { session }, { runtime })
+  await deps.hooks.run(HOOKS.PERSIST_BEFORE, { session }, { runtime })
+  await deps.hooks.run(HOOKS.TURN_AFTER, { session, turnId, messages }, { runtime })
+  await deps.hooks.run(HOOKS.PERSIST_AFTER, { session }, { runtime })
 
-  await deps.emitEvent('turn.completed', { session, turnId })
+  await deps.emitEvent(EVENTS.TURN_COMPLETED, { session, turnId })
 
   return {
     session,
