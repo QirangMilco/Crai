@@ -19,6 +19,8 @@
 - 基础本地 TS 加载器
 - 一个最小的运行时入口点
 - 扩展权限声明支持
+- **Extension API 基础：两级权限模型（restricted / full-access）、register() 自动清理**
+- **EventBus SKIP 链实现**
 - **记忆类型定义 (`MemoryEntry`, `MemoryScope`, `MemoryProvenance`)**
 - **记忆适配器契约 (`MemoryAdapter`)**
 - **Session 记忆事件触发点 (`session:beforeStart`, `session:afterStop`)**

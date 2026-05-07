@@ -110,17 +110,19 @@
 在扩展加载时：
 1. 导入模块
 2. 解析扩展的默认导出 (default export)
-3. 运行 `setup(ctx)`
-4. 注册钩子、命令和其他副作用
-5. 触发 `extension.loaded`
+3. 检查 `trust` 声明与运行时 `allowFullAccessExtensions` 配置
+4. 运行 `setup(ctx)`，注入 `ExtensionContext`（含 events/bus、config、dataDir、register、registerTool）
+5. 注册钩子、适配器和其他副作用
+6. 触发 `extension.loaded`
 
 ### 6.2 卸载 (Unload)
 
 在扩展卸载时：
 1. 如果可用，调用扩展上的 `dispose()`
-2. 移除已注册的钩子和命令
-3. 如果注册表项由该扩展拥有，则清理注册表
-4. 触发 `extension.unloaded`
+2. 逆序调用所有 `register()` 注册的 disposables
+3. 移除已注册的钩子和命令
+4. 如果注册表项由该扩展拥有，则清理注册表
+5. 触发 `extension.unloaded`
 
 ### 6.3 重新加载 (Reload)
 

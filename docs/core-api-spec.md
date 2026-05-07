@@ -240,15 +240,42 @@ export type ModelMiddleware = Middleware<ModelRequest, ModelResponse>
 
 ```ts
 export interface EventBus<TEvents extends Record<string, any>> {
+  /** 发布事件（广播） */
   emit<TKey extends keyof TEvents & string>(
     type: TKey,
     payload: TEvents[TKey],
   ): Promise<void>
 
+  /** 订阅事件 */
   on<TKey extends keyof TEvents & string>(
     type: TKey,
     listener: (event: CoreEvent<TKey, TEvents[TKey]>) => void | Promise<void>,
   ): Disposable
+
+  /**
+   * 请求-响应模式（借鉴 OpenHanako SKIP 链设计）。
+   * 按注册顺序调用已注册的 handler，返回第一个非 EventBus.SKIP 的值。
+   * 无 handler 时抛出 BusNoHandlerError；超时时抛出 BusTimeoutError。
+   */
+  request<TKey extends string>(
+    type: TKey,
+    payload: unknown,
+  ): Promise<unknown>
+
+  /**
+   * 注册请求处理器（仅 full-access Extension 可用）。
+   * 同一事件类型可注册多个 handler，按注册顺序组成 SKIP 链。
+   */
+  handle<TKey extends string>(
+    type: TKey,
+    handler: (payload: unknown) => Promise<unknown>,
+  ): Disposable
+
+  /** 检查是否有注册的 handler（软依赖检测） */
+  hasHandler(type: string): boolean
+
+  /** 返回此值表示"我不处理，交给下一个 handler" */
+  readonly SKIP: unique symbol
 }
 ```
 
@@ -492,6 +519,7 @@ export interface RuntimeRegistries {
   tools: Registry<ToolProvider>
   storages: Registry<StorageAdapter>
   caches: Registry<CacheAdapter>
+  memories: Registry<MemoryAdapter>
   permissions: Registry<PermissionAdapter>
   transports: Registry<TransportAdapter>
 }
@@ -499,11 +527,26 @@ export interface RuntimeRegistries {
 
 ```ts
 export interface ExtensionContext {
+  /** 运行时句柄 */
   runtime: RuntimeHandle
+  /** 钩子总线 */
   hooks: HookBus<HookMap>
+  /** 事件总线（含 SKIP 链，等同于 bus） */
   events: EventBus<EventMap>
+  /** 事件总线别名（与 events 相同引用，与 OpenHanako 命名习惯对齐） */
+  bus: EventBus<EventMap>
+  /** 适配器注册表（只读；仅 full-access Extension 可写入） */
   registry: RuntimeRegistries
+  /** Logger */
   logger: Logger
+  /** Extension 私有配置读写 */
+  config: ExtensionConfigStore
+  /** Extension 私有数据目录 */
+  dataDir: string
+  /** 注册可清理资源（卸载时逆序 dispose）。借鉴 OpenHanako register() 模式 */
+  register(disposable: Disposable): void
+  /** 动态注册工具（仅 full-access，返回清理函数） */
+  registerTool(tool: ToolDefinition & { execute: ToolHandler['execute'] }): Disposable
 }
 
 export interface ExtensionPermissionDeclaration {
@@ -513,7 +556,10 @@ export interface ExtensionPermissionDeclaration {
 }
 
 export interface Extension {
+  /** Extension 唯一标识 */
   name: string
+  /** 元数据声明 */
+  manifest?: ExtensionManifest
   /**
    * 扩展加载期间使用的可选声明式权限提示。
    * 运行时可以在运行 setup 之前对其进行评估，如果拒绝了所需的权限，则可以拒绝加载该扩展。
@@ -531,6 +577,27 @@ export function defineExtension(extension: Extension): Extension {
   return extension
 }
 ```
+
+```ts
+// ─── Extension 定义（借鉴 OpenHanako 的权限、权限和资源管理模式）───
+
+/** Extension 元数据声明 */
+export interface ExtensionManifest {
+  id: string
+  name?: string
+  version?: string
+  description?: string
+  /** 信任级别，默认 'restricted'。'full-access' 可获得 registry 写入、bus.handle、registerTool */
+  trust?: 'restricted' | 'full-access'
+  /** 所需权限声明（加载时评估） */
+  permissions?: ExtensionPermissionDeclaration[]
+}
+
+/** Extension 配置读写接口（由 runtime 注入，持久化对 Extension 透明） */
+export interface ExtensionConfigStore {
+  get<T = unknown>(key: string): T | undefined
+  set<T = unknown>(key: string, value: T): Promise<void>
+}
 ```
 
 ## 10. Logging and Errors
@@ -561,6 +628,8 @@ export interface RuntimeOptions {
   permission?: PermissionAdapter
   extensions?: Array<Extension | string>
   logger?: Logger
+  /** 是否允许加载声明 trust: 'full-access' 的 Extension（默认 false，它们会被降级为 restricted） */
+  allowFullAccessExtensions?: boolean
 }
 
 export interface RuntimeFactory {

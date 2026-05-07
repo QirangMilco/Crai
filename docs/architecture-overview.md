@@ -92,6 +92,7 @@ Runtime 内核不应拥有记忆策略实现。默认的轻量级 Summary 记忆
 
 ### 3.6 行业基准对齐 (Industry Alignment)
 Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
+- **[OpenHanako](file:///Users/qirang/Documents/Projects/Crai/refs/openhanako)**：借鉴其**两级权限模型（restricted / full-access）**、**EventBus SKIP 链多 handler 协作机制**、**register() 自动资源清理模式**、**错误隔离与前向兼容原则**。这些设计直接作用于 Crai 的 Extension SDK 设计，为 Crai 的运行时提供了一套经过实战验证的扩展管理方案。
 - **[CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)**：借鉴其组件抽象、中间件模式、检查点机制以及**中断/恢复（interrupt/resume）模式**，用于增强内核的治理能力和**人机确认流程**。
 - **[pi-mono](file:///Users/qirang/Documents/Projects/Crai/refs/pi-mono)**：借鉴其极简的 Agent 循环设计与 Provider 适配层抽象；以及**扩展级安全门（permission-gate / protected-paths）** 和 **OS 级沙箱（sandbox-exec/bubblewrap）** 实现。
 - **[reasonix](file:///Users/qirang/Documents/Projects/Crai/refs/reasonix)**：借鉴其以缓存为中心的语义索引与状态持久化机制，三层记忆作用域（user/project/session）设计；以及**文件系统沙箱（rootDir 强制校验 + 路径遍历检测 + 读写字节上限）**。
@@ -120,15 +121,18 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 记忆适配器契约 (`MemoryAdapter`)
 - **安全类型定义 (`ToolSafetyLevel`, `PermissionMode`, `SandboxScope`)**
 - **权限适配器契约 (`PermissionAdapter`)**
+- **Extension 类型定义 (`ExtensionManifest`, `ExtensionConfigStore`)**
+- **EventBus 契约（含 SKIP 链语义）**
 
 ### 4.2 `@crai/runtime`
 包含：
 - 最小运行时内核 (Minimal runtime kernel)
 - Session 管理器
 - Turn 执行器 (Turn runner)
-- 事件总线 (Event bus)
+- 事件总线 (Event bus，含 SKIP 链实现)
 - 钩子总线 (Hook bus)
 - 扩展生命周期管理
+- Extension 加载与卸载
 - 适配器分发 (Adapter dispatch)
 - **工具执行前的安全检查拦截**
 - **文件路径沙箱校验**
@@ -136,13 +140,21 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 ### 4.3 `@crai/extension-sdk`
 包含：
 - `defineExtension()`
+- `defineExtension()`
 - 辅助工具类 (Helper utilities)
+- `ExtensionManifest` 类型
+- 来自核心的类型化重导出
+- 扩展编写助手
 - 类型化的钩子辅助方法 (typed hook helpers)
 - 重导出的核心类型 (re-exported core types)
+- `register()` 资源管理辅助
 
 ### 4.4 `@crai/loader-ts`
 包含：
 - 本地 TypeScript 扩展加载
+- 本地 TypeScript 扩展加载
+- 支持重新加载和卸载
+- 监听模式 (Watch-mode) 工具
 - 支持重新加载和卸载
 - 用于开发的监听模式 (watch-mode) 辅助工具
 
@@ -154,7 +166,8 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **pi-mono**: 借鉴其轻量级的 `AgentLoop` 调度逻辑、`ModelProvider` 接口定义，确保内核足够薄。
 - **Eino**: 借鉴其中间件 (Middleware) 管道设计和检查点 (Checkpoint) 机制，增强执行流的可控性。
 
-### 5.2 扩展层 (Extensions / Presets) - 吸收自 reasonix / snow-cli
+### 5.2 扩展层 (Extensions / Presets) - 吸收自 OpenHanako / reasonix / snow-cli
+- **OpenHanako**: 借鉴其两级权限模型（restricted / full-access）、EventBus SKIP 链设计、register() 资源管理、错误隔离和前向兼容原则，直接作用于 `@crai/extension-sdk` 的设计。
 - **reasonix**: 吸收其语义缓存 (Semantic Cache) 逻辑和状态持久化策略，作为 `CacheAdapter` 的参考实现落位到 `packages/cache-default`。
 - **snow-cli**: 吸收其 MCP (Model Context Protocol) 客户端实现和工具确认工作流，落位到 `@crai/extension-sdk` 或独立的 `packages/extension-mcp`。
 

@@ -19,6 +19,9 @@
 - [x] 实现 `packages/runtime` 的最小内核骨架
 - [x] 实现 `packages/extension-sdk`
 - [x] 实现 `packages/loader-ts`
+- [ ] **在 extension-sdk 中实现 register() 资源管理辅助**
+- [ ] **在 runtime 的 EventBus 中实现 SKIP 链（request/handle/hasHandler）**
+- [ ] **在 runtime 中实现 Extension 两级权限检查（trust + allowFullAccessExtensions）**
 - [ ] 实现 Middleware 与 Checkpoint 核心调度逻辑 (借鉴 Eino)
 - [ ] 调研并集成 pi-mono 的 Agent 循环优化逻辑
 - [ ] 调研并集成 reasonix 的语义缓存机制
@@ -97,6 +100,11 @@
 - D-021：借鉴 SimpleMem 的多视图索引模型与三阶段流水线
 - D-022：记忆按作用域分三层：全局/项目/会话
 - D-023：默认 Summary 记忆策略由 preset-default 提供
+- D-026：Extension API 设计借鉴 OpenHanako（权限模型、SKIP 链、register()、错误隔离）
+- D-027：Extension 权限分级采用 restricted / full-access 两级模型
+- D-028：EventBus 采用 SKIP 链多 handler 协作模式
+- D-029：Extension 资源管理采用 register() 自动清理模式
+- D-030：Extension 错误隔离与前向兼容原则
 
 ## 7. 下一步建议
 

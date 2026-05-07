@@ -336,3 +336,78 @@ Crai 将吸收 snow-cli 在 MCP (Model Context Protocol) 和 LSP (Language Serve
 ### 理由
 - 增强对外部工具链和代码分析能力的连接
 - 复用成熟的工具确认流 (Tool Confirmation Flow) 设计
+
+## D-026 — Extension API 设计借鉴 OpenHanako
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+Crai 的 Extension API 核心设计借鉴 OpenHanako 的经过验证的模式，但**不采用其目录约定**（目录约定服务于 OpenHanako 桌面应用的零配置安装场景，与 Crai 的模块化加载模型不匹配）。借鉴的具体模式包括：
+- 两级权限声明（restricted / full-access），Extension 通过 `defineExtension({ trust })` 声明
+- EventBus SKIP 链请求-响应机制
+- register() 自动资源清理模式
+- 错误隔离（单个 Extension 失败不阻塞系统启动）
+- ExtensionContext 统一注入（bus/events、config、dataDir、register 等）
+
+### 理由
+- OpenHanako 的这些 API 模式已在生产环境验证，与目录结构无关
+- Crai 的 Extension 是 TypeScript 模块，通过 loader-ts 的 import 加载，不需要目录扫描
+- Skills 从 Extension 中分离为独立的知识注入机制（Markdown 文档，由 Agent 按需加载）
+
+## D-027 — Extension 权限分级采用 restricted / full-access 两级模型
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+Extension 通过 `defineExtension({ trust })` 声明权限级别：
+- `restricted`（默认）：可使用 hooks.on、events.emit/on/request、config 读写、dataDir，不可使用 registry 写入、bus.handle、registerTool
+- `full-access`（需 manifest 声明 + 运行时 `allowFullAccessExtensions` 开启）：在 restricted 基础上增加 registry 写入、bus.handle、registerTool 动态注册
+
+### 理由
+- 使社区 Extension 默认安全
+- 深度集成 Extension 需显式声明，用户知情
+- 与 OpenHanako 权限模型一致，降低学习成本
+
+## D-028 — EventBus 采用 SKIP 链多 handler 协作模式
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+在原有 `emit/on` 广播模式基础上，增加 `request/handle` 请求-响应模式，支持 SKIP 链：同一事件类型可注册多个 handler，按注册顺序调用，返回 `EventBus.SKIP` 表示交给下一个，返回非 SKIP 值表示已处理。
+
+### 理由
+- 支持多个 Extension 按优先级协作处理同一类请求（如 memory:query）
+- 软依赖检测（`hasHandler()`）使 Extension 可以在能力缺失时优雅降级
+- 借鉴 OpenHanako 的已验证设计
+
+## D-029 — Extension 资源管理采用 register() 自动清理模式
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+Extension 通过 `ctx.register(disposable)` 注册资源，运行时在卸载时逆序自动调用 `dispose()`。Extension 只清理框架管不到的资源（如 WebSocket 连接）。
+
+### 理由
+- 比手动 `dispose()` 维护清理列表更安全，不容易遗漏
+- 逆序清理保证依赖资源先于被依赖资源释放
+- 借鉴 OpenHanako 的已验证设计
+
+## D-030 — Extension 错误隔离与前向兼容原则
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+- 单个 Extension 的加载失败不阻塞其他 Extension 和系统启动
+- 单个文件的语法错误只影响该文件
+- 新版本运行时保持 API 前向兼容
+- 老 Extension 永远能跑在新运行时上
+
+### 理由
+- 提高系统健壮性
+- 降低 Extension 升级和维护成本
+- 与 OpenHanako 前向兼容保证一致

@@ -135,3 +135,23 @@ Session 结束时生成的紧凑摘要，包含请求、调查内容、收获、
 - 避免在核心实体中放置纯 UI 术语。
 - 在记忆相关的 API 中，首选 `MemoryEntry` 而不是 `Memory` 或 `Fact`。
 - 在作用域讨论中，首选 `MemoryScope` 而不是 `MemoryLevel`。
+
+## Extension API 术语
+
+### Extension Trust Level (Extension 信任级别)
+Extension 通过 `defineExtension({ trust })` 声明的权限级别：`restricted`（默认，受限 API 访问）或 `full-access`（全权，需显式声明 + 运行时开关启用）。借鉴 OpenHanako 两级权限模型。
+
+### ExtensionContext
+注入到 Extension.setup() 中的上下文对象。包含 runtime、hooks、events（bus）、registry、logger、config、dataDir，以及 register() 和 registerTool() 辅助方法。是所有 Extension 的统一运行时接口。
+
+### register() 模式 (注册-清理模式)
+Extension 通过 `ctx.register(disposable)` 向框架声明资源，框架在卸载时逆序自动调用 `dispose()`。借鉴 OpenHanako 的自动资源管理设计。
+
+### SKIP 链 (Skip Chain)
+EventBus 的请求-响应模式：同一事件类型可注册多个 handler，按顺序调用。handler 返回 `EventBus.SKIP` 表示"我不处理，交给下一个"。支持多 Extension 按优先级协作。借鉴 OpenHanako EventBus 设计。
+
+### Soft Dependency (软依赖)
+通过 `ExtensionManifest.depends.capabilities` 声明和 `bus.hasHandler()` 运行时检测实现的能力依赖。缺失不会阻止 Extension 加载，Extension 自行降级。
+
+### Skills (技能)
+独立于 Extension 体系的 Markdown 知识文档（`SKILL.md`）。由 Agent 按需加载，不注册运行时代码。Skills 不是 Extension，但可以随 Extension 一起分发。

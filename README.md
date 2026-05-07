@@ -2,6 +2,8 @@
 
 Crai 是一个 **极简的、默认空心的、高度可扩展的 AI Agent 运行时和应用基座**。
 
+其 Extension API 的核心设计借鉴了 [OpenHanako](https://github.com/liliMozi/openhanako) 的权限模型与资源管理模式。
+
 ## 项目文档
 
 这组文档已经按“目标 / 规格 / 数据 / 流程 / 计划”重新组织。

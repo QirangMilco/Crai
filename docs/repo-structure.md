@@ -90,9 +90,11 @@ packages/
 
 ### 4.3 `packages/extension-sdk`
 - `defineExtension()`
+- `ExtensionManifest` 类型
 - 辅助工具类
 - 来自核心的类型化重导出
 - 扩展编写助手
+- `register()` 资源管理辅助
 
 ### 4.4 `packages/loader-ts`
 - 加载本地 `.ts` 扩展
