@@ -189,10 +189,6 @@ export interface EventMap {
   "tool.completed": { session: Session; result: ToolExecutionResult }
   "tool.failed": { session: Session; result: ToolExecutionResult }
 
-  "middleware.before": { session: Session; turnId: ID; kind: string; input: unknown }
-  "middleware.after": { session: Session; turnId: ID; kind: string; output: unknown }
-  "checkpoint.saved": { session: Session; turnId: ID; kind: string; artifactId: ID }
-
   "artifact.created": { session: Session; artifact: Artifact }
   "artifact.updated": { session: Session; artifact: Artifact }
 
@@ -203,6 +199,11 @@ export interface EventMap {
   "tool.blocked": { session: Session; toolCall: ToolCallPart; reason: string }
   "permission.requested": { session: Session; request: PermissionCheckRequest }
   "permission.resolved": { session: Session; request: PermissionCheckRequest; decision: PermissionDecision }
+
+  // Phase 2 — 已确认设计但尚未实现
+  // "middleware.before": { session: Session; turnId: ID; kind: string; input: unknown }
+  // "middleware.after": { session: Session; turnId: ID; kind: string; output: unknown }
+  // "checkpoint.saved": { session: Session; turnId: ID; kind: string; artifactId: ID }
 }
 ```
 
@@ -283,7 +284,8 @@ export interface ModelRequest {
   settings?: {
     temperature?: number
     maxTokens?: number
-    thinkingLevel?: "off" | "low" | "medium" | "high"
+    /** 思考强度（由各 provider 自行定义语义，core 只做透传） */
+    thinkingLevel?: string
   }
   metadata?: Metadata
 }
@@ -312,8 +314,10 @@ export interface ModelResponse {
 
 export interface ModelAdapter {
   name: string
-  supports(model: string): boolean
-  stream(request: ModelRequest, ctx: AdapterContext): AsyncIterable<ModelStreamEvent>
+  /** 模型的上下文窗口长度（token）。用于 Token 预算管理，0 或 undefined 表示未知。 */
+  contextLength?: number
+  request(request: ModelRequest): Promise<ModelResponse>
+  stream(request: ModelRequest): AsyncIterable<ModelStreamEvent>
 }
 ```
 
@@ -465,6 +469,7 @@ export interface RuntimeHandle {
   id: ID
   prompt(input: RuntimeInput, options?: PromptOptions): Promise<PromptResult>
   createSession(input?: Metadata): Promise<Session>
+  stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
   listMessages(sessionId: ID): Promise<Message[]>
   loadExtension(source: string): Promise<void>

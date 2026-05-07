@@ -2,6 +2,7 @@ import type { Logger, ModelAdapter, PromptOptions, PromptResult, Registry, Runti
 import type {
   CacheAdapter,
   CommandRegistry,
+  Disposable,
   EventBus,
   Extension,
   ExtensionContext,
@@ -19,6 +20,7 @@ import {
   createHookBus,
   createRuntimeRegistries,
   createSettingsStore,
+  createTrackedRegistries,
 } from './bus'
 import { bootstrapRuntimeExtensions, setupExtension } from './bootstrap'
 import { buildRuntimeContext } from './contextBuilder'
@@ -70,7 +72,7 @@ function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
 export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHandle> {
   const deps = createDeps(options)
   const runtimeId = `runtime_${Date.now()}`
-  const loadedExtensions = new Set<Extension>()
+  const loadedExtensions = new Map<Extension, Set<Disposable>>()
 
   if (options?.storage) {
     deps.registries.storages.register('builtin:storage', options.storage)
@@ -154,21 +156,26 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     async loadExtension(source) {
       const { loadExtension: loadFromFile } = await import('../../loader-ts/src/index')
       const ext = await loadFromFile(source)
+      const disposables = new Set<Disposable>()
+      const trackedRegistry = createTrackedRegistries(deps.registries, disposables)
       const ctx: ExtensionContext = {
         runtime,
         hooks: deps.hooks,
         events: deps.events,
-        registry: deps.registries,
+        registry: trackedRegistry,
         logger: deps.logger,
       }
       await setupExtension(ext, ctx)
-      loadedExtensions.add(ext)
+      loadedExtensions.set(ext, disposables)
       await deps.events.emit(EVENTS.EXTENSION_LOADED, { name: ext.name })
     },
     async unloadExtension(name) {
-      for (const ext of loadedExtensions) {
+      for (const [ext, disposables] of loadedExtensions) {
         if (ext.name === name) {
           await ext.dispose?.()
+          for (const d of disposables) {
+            await d.dispose()
+          }
           loadedExtensions.delete(ext)
           await deps.events.emit(EVENTS.EXTENSION_UNLOADED, { name })
           return
@@ -176,24 +183,29 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       }
     },
     async dispose() {
-      for (const ext of loadedExtensions) {
+      for (const [ext, disposables] of loadedExtensions) {
         await ext.dispose?.()
+        for (const d of disposables) {
+          await d.dispose()
+        }
       }
       loadedExtensions.clear()
       await deps.events.emit(EVENTS.RUNTIME_STOPPED, { runtimeId })
     },
   }
 
-  const extensionContext: ExtensionContext = {
+  // 初始引导使用 tracked registries 以便扩展注册可被清理
+  const bootstrapDisposables = new Set<Disposable>()
+  const bootstrapCtx: ExtensionContext = {
     runtime,
     hooks: deps.hooks,
     events: deps.events,
-    registry: deps.registries,
+    registry: createTrackedRegistries(deps.registries, bootstrapDisposables),
     logger: deps.logger,
   }
 
   await deps.events.emit(EVENTS.RUNTIME_STARTED, { runtimeId })
-  await bootstrapRuntimeExtensions(options?.extensions, [], extensionContext)
+  await bootstrapRuntimeExtensions(options?.extensions, [], bootstrapCtx)
 
   return runtime
 }

@@ -6,6 +6,7 @@ import type {
   ModelResponse,
   RuntimeInput,
   RuntimeError,
+  ToolCallPart,
   ToolDefinition,
 } from '../../core/src'
 import type { HookBus, HookMap, RuntimeHandle, Session } from '../../core/src'
@@ -104,6 +105,27 @@ export async function runTurn(
   }
 
   await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response })
+
+  // 安全检查门：检查模型返回的 tool-call 是否在当前安全策略下被允许
+  const toolCalls = response.message.parts.filter(
+    (p): p is ToolCallPart => p.type === 'tool-call',
+  )
+
+  if (toolCalls.length > 0) {
+    const toolDefs = deps.resolveTools ? await deps.resolveTools() : []
+    const defMap = new Map(toolDefs.map(d => [d.name, d]))
+
+    for (const tc of toolCalls) {
+      const def = defMap.get(tc.name)
+      if (!def) {
+        await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 未注册` })
+        continue
+      }
+
+      await deps.hooks.run(HOOKS.TOOL_SAFETY_CHECK, { session, toolCall: tc, definition: def, mode: 'ask' }, { runtime })
+      await deps.emitEvent(EVENTS.TOOL_REQUESTED, { session, toolCall: tc })
+    }
+  }
 
   const messages = [response.message]
   await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: response.message })

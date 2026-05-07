@@ -32,6 +32,43 @@ export function createDisposable(dispose: () => void | Promise<void>): Disposabl
   return { dispose }
 }
 
+/** 包装一个 Registry，拦截 register() 并将返回的 Disposable 记录到 tracker 中。 */
+export function createTrackedRegistry<T>(
+  inner: Registry<T>,
+  tracker: Set<Disposable>,
+): Registry<T> {
+  return {
+    register(name, value) {
+      const disposable = inner.register(name, value)
+      tracker.add(disposable)
+      return createDisposable(() => {
+        disposable.dispose()
+        tracker.delete(disposable)
+      })
+    },
+    get(name) { return inner.get(name) },
+    list() { return inner.list() },
+  }
+}
+
+/** 包装所有 registries，让扩展注册的资源可被批量清理。 */
+export function createTrackedRegistries(
+  registries: RuntimeRegistries,
+  tracker: Set<Disposable>,
+): RuntimeRegistries {
+  return {
+    models: createTrackedRegistry(registries.models, tracker),
+    tools: createTrackedRegistry(registries.tools, tracker),
+    storages: createTrackedRegistry(registries.storages, tracker),
+    caches: createTrackedRegistry(registries.caches, tracker),
+    memories: createTrackedRegistry(registries.memories, tracker),
+    permissions: createTrackedRegistry(registries.permissions, tracker),
+    transports: createTrackedRegistry(registries.transports, tracker),
+    promptPipelines: createTrackedRegistry(registries.promptPipelines, tracker),
+    i18n: createTrackedRegistry(registries.i18n, tracker),
+  }
+}
+
 export function createRegistry<T>(): Registry<T> {
   const map = new Map<string, T>()
   return {

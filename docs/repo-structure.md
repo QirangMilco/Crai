@@ -114,7 +114,12 @@ packages/
 - 共享核心 `src/core/` 复用 SSE 解析等公共逻辑
 - 每个 provider 通过 Extension 工厂注册到 runtime，支持 loader-ts 热更新
 
-### 4.7 `packages/preset-memory` (新增)
+### 4.7 `packages/storage-fs`
+- 文件系统存储适配器
+- session/message/artifact 以 JSON 文件持久化到磁盘
+- 通过 Extension 注册到 registry.storages，支持热替换
+
+### 4.8 `packages/preset-memory` (新增)
 - 完整的记忆策略实现（借鉴 SimpleMem）
 - 语义结构化压缩：MemoryBuilder — 滑窗分割 + LLM 提取 → 多视图索引
 - 混合检索：HybridRetriever — 语义/关键词/结构化三路并行检索 + 反思轮次
@@ -123,7 +128,7 @@ packages/
 - 记忆生命周期编排：MemoryOrchestrator
 - 此包属于 Phase 2 范畴
 
-### 4.8 `packages/devtools`
+### 4.9 `packages/devtools`
 - 任务追踪助手 (task tracking helpers)
 - 仓库巡检助手 (repo inspection helpers)
 - AI 辅助补丁协调 (AI-assisted patch coordination)
@@ -168,9 +173,11 @@ packages/
 - `packages/core/src/hooks.ts`
 - `packages/runtime/src/createRuntime.ts`
 - `packages/runtime/src/turnRunner.ts`
-- `packages/extension-sdk/src/defineExtension.ts`
+- `packages/extension-sdk/src/index.ts`
 - `packages/loader-ts/src/index.ts`
 - `packages/preset-default/src/index.ts`
+- `packages/storage-fs/src/adapter.ts`
+- `packages/provider/src/openai/adapter.ts`
 - `packages/devtools/src/index.ts`
 
 ### 记忆首批文件 (Memory First Files)
