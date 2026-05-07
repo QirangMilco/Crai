@@ -14,11 +14,27 @@ async function checkPermission(
   return result.decision
 }
 
+async function loadSingleExtension(ext: Extension, ctx: ExtensionContext): Promise<void> {
+  if (ext.permissions?.length) {
+    for (const perm of ext.permissions) {
+      const decision = await checkPermission({
+        kind: 'extension',
+        action: perm.action,
+        payload: perm.payload,
+      }, ctx)
+      if (!decision.allow) {
+        throw new Error(
+          `扩展 "${ext.name}" 的权限 "${perm.action}" 被拒绝: ${decision.reason ?? '无原因'}`,
+        )
+      }
+    }
+  }
+  await ext.setup(ctx)
+}
+
 /**
  * 扩展引导加载器。
- * 先加载内置扩展（如 preset-default），再加载用户传入的 runtime extensions。
- * 加载时对每个扩展的 permissions 声明进行校验，拒绝则抛出错误。
- * 扩展的卸载（dispose）由 RuntimeHandle.dispose 统一触发。
+ * 支持一次性加载数组和增量加载单个扩展。
  */
 export async function bootstrapRuntimeExtensions(
   runtimeExtensions: Array<Extension | string> | undefined,
@@ -29,25 +45,15 @@ export async function bootstrapRuntimeExtensions(
     if (!extensions?.length) return
     for (const ext of extensions) {
       if (typeof ext === 'string') continue
-      if (ext.permissions?.length) {
-        for (const perm of ext.permissions) {
-          const decision = await checkPermission({
-            kind: 'extension',
-            action: perm.action,
-            payload: perm.payload,
-          }, ctx)
-          if (!decision.allow) {
-            throw new Error(
-              `扩展 "${ext.name}" 的权限 "${perm.action}" 被拒绝: ${decision.reason ?? '无原因'}`,
-            )
-          }
-        }
-      }
-      await ext.setup(ctx)
+      await loadSingleExtension(ext, ctx)
     }
   }
 
-  // 内置扩展先加载，确保默认能力先于用户扩展就绪
   await load(builtinExtensions)
   await load(runtimeExtensions)
+}
+
+/** 增量加载单个扩展。 */
+export async function setupExtension(ext: Extension, ctx: ExtensionContext): Promise<void> {
+  await loadSingleExtension(ext, ctx)
 }

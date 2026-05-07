@@ -1,4 +1,4 @@
-import type { Logger, Message, ModelAdapter, PromptOptions, PromptResult, Registry, RuntimeError, RuntimeHandle, RuntimeInput, Session, StorageAdapter, ToolDefinition } from '../../core/src'
+import type { Logger, ModelAdapter, PromptOptions, PromptResult, Registry, RuntimeError, RuntimeHandle, RuntimeInput, Session, StorageAdapter, ToolDefinition } from '../../core/src'
 import type {
   CacheAdapter,
   CommandRegistry,
@@ -20,7 +20,7 @@ import {
   createRuntimeRegistries,
   createSettingsStore,
 } from './bus'
-import { bootstrapRuntimeExtensions } from './bootstrap'
+import { bootstrapRuntimeExtensions, setupExtension } from './bootstrap'
 import { buildRuntimeContext } from './contextBuilder'
 import { runTurn, TurnRunnerDeps } from './turnRunner'
 import { SessionManager } from './sessionManager'
@@ -70,6 +70,11 @@ function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
 export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHandle> {
   const deps = createDeps(options)
   const runtimeId = `runtime_${Date.now()}`
+  const loadedExtensions = new Set<Extension>()
+
+  if (options?.storage) {
+    deps.registries.storages.register('builtin:storage', options.storage)
+  }
 
   const runtime: RuntimeHandle = {
     id: runtimeId,
@@ -79,7 +84,6 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
         return pipeline.run(input, promptOptions)
       }
 
-      // 无自定义 pipeline 时走默认 turn 流程
       let session: Session
       if (promptOptions?.sessionId) {
         const existing = deps.sessions.get(promptOptions.sessionId)
@@ -92,7 +96,9 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
         hooks: deps.hooks,
         emitEvent: deps.events.emit,
         buildContext: async () => {
-          const messages = deps.storage ? await deps.storage.listMessages(session.id) : []
+          const storages = deps.registries.storages.list()
+          const storage = storages[0]?.value ?? deps.storage
+          const messages = storage ? await storage.listMessages(session.id) : []
           return buildRuntimeContext({ session, messages, tools: [] })
         },
         requestModel: async (request) => {
@@ -119,7 +125,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       return {
         session: result.session,
         turnId: result.turnId,
-        messages: result.messages as Message[],
+        messages: result.messages,
         response: result.response,
       }
     },
@@ -146,12 +152,34 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       return []
     },
     async loadExtension(source) {
-      void source
+      const { loadExtension: loadFromFile } = await import('../../loader-ts/src/index')
+      const ext = await loadFromFile(source)
+      const ctx: ExtensionContext = {
+        runtime,
+        hooks: deps.hooks,
+        events: deps.events,
+        registry: deps.registries,
+        logger: deps.logger,
+      }
+      await setupExtension(ext, ctx)
+      loadedExtensions.add(ext)
+      await deps.events.emit(EVENTS.EXTENSION_LOADED, { name: ext.name })
     },
     async unloadExtension(name) {
-      void name
+      for (const ext of loadedExtensions) {
+        if (ext.name === name) {
+          await ext.dispose?.()
+          loadedExtensions.delete(ext)
+          await deps.events.emit(EVENTS.EXTENSION_UNLOADED, { name })
+          return
+        }
+      }
     },
     async dispose() {
+      for (const ext of loadedExtensions) {
+        await ext.dispose?.()
+      }
+      loadedExtensions.clear()
       await deps.events.emit(EVENTS.RUNTIME_STOPPED, { runtimeId })
     },
   }

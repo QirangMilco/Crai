@@ -1,5 +1,6 @@
 import type {
   EventMap,
+  Message,
   ModelContext,
   ModelRequest,
   ModelResponse,
@@ -17,7 +18,7 @@ import { EVENTS, HOOKS, ERROR_CODES } from '../../core/src'
 export interface TurnRunResult {
   session: Session
   turnId: string
-  messages: Array<{ id: string; role: string; createdAt: number; parts: unknown[] }>
+  messages: Message[]
   response?: ModelResponse
 }
 

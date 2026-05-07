@@ -1,8 +1,6 @@
 /**
  * Crai runtime 包统一出口。
- * 只导出 kernel 核心构造与内部类型，默认行为由 @crai/preset-default 提供。
+ * 只导出 kernel 核心构造与选项类型。
  */
-export * from './bus'
-export * from './createRuntime'
-export * from './sessionManager'
-export * from './turnRunner'
+export { createRuntime } from './createRuntime'
+export type { RuntimeOptions } from './createRuntime'

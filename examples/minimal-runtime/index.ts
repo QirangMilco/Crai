@@ -1,10 +1,12 @@
 /**
- * Crai 最小运行时示例。
- * 不依赖任何外部 API key，使用内置 mock 模型演示完整流程。
+ * Crai 最小运行时示例（含持久化）。
+ * 使用文件系统存储演示多轮对话上下文延续。
  * 运行方式：npx tsx examples/minimal-runtime/index.ts
  */
 import { createRuntime } from '../../packages/runtime/src/createRuntime'
 import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '../../packages/core/src'
+import { HOOKS } from '../../packages/core/src'
+import { createFileStorage } from '../../packages/storage-fs/src/index'
 
 function createMockModel(responseText: string): ModelAdapter {
   return {
@@ -37,33 +39,65 @@ function createMockModelExtension(responseText: string): Extension {
   }
 }
 
+/**
+ * 持久化扩展：turn 结束后将消息写入 storage。
+ * 这是 preset-default 未来承载的默认行为之一。
+ */
+function createPersistExtension(): Extension {
+  return {
+    name: 'example:persist',
+    setup(ctx) {
+      ctx.hooks.on(HOOKS.TURN_AFTER, async (payload) => {
+        const { session, messages, runtime } = payload as any
+        const storages = ctx.registry.storages.list()
+        const storage = storages[0]?.value
+        if (!storage) return { continue: true }
+
+        await storage.updateSession(session)
+        for (const msg of messages) {
+          await storage.appendMessage(session.id, msg)
+        }
+        return { continue: true }
+      })
+    },
+  }
+}
+
 async function main() {
-  console.log('=== Crai 最小运行时示例 ===\n')
+  console.log('=== Crai 最小运行时示例（含持久化）===\n')
 
   const runtime = await createRuntime({
-    extensions: [createMockModelExtension('你好，世界！')],
+    extensions: [
+      createMockModelExtension('你好，世界！我是你的助手。'),
+      createFileStorage({ baseDir: '.crai/example-data' }),
+      createPersistExtension(),
+    ],
     logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
   })
 
-  console.log(`runtime 已启动: ${runtime.id}`)
+  console.log(`runtime: ${runtime.id}`)
 
-  const session = await runtime.createSession({ title: '最小示例' })
-  console.log(`session 已创建: ${session.id}`)
+  const session = await runtime.createSession({ title: '多轮对话示例' })
+  console.log(`session: ${session.id}\n`)
 
-  const result = await runtime.prompt(
+  // 第一轮
+  const r1 = await runtime.prompt(
     { type: 'text', text: '你好' },
-    { model: 'example-model' },
+    { model: 'example-model', sessionId: session.id },
   )
+  console.log(`[第1轮] ${r1.turnId}`)
+  console.log(`  assistant → ${(r1.messages[0].parts[0] as any).text}`)
 
-  console.log(`turn: ${result.turnId}`)
-  console.log(`消息数: ${result.messages.length}`)
-  console.log(`响应内容: ${(result.messages[0].parts[0] as any).text}`)
+  // 第二轮（复用 sessionId，context 包含上轮消息）
+  const r2 = await runtime.prompt(
+    { type: 'text', text: '还记得我第一轮说了什么吗' },
+    { model: 'example-model', sessionId: session.id },
+  )
+  console.log(`[第2轮] ${r2.turnId}`)
+  console.log(`  assistant → ${(r2.messages[0].parts[0] as any).text}`)
 
-  await runtime.stopSession(session.id, result.messages)
-  console.log('session 已停止')
-
+  await runtime.stopSession(session.id, [])
   await runtime.dispose()
-  console.log('runtime 已关闭')
   console.log('\n=== 完成 ===')
 }
 
