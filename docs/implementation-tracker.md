@@ -24,7 +24,7 @@
 - [ ] 调研并集成 reasonix 的语义缓存机制
 - [ ] 在 `packages/devtools` 中集成 snow-cli 的 LSP 支持
 - [ ] 调研并集成 crystalagents 的现代 UI 与 Markdown 渲染风格
-- [ ] 增加最小示例与最小测试
+- [x] 增加最小示例与最小测试
 - [x] 创建独立的 `packages/preset-default`
 - [x] 创建 `packages/provider`（统一 provider 包，首个实现为 OpenAI）
 - [x] 编写最小测试验证 prompt 完整流程
@@ -38,6 +38,7 @@
 
 - extension-sdk 已完成（defineExtension + 类型重导出）
 - loader-ts 已完成（加载/重载/卸载/文件监听）
+- examples/minimal-runtime 已完成并验证通过
 - 记忆体系设计文档已合并，记忆契约已在 core 中实现（MemoryEntry/MemoryScope/MemoryAdapter）
 - Runtime 的 Session/Turn 生命周期中已加入记忆事件/钩子触发点
 - prompt() 与 runTurn() 已连通，替代了 preset-default 中的假 pipeline
