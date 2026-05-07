@@ -18,7 +18,7 @@
 - [x] 实现 `packages/core` 的基础类型与接口
 - [x] 实现 `packages/runtime` 的最小内核骨架
 - [x] 实现 `packages/extension-sdk`
-- [ ] 实现 `packages/loader-ts`
+- [x] 实现 `packages/loader-ts`
 - [ ] 实现 Middleware 与 Checkpoint 核心调度逻辑 (借鉴 Eino)
 - [ ] 调研并集成 pi-mono 的 Agent 循环优化逻辑
 - [ ] 调研并集成 reasonix 的语义缓存机制
@@ -37,6 +37,7 @@
 ## 3. 进行中
 
 - extension-sdk 已完成（defineExtension + 类型重导出）
+- loader-ts 已完成（加载/重载/卸载/文件监听）
 - 记忆体系设计文档已合并，记忆契约已在 core 中实现（MemoryEntry/MemoryScope/MemoryAdapter）
 - Runtime 的 Session/Turn 生命周期中已加入记忆事件/钩子触发点
 - prompt() 与 runTurn() 已连通，替代了 preset-default 中的假 pipeline
