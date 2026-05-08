@@ -254,7 +254,7 @@ interface MigrationStep<T = unknown> {
 ### 5.1 追加优先 (Append-first)
 
 在可能的情况下，优先为以下内容使用“仅追加”写入：
-- 消息 (Messages)
+- 消息 (Messages) — 推荐 JSONL 格式（每行一个 JSON 对象，追加到文件末尾），避免 JSON 数组覆盖写带来的并发丢失和性能退化
 - Turn
 - 事件 (Events)
 - 工具执行追踪 (Tool execution traces)

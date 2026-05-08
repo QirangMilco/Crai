@@ -71,11 +71,22 @@ export interface ModelRequest {
   model: string
   provider?: string
   context: ModelContext
+  /**
+   * 通用设置字段。所有 provider 都能理解的参数放这里。
+   * provider 独有参数放 settings.providerSpecific，核心只透传不解释。
+   */
   settings?: {
     temperature?: number
     maxTokens?: number
-    /** 思考强度（由各 provider 自行定义语义，core 只做透传） */
-    thinkingLevel?: string
+    /**
+     * Provider 私有参数。核心只透传，由具体的 ModelAdapter 自行解释。
+     * 当一个参数被多个 provider 支持后，应提升为 settings 的一等字段。
+     * 示例：
+     *   { reasoning_effort: 'medium' }      // OpenAI o-series
+     *   { thinking: { type: 'enabled', budget_tokens: 16000 } }  // Anthropic
+     *   { grounding_config: { type: 'web' } } // Google
+     */
+    providerSpecific?: Record<string, unknown>
   }
   metadata?: Metadata
 }
@@ -99,6 +110,14 @@ export interface ModelResponse {
     currency?: string
   }
   stopReason?: string
+  /**
+   * Provider 原始响应数据。核心不解释，由扩展或上层消费。
+   * 当一个响应字段被多个 provider 支持后，应提升为一等字段。
+   * 示例：
+   *   { thinking: { content: [...], signature: '...' } }   // Anthropic
+   *   { logprobs: [...] }                                  // OpenAI
+   */
+  raw?: Record<string, unknown>
   metadata?: Metadata
 }
 

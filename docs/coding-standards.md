@@ -221,28 +221,92 @@ throw {
 
 ## 3. 类型与值的一致性
 
-### 3.1 联合类型 + 值常量的双重导出
+### 3.1 通用规则
 
-在 [constants.ts](file:///Users/qirang/Documents/Projects/Crai/packages/core/src/constants.ts) 中定义值常量，在 [types.ts](file:///Users/qirang/Documents/Projects/Crai/packages/core/src/types.ts) 中定义类型别名：
+**如果字符串值在运行时被引用（比较、赋值、switch-case），必须通过 `as const` 常量引用，不得出现裸字面量。**
+
+**如果字符串值仅在类型定义中作为判别式标签或第三方接口映射出现，且每个值在 union 中只出现一次（不会有多处维护的问题），允许保持裸字面量。**
+
+### 3.2 运行时值 + 类型定义 → 从常量派生
+
+对于在运行时被引用且同时在类型定义中出现的值（如 `ToolSafetyLevel`、`PermissionMode`、`MemoryScope`、`MessageRole`、`TrustLevel`、`PermissionKind`）：
 
 ```typescript
-// constants.ts — 运行时值
+// constants.ts — 唯一事实来源
 export const TOOL_SAFETY_LEVELS = {
   SAFE: 'safe',
   RESTRICTED: 'restricted',
   DANGEROUS: 'dangerous',
 } as const
 
-// types.ts — 编译时类型
-export type ToolSafetyLevel = 'safe' | 'restricted' | 'dangerous'
+// 类型从常量派生
+export type ToolSafetyLevel = typeof TOOL_SAFETY_LEVELS[keyof typeof TOOL_SAFETY_LEVELS]
+
+// types.ts — 导入并重导出派生类型
+export type { ToolSafetyLevel } from './constants'
 ```
 
-这种做法既保证了编译期类型检查，也提供了运行时可引用的常量值。
+运行时引用用常量：
+```typescript
+// ✅ 正确
+if (safetyLevel === TOOL_SAFETY_LEVELS.DANGEROUS)
 
-### 3.2 新增字段原则
+// ❌ 禁止
+if (safetyLevel === 'dangerous')
+```
 
-- 如果字段值在运行时被引用（比较、赋值、switch-case），必须同时添加值常量和类型
-- 如果字段值仅在类型层面使用（如接口定义），可只保留类型字面量
+### 3.3 仅在类型层面使用的值 → 裸字面量
+
+对于仅在类型定义中作为判别式标签出现、不在运行时被引用的值（如 `ModelStreamEvent.type` 的 `'text-start'`、`TextPart.type` 的 `'text'`、`OpenAIMessage.role` 的 `'system'`）：
+
+```typescript
+// events.ts — ✅ 每个值在 union 中只出现一次
+export type ModelStreamEvent =
+  | { type: 'text-start' }
+  | { type: 'text-delta'; delta: string }
+  | { type: 'text-end' }
+
+// types.ts — ✅ 每个值在各自接口中只出现一次
+export interface TextPart {
+  type: 'text'
+  text: string
+}
+```
+
+允许裸字面量的条件是：**这个值在类型定义之外没有任何一处运行时代码引用它。** 如果后来某段运行时代码需要引用它（比如 `if (event.type === 'text-start')`），那段代码必须使用常量而非裸字面量——但这不需要改动类型定义。
+
+### 3.4 第三方 API 接口
+
+第三方 API 的接口映射（如 OpenAI 请求/响应体的类型定义）中，字符串值是对外部规范的描述而非 Crai 的领域逻辑，允许保持裸字面量。运行时值与第三方 API 交互时仍应引用常量。
+
+```typescript
+// adapter.ts — ✅ 裸字面量，描述 OpenAI 规范
+interface OpenAIMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+}
+
+// adapter.ts — ✅ 运行时用常量
+result.push({ role: OPENAI_ROLES.ASSISTANT, content: text })
+```
+
+### 3.5 注册名称
+
+Adapter、Extension、Model 等的注册名称应定义为包级 `constants.ts` 中的命名常量：
+
+```typescript
+// constants.ts
+export const ADAPTER_NAME = 'storage:fs-default'
+
+// index.ts — ✅ 引用常量
+ctx.registry.storages.register(ADAPTER_NAME, adapter)
+```
+
+### 3.6 判断准则
+
+有疑问时问一个问题：**这个字符串值，修改它时需要改几处代码？**
+
+- **1 处**（仅在类型定义的 union 中）→ 裸字面量 ✅
+- **≥2 处**（类型定义 + 运行时引用/比较/赋值）→ 定义到 constants.ts，类型派生，运行时引用常量
 
 ---
 

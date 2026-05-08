@@ -1,7 +1,7 @@
 /** storage-fs Extension 工厂。注册后 runtime 自动持久化 session/message。 */
 import type { Extension } from '@crai/core'
 import { FileStorageAdapter, type FileStorageOptions } from './adapter'
-import { EXTENSION_NAME } from './constants'
+import { ADAPTER_NAME, EXTENSION_NAME } from './constants'
 
 export interface FileStorageExtensionOptions extends FileStorageOptions {
   storageName?: string
@@ -18,7 +18,7 @@ export function createFileStorage(options?: FileStorageExtensionOptions): Extens
     name: storageName,
     setup(ctx) {
       const adapter = new FileStorageAdapter(options ?? {})
-      ctx.registry.storages.register('storage:fs-default', adapter)
+      ctx.registry.storages.register(ADAPTER_NAME, adapter)
     },
   }
 }

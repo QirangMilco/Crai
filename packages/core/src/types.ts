@@ -3,9 +3,10 @@
  * 只放稳定、跨包共享的契约，不放产品层语义。
  *
  * 类型定义规范：
- * 若类型有对应的运行时值常量（如 ToolSafetyLevel ↔ TOOL_SAFETY_LEVELS），
- * 则类型由 constants.ts 中的 const 对象派生，此处只做重导出。
- * 不得在两个文件中同时手写字面量。
+ * - 若类型值在运行时被引用（比较、赋值、switch-case），
+ *   则值定义在 constants.ts，类型从中派生，此处重导出。
+ * - 若类型值仅在类型层面使用（判别式标签、第三方接口映射），
+ *   每个值在 union 中只出现一次，允许保持裸字面量。
  */
 import type {
   ToolSafetyLevel,

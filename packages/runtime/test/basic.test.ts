@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRuntime } from '../src/createRuntime'
 import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '@crai/core'
+import { MESSAGE_PART_TYPES, MESSAGE_ROLES, RUNTIME_INPUT_TYPES, STREAM_EVENT_TYPES } from '@crai/core'
 
 // ============================================================
 // Mock 模型工厂 — 用于隔离测试，不依赖真实网络
@@ -20,17 +21,17 @@ function makeMockModel(responseText: string): ModelAdapter {
       return {
         message: {
           id: `msg_${Date.now()}`,
-          role: 'assistant',
+          role: MESSAGE_ROLES.ASSISTANT,
           createdAt: Date.now(),
-          parts: [{ type: 'text', text: responseText }],
+          parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: responseText }],
         },
         stopReason: MOCK_STOP_REASON,
       }
     },
     async *stream() {
-      yield { type: 'text-start' }
-      yield { type: 'text-end' }
-      yield { type: 'done', response: { message: { id: `msg_${Date.now()}`, role: 'assistant', createdAt: Date.now(), parts: [{ type: 'text', text: responseText }] } } }
+      yield { type: STREAM_EVENT_TYPES.TEXT_START }
+      yield { type: STREAM_EVENT_TYPES.TEXT_END }
+      yield { type: STREAM_EVENT_TYPES.DONE, response: { message: { id: `msg_${Date.now()}`, role: MESSAGE_ROLES.ASSISTANT, createdAt: Date.now(), parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: responseText }] } } }
     },
   }
 }
@@ -57,12 +58,12 @@ describe('Crai runtime', () => {
       logger: QUIET_LOGGER,
     })
 
-    const result = await runtime.prompt({ type: 'text', text: 'hello' }, { model: MOCK_MODEL_NAME })
+    const result = await runtime.prompt({ type: RUNTIME_INPUT_TYPES.TEXT, text: 'hello' }, { model: MOCK_MODEL_NAME })
 
     assert.equal(result.session.id.startsWith('session_'), true, '应创建 session')
     assert.equal(result.turnId.startsWith('turn_'), true, '应创建 turn')
     assert.equal(result.messages.length, 1, '应返回一条消息')
-    assert.equal(result.messages[0].role, 'assistant')
+    assert.equal(result.messages[0].role, MESSAGE_ROLES.ASSISTANT)
     assert.equal((result.messages[0].parts[0] as any).text, MOCK_RESPONSE_TEXT)
     assert.equal(result.response?.stopReason, MOCK_STOP_REASON)
 
@@ -88,7 +89,7 @@ describe('Crai runtime', () => {
     const runtime = await createRuntime({ logger: QUIET_LOGGER })
 
     await assert.rejects(
-      () => runtime.prompt({ type: 'text', text: 'hello' }),
+      () => runtime.prompt({ type: RUNTIME_INPUT_TYPES.TEXT, text: 'hello' }),
       (err: any) => {
         assert.ok(err)
         return true

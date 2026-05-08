@@ -409,8 +409,12 @@ export interface StorageAdapter {
   name: string
   createSession(session: Session): Promise<void>
   updateSession(session: Session): Promise<void>
+  /** 追加写入一条消息。实现应保证追加语义（JSONL 等），避免全量覆盖写。 */
   appendMessage(sessionId: ID, message: Message): Promise<void>
   listMessages(sessionId: ID): Promise<Message[]>
+  /** 列举所有已持久化的 session 摘要，不含完整消息列表。 */
+  listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>>
+  deleteSession(sessionId: ID): Promise<void>
   saveArtifact(artifact: Artifact): Promise<void>
 }
 

@@ -11,7 +11,8 @@ import type {
 } from '@crai/core'
 import type { HookBus, HookMap, RuntimeHandle, Session } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
-import { EVENTS, HOOKS, ERROR_CODES, PERMISSION_MODES } from '@crai/core'
+import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, PERMISSION_MODES } from '@crai/core'
+import { FALLBACK_MODEL_NAME } from './constants'
 
 /**
  * 最小 turn 运行结果。
@@ -79,7 +80,7 @@ export async function runTurn(
   const request: ModelRequest = {
     sessionId: session.id,
     turnId,
-    model: modelName ?? 'placeholder-model',
+    model: modelName ?? FALLBACK_MODEL_NAME,
     context: contextWithTools,
   }
 
@@ -120,7 +121,7 @@ export async function runTurn(
 
   // 安全检查门：检查模型返回的 tool-call 是否在当前安全策略下被允许
   const toolCalls = response.message.parts.filter(
-    (p): p is ToolCallPart => p.type === 'tool-call',
+    (p): p is ToolCallPart => p.type === MESSAGE_PART_TYPES.TOOL_CALL,
   )
 
   if (toolCalls.length > 0) {

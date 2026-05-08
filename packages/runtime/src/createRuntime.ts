@@ -44,6 +44,7 @@ import { bootstrapRuntimeExtensions, setupExtension } from './bootstrap'
 import { buildRuntimeContext } from './contextBuilder'
 import { runTurn, TurnRunnerDeps } from './turnRunner'
 import { SessionManager } from './sessionManager'
+import { BUILTIN_STORAGE_NAME, FALLBACK_MODEL_NAME } from './constants'
 
 /** 创建 runtime 时的可选注入项。kernel 不内置任何 adapter 默认实现。 */
 export interface RuntimeOptions {
@@ -89,7 +90,7 @@ function createDeps(options?: RuntimeOptions): RuntimeDeps {
 
 function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
   const list = models.list()
-  return list.find(m => m.name !== 'placeholder-model')?.name ?? list[0]?.name
+  return list.find(m => m.name !== FALLBACK_MODEL_NAME)?.name ?? list[0]?.name
 }
 
 /**
@@ -102,7 +103,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
   const loadedExtensions = new Map<Extension, Set<Disposable>>()
 
   if (options?.storage) {
-    deps.registries.storages.register('builtin:storage', options.storage)
+    deps.registries.storages.register(BUILTIN_STORAGE_NAME, options.storage)
   }
 
   /** 创建一个 ExtensionContext，包含 register() / registerTool() / registerModelMiddleware() 等。 */

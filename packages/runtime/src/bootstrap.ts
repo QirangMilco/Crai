@@ -1,5 +1,5 @@
 import type { Extension, ExtensionContext, PermissionCheckRequest, PermissionDecision } from '@crai/core'
-import { HOOKS, TRUST_LEVELS } from '@crai/core'
+import { HOOKS, PERMISSION_KINDS, TRUST_LEVELS } from '@crai/core'
 
 async function checkPermission(
   request: PermissionCheckRequest,
@@ -30,7 +30,7 @@ async function loadSingleExtension(
   if (perms?.length) {
     for (const perm of perms) {
       const decision = await checkPermission({
-        kind: perm.kind ?? 'custom',
+        kind: perm.kind ?? PERMISSION_KINDS.CUSTOM,
         action: perm.action,
         payload: perm.payload,
       }, ctx)

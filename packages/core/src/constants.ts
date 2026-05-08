@@ -129,6 +129,12 @@ export const MESSAGE_ROLES = {
 /** 消息角色。从 MESSAGE_ROLES 派生。 */
 export type MessageRole = typeof MESSAGE_ROLES[keyof typeof MESSAGE_ROLES]
 
+export const RUNTIME_INPUT_TYPES = {
+  TEXT: 'text',
+  MESSAGE: 'message',
+  COMMAND: 'command',
+} as const
+
 export const MESSAGE_PART_TYPES = {
   TEXT: 'text',
   IMAGE: 'image',
@@ -137,6 +143,9 @@ export const MESSAGE_PART_TYPES = {
 } as const
 
 /** ModelStreamEvent 判别式。所有 provider 实现流式响应时都应引用此常量。 */
+/** 预留/占位模型名。runtime 在查找可用模型时跳过此名称，preset-default 注册占位模型时使用。 */
+export const PLACEHOLDER_MODEL_NAME = 'placeholder-model'
+
 export const STREAM_EVENT_TYPES = {
   TEXT_START: 'text-start',
   TEXT_DELTA: 'text-delta',

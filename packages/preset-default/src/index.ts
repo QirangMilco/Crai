@@ -8,8 +8,14 @@ import type {
   StorageAdapter,
   ToolSafetyLevel,
 } from '@crai/core'
-import { ERROR_CODES, HOOKS, TOOL_SAFETY_LEVELS, PERMISSION_MODES } from '@crai/core'
+import { ERROR_CODES, HOOKS, PERMISSION_KINDS, TOOL_SAFETY_LEVELS, PERMISSION_MODES } from '@crai/core'
 import { createDefaultI18nAdapter } from './i18n/index'
+import {
+  BUILTIN_EXTENSION_NAME,
+  I18N_ADAPTER_NAME,
+  PERMISSION_ADAPTER_NAME,
+  PLACEHOLDER_MODEL_NAME,
+} from './constants'
 
 // ============================================================
 // 默认安全配置
@@ -97,14 +103,14 @@ export function sanitizeEnv(env: Record<string, string | undefined>): Record<str
  */
 export function createDefaultPermissionAdapter(mode: PermissionMode = PERMISSION_MODES.ASK): PermissionAdapter {
   return {
-    name: 'preset-default:permission',
+    name: PERMISSION_ADAPTER_NAME,
     async check(request): Promise<PermissionDecision> {
-      if (request.kind === 'extension') {
+      if (request.kind === PERMISSION_KINDS.EXTENSION) {
         // 扩展权限默认允许（可被上层策略覆盖）
         return { allow: true, reason: 'preset-default 允许扩展加载' }
       }
 
-      if (request.kind !== 'tool') {
+      if (request.kind !== PERMISSION_KINDS.TOOL) {
         return { allow: true }
       }
 
@@ -140,10 +146,10 @@ export function createDefaultPermissionAdapter(mode: PermissionMode = PERMISSION
 
 export function createDefaultPresetExtensions(): Extension[] {
   const builtinDefaults: Extension = {
-    name: 'preset-default:builtin-defaults',
+    name: BUILTIN_EXTENSION_NAME,
     setup(ctx) {
       const placeholderModel: ModelAdapter = {
-        name: 'placeholder-model',
+        name: PLACEHOLDER_MODEL_NAME,
         async request() {
           throw {
             code: ERROR_CODES.MODEL_ADAPTER_NOT_READY,
@@ -162,12 +168,12 @@ export function createDefaultPresetExtensions(): Extension[] {
 
       // 注册默认权限适配器
       ctx.registry.permissions.register(
-        'preset-default:permission',
+        PERMISSION_ADAPTER_NAME,
         createDefaultPermissionAdapter(PERMISSION_MODES.ASK),
       )
 
       // 注册默认 i18n 适配器（自动检测系统语言）
-      ctx.registry.i18n.register('preset-default:i18n', createDefaultI18nAdapter())
+      ctx.registry.i18n.register(I18N_ADAPTER_NAME, createDefaultI18nAdapter())
 
       // ---- 默认上下文注入：从 storage 加载历史消息追加到上下文 ----
       ctx.hooks.on(HOOKS.CONTEXT_BUILD, async ({ session, messages }) => {

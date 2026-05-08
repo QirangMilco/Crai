@@ -5,7 +5,7 @@
  */
 import { createRuntime } from '@crai/runtime'
 import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '@crai/core'
-import { HOOKS } from '@crai/core'
+import { HOOKS, MESSAGE_PART_TYPES, MESSAGE_ROLES, RUNTIME_INPUT_TYPES, STREAM_EVENT_TYPES } from '@crai/core'
 import { createFileStorage } from '@crai/storage-fs'
 
 function createMockModel(responseText: string): ModelAdapter {
@@ -15,17 +15,17 @@ function createMockModel(responseText: string): ModelAdapter {
       return {
         message: {
           id: `msg_${Date.now()}`,
-          role: 'assistant',
+          role: MESSAGE_ROLES.ASSISTANT,
           createdAt: Date.now(),
-          parts: [{ type: 'text', text: responseText }],
+          parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: responseText }],
         },
         stopReason: 'stop',
       }
     },
     async *stream() {
-      yield { type: 'text-start' }
-      yield { type: 'text-end' }
-      yield { type: 'done', response: { message: { id: `msg_${Date.now()}`, role: 'assistant', createdAt: Date.now(), parts: [{ type: 'text', text: responseText }] } } }
+      yield { type: STREAM_EVENT_TYPES.TEXT_START }
+      yield { type: STREAM_EVENT_TYPES.TEXT_END }
+      yield { type: STREAM_EVENT_TYPES.DONE, response: { message: { id: `msg_${Date.now()}`, role: MESSAGE_ROLES.ASSISTANT, createdAt: Date.now(), parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: responseText }] } } }
     },
   }
 }
@@ -82,7 +82,7 @@ async function main() {
 
   // 第一轮
   const r1 = await runtime.prompt(
-    { type: 'text', text: '你好' },
+    { type: RUNTIME_INPUT_TYPES.TEXT, text: '你好' },
     { model: 'example-model', sessionId: session.id },
   )
   console.log(`[第1轮] ${r1.turnId}`)
@@ -90,7 +90,7 @@ async function main() {
 
   // 第二轮（复用 sessionId，context 包含上轮消息）
   const r2 = await runtime.prompt(
-    { type: 'text', text: '还记得我第一轮说了什么吗' },
+    { type: RUNTIME_INPUT_TYPES.TEXT, text: '还记得我第一轮说了什么吗' },
     { model: 'example-model', sessionId: session.id },
   )
   console.log(`[第2轮] ${r2.turnId}`)

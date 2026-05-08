@@ -1,6 +1,7 @@
 import type { I18nAdapter } from '@crai/core'
 import { en } from './en'
 import { zhCN } from './zh-CN'
+import { I18N_ADAPTER_NAME } from '../constants'
 
 const BUNDLED: Record<string, Record<string, string>> = {
   en,
@@ -28,7 +29,7 @@ export function createDefaultI18nAdapter(initialLang?: string): I18nAdapter {
   let messages = BUNDLED[currentLang] ?? BUNDLED[DEFAULT_LANG]
 
   return {
-    name: 'preset-default:i18n',
+    name: I18N_ADAPTER_NAME,
     t(key, params) {
       let msg = messages[key]
       if (msg === undefined) {
