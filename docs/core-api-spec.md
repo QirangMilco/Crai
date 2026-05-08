@@ -40,7 +40,10 @@ export type Metadata = Record<string, JsonValue | undefined>
 ## 2.1 安全类型 (Safety Types)
 
 ```ts
-/** 工具安全级别：每个 ToolDefinition 必须声明 */
+/**
+ * 工具安全级别：每个 ToolDefinition 必须声明。
+ * 实际类型由 TOOL_SAFETY_LEVELS 常量派生，见 constants.ts。
+ */
 export type ToolSafetyLevel = 'safe' | 'restricted' | 'dangerous'
 
 /**
@@ -49,7 +52,10 @@ export type ToolSafetyLevel = 'safe' | 'restricted' | 'dangerous'
  * dangerous: 可能造成不可逆损害的操作（如 rm、shell、sudo），必须显式用户确认
  */
 
-/** 运行时权限模式 */
+/**
+ * 运行时权限模式。
+ * 实际类型由 PERMISSION_MODES 常量派生，见 constants.ts。
+ */
 export type PermissionMode = 'safe' | 'ask' | 'execute'
 
 /**
@@ -85,12 +91,13 @@ export interface Session {
 ### 3.2 Message
 
 ```ts
+/** 消息角色。实际类型由 MESSAGE_ROLES 常量派生，见 constants.ts。 */
 export type MessageRole =
-  | "system"
-  | "user"
-  | "assistant"
-  | "tool"
-  | "custom"
+  | 'system'
+  | 'user'
+  | 'assistant'
+  | 'tool'
+  | 'custom'
 
 export interface BaseMessage {
   id: ID

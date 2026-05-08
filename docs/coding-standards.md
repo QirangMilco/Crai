@@ -75,12 +75,7 @@ const mode: PermissionMode = PERMISSION_MODES.ASK
 const kind = PERMISSION_KINDS.TOOL
 ```
 
-**可接受（类型安全的字面量）：**
-```typescript
-const level: ToolSafetyLevel = 'dangerous'
-```
-
-所有值常量定义在 [packages/core/src/constants.ts](file:///Users/qirang/Documents/Projects/Crai/packages/core/src/constants.ts) 中。
+所有值常量定义在 [packages/core/src/constants.ts](file:///Users/qirang/Documents/Projects/Crai/packages/core/src/constants.ts) 中。运行时引用必须使用常量，类型层面的判别式标签（如 `type: 'text-start'`）允许用裸字面量。
 
 ### 1.5 文件系统路径
 

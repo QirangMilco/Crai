@@ -79,6 +79,7 @@ interface MemoryEntry {
   provenance?: MemoryProvenance  // 溯源信息
 }
 
+/** 记忆作用域。实际类型由 MEMORY_SCOPES 常量派生，见 constants.ts。 */
 type MemoryScope = 'global' | 'project' | 'session'
 
 interface MemoryProvenance {
