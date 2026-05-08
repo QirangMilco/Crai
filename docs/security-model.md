@@ -40,7 +40,7 @@ Runtime 层在工具执行路径上强制执行安全检查：
 
 预设扩展包提供可替换的默认安全策略：
 
-- `packages/preset-default`：默认危险命令列表（DANGEROUS_COMMANDS）、默认危险命令正则匹配器（DANGEROUS_PATTERNS）、默认 `PermissionAdapter` 实现
+- `Extension` 层：危险命令列表、危险命令正则匹配器、`PermissionAdapter` 实现由用户自行提供或从示例参考
 - Extension：可自定义权限策略，覆盖默认行为
 
 ### 2.4 App/Transport 层 — 交互呈现

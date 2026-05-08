@@ -35,12 +35,6 @@ importers:
         specifier: workspace:*
         version: link:../core
 
-  packages/preset-default:
-    dependencies:
-      '@crai/core':
-        specifier: workspace:*
-        version: link:../core
-
   packages/provider:
     dependencies:
       '@crai/core':

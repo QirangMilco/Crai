@@ -32,9 +32,9 @@ Crai 不打算：
 
 - **Core 层**：定义 `MemoryEntry` 类型和 `MemoryAdapter` 契约，仅关注记忆的数据形状和抽象能力
 - **Runtime 层**：在 Session 生命周期中提供记忆触发点（事件/钩子），不实现任何记忆策略
-- **Preset/Extension 层**：实现具体的记忆策略（Summary 注入、向量检索、知识图谱等）
+- **Extension 层**：实现具体的记忆策略（Summary 注入、向量检索、知识图谱等）
 
-Runtime 内核不应拥有记忆策略实现。默认的轻量级 Summary 记忆策略由 `preset-default` 提供，更高级的策略由独立 preset 或扩展提供。
+Runtime 内核不应拥有记忆策略实现。记忆策略由用户自行选择或实现，以独立 extension 形式提供。
 
 > 详细的记忆体系设计请参见 [memory-design.md](memory-design.md)。
 
@@ -85,7 +85,7 @@ Runtime 内核不应拥有记忆策略实现。默认的轻量级 Summary 记忆
 
 - **Core 层**：定义 `ToolSafetyLevel`（安全/受限/危险）、`PermissionMode`（探索/确认/执行）、`SandboxScope`（文件系统根路径、可写路径白名单、禁止路径黑名单）和 `PermissionAdapter` 契约
 - **Runtime 层**：在 turnRunner 的工具执行路径上强制执行安全检查；每个 `ToolDefinition` 必须有 safetyLevel 声明；路径沙箱在工具分发层校验
-- **Preset/Extension 层**：提供默认的危险命令列表、默认权限策略适配器、OS 级沙箱集成（可选）
+- **Extension 层**：提供默认的危险命令列表、默认权限策略适配器、OS 级沙箱集成（可选）
 - **App/UI 层**：负责权限确认的交互呈现（确认对话框 / permission panel）
 
 > 详细的安全模型设计请参见 [security-model.md](security-model.md)。
@@ -179,9 +179,9 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **reasonix**: 吸收其三层记忆作用域（user/project/session）设计，作为 MemoryScope 分层模型参考。
 
 ### 5.5 安全层 (Safety) - 吸收自 CrystalAgents / reasonix / snow-cli / pi-mono
-- **CrystalAgents**: 吸收其三级权限模式（safe/ask/allow-all）、危险命令黑名单（`DANGEROUS_COMMANDS`）和工作空间级 `permissions.json` 配置，作为 `packages/preset-default` 安全配置的参考实现。
+- **CrystalAgents**: 吸收其三级权限模式（safe/ask/allow-all）、危险命令黑名单（`DANGEROUS_COMMANDS`）和工作空间级 `permissions.json` 配置，作为安全配置的参考实现。
 - **reasonix**: 吸收其文件系统沙箱（`safePath` 路径遍历检测 + `rootDir` 强制校验 + 读写字节上限）和只读模式开关，作为 runtime 层面 `SandboxScope` 校验逻辑的参考实现。
-- **snow-cli**: 吸收其自毁命令检测（`isSelfDestructiveCommand`）和危险命令正则模式（`DANGEROUS_PATTERNS`），作为 `packages/preset-default` 匹配器的参考实现。
+- **snow-cli**: 吸收其自毁命令检测（`isSelfDestructiveCommand`）和危险命令正则模式（`DANGEROUS_PATTERNS`），作为危险命令匹配器的参考实现。
 - **pi-mono**: 吸收其 OS 级沙箱集成模式（sandbox-exec / bubblewrap 作为 extension），作为 Phase 3 的可选沙箱策略参考。
 
 ### 5.6 经验法则

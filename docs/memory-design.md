@@ -20,7 +20,7 @@
 
 ### 2.2 空心记忆策略
 
-运行时内核不应拥有记忆策略实现。默认情况下，一个简单可靠的 Summary 记忆策略由 `preset-default` 提供；更高级的策略（如向量检索、知识图谱）由独立 preset 或扩展提供。
+运行时内核不应拥有记忆策略实现。记忆策略由用户自行选择或实现，以独立 extension 形式提供。
 
 ### 2.3 分层作用域
 
@@ -250,7 +250,7 @@ activity_score = importance × e^(-λ × Δt)
 | `MemoryBuilder` | `preset-memory` 中 | 语义结构化压缩：滑窗分割 + LLM 提取 → 多视图索引 |
 | `HybridRetriever` | `preset-memory` 中 | 意图分析 → 三路并行检索 → 结果合并 → 反思轮次 |
 | `AnswerGenerator` | 不直接对应 (Crai 使用 ModelAdapter) | 基于检索上下文的答案生成模式 |
-| `ContextInjector` | `preset-default` 中 | 分层 Token 预算上下文注入 |
+| `ContextInjector` | Extension 中 | 分层 Token 预算上下文注入 |
 
 ### 7.2 SimpleMem-Cross — 跨会话生命周期
 
@@ -276,7 +276,7 @@ activity_score = importance × e^(-λ × Δt)
 packages/
   core/                               ← MemoryEntry 类型, MemoryAdapter 接口
   runtime/                            ← 记忆相关 Event/Hook/Middleware 触发点
-  preset-default/                     ← 默认 Summary 记忆策略（轻量级）
+  memory-extension/                  ← Summary 记忆策略（由用户自行实现）
   preset-memory/         (新增)       ← 完整记忆策略实现（借鉴 SimpleMem）
     ├── memory-builder.ts             ← 语义压缩 + 多视图索引
     ├── hybrid-retriever.ts           ← 语义/关键词/结构化混合检索
@@ -292,7 +292,7 @@ packages/
 
 1. 在 `packages/core` 中定义 `MemoryEntry` 类型、`MemoryScope` 枚举、`MemoryAdapter` 接口
 2. 在 `packages/runtime` 的 Session 生命周期钩子中加入 Session 结束时的记忆提取触发点
-3. 在 `packages/preset-default` 中实现最简单的 Summary 记忆策略：
+3. 实现最简单的 Summary 记忆策略（作为独立 extension）：
    - Session 结束时调用 LLM 生成摘要
    - 下一次 Session 启动时将摘要注入系统提示
 

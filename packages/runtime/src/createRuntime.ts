@@ -44,7 +44,7 @@ import { bootstrapRuntimeExtensions, setupExtension } from './bootstrap'
 import { buildRuntimeContext } from './contextBuilder'
 import { runTurn, TurnRunnerDeps } from './turnRunner'
 import { SessionManager } from './sessionManager'
-import { BUILTIN_STORAGE_NAME, FALLBACK_MODEL_NAME } from './constants'
+import { BUILTIN_STORAGE_NAME } from './constants'
 
 /** 创建 runtime 时的可选注入项。kernel 不内置任何 adapter 默认实现。 */
 export interface RuntimeOptions {
@@ -89,8 +89,7 @@ function createDeps(options?: RuntimeOptions): RuntimeDeps {
 }
 
 function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
-  const list = models.list()
-  return list.find(m => m.name !== FALLBACK_MODEL_NAME)?.name ?? list[0]?.name
+  return models.list()[0]?.name
 }
 
 /**

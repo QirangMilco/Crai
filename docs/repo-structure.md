@@ -22,11 +22,10 @@ packages/
   runtime/
   extension-sdk/
   loader-ts/
-  preset-default/
-  preset-memory/           (新增) 完整记忆策略：压缩/检索/注入/整理
   devtools/
   provider/
   storage-fs/
+  preset-memory/           (新增) 完整记忆策略：压缩/检索/注入/整理
   storage-vector/          (可选) 向量存储适配器（LanceDB/FAISS 等）
   cache-default/
   transport-websocket/
@@ -55,7 +54,6 @@ packages/
   runtime/
   extension-sdk/
   loader-ts/
-  preset-default/
 ```
 
 可选的 Phase 1 补充（如果需要）：
@@ -101,14 +99,12 @@ packages/
 - 支持重新加载和卸载
 - 监听模式 (Watch-mode) 工具
 
-### 4.5 `packages/preset-default`
-- 默认 Prompt 流水线
-- 默认上下文行为 (default context behavior)
-- 默认持久化行为 (default persistence behavior)
-- 默认遥测/日志行为 (default telemetry/logging behavior)
-- 默认模型连接占位符 (default model wiring placeholders)
-- 默认轻量级 Summary 记忆策略（Session 摘要生成与注入）
-- 此包的存在是为了保持运行时的精简且同时可用
+### 4.5 ~~`packages/preset-default`~~（已删除，见 D-031）
+运行时不再提供任何默认行为。用户根据需要自行组合 extension。
+- 需要模型 → 加载 `@crai/provider`
+- 需要存储 → 加载 `@crai/storage-fs`
+- 需要历史注入 → 自行编写 `context:build` hook
+- 需要持久化 → 自行编写 `turn:after` hook
 
 ### 4.6 `packages/provider`
 - 所有 LLM provider 实现（OpenAI、Anthropic、DeepSeek 等）
@@ -142,7 +138,7 @@ packages/
 
 ### `apps/dev-server`
 用于测试运行时行为和加载扩展的本地开发服务器。
-它可能在开发启动期间自动加载 `preset-default`。
+它可以在开发启动期间加载一组默认 extension。
 
 ### `apps/web`
 一个 Web UI 壳层，它消费运行时事件并与传输适配器交互。
@@ -177,7 +173,6 @@ packages/
 - `packages/runtime/src/turnRunner.ts`
 - `packages/extension-sdk/src/index.ts`
 - `packages/loader-ts/src/index.ts`
-- `packages/preset-default/src/index.ts`
 - `packages/storage-fs/src/adapter.ts`
 - `packages/provider/src/openai/adapter.ts`
 - `packages/devtools/src/index.ts`
@@ -187,4 +182,4 @@ packages/
 当开始实现记忆策略时，从以下文件开始：
 - `packages/core/src/types.ts`（追加 MemoryEntry/MemoryScope 类型）
 - `packages/core/src/hooks.ts`（追加 memoryEvents 相关钩子定义）
-- `packages/preset-default/src/memory-builder.ts`（摘要生成与注入）
+- `packages/preset-memory/src/memory-builder.ts`（摘要生成与注入，Phase 2）

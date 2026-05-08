@@ -40,8 +40,7 @@ function createMockModelExtension(responseText: string): Extension {
 }
 
 /**
- * 持久化扩展：turn 结束后将消息写入 storage。
- * 这是 preset-default 未来承载的默认行为之一。
+ * 示例：turn 结束后将消息写入 storage 的持久化 extension。
  */
 function createPersistExtension(): Extension {
   return {

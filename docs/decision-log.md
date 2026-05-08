@@ -411,3 +411,24 @@ Extension 通过 `ctx.register(disposable)` 注册资源，运行时在卸载时
 - 提高系统健壮性
 - 降低 Extension 升级和维护成本
 - 与 OpenHanako 前向兼容保证一致
+
+## D-031 — 移除 preset-default，用户自行组合扩展
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+删除 `packages/preset-default` 包。运行时不再提供任何默认行为。用户根据需要自行组合 extension：
+- 需要模型 → 加载 `@crai/provider`
+- 需要存储 → 加载 `@crai/storage-fs`
+- 需要历史注入 → 自行编写 `context:build` hook
+- 需要持久化 → 自行编写 `turn:after` hook
+
+核心（core + runtime）裸启动时不做任何事，零预设。
+
+### 理由
+- 目标用户是专业开发者，不需要
+开箱即用的体验，他们自己组合需要的扩展。
+- 删除了 D-023（默认记忆策略由 preset-default 提供）——记忆策略由用户自行选择或实现。
+- 与 D-004（provider/transport/storage/UI 外置）一致，将"默认行为"也外置到用户层。
+- 减少核心维护负担，无需维护一份"默认但不一定适用"的配置。

@@ -108,12 +108,15 @@ const configDir = join(homedir(), '.crai', 'config')
 Adapter、Extension 等在注册时使用的名称字符串应使用命名常量或在相近位置定义：
 
 ```typescript
-// 推荐：在文件顶部定义
-const ADAPTER_NAME = 'preset-default:permission'
-ctx.registry.permissions.register(ADAPTER_NAME, adapter)
+// 推荐：在 constants.ts 中定义
+// constants.ts
+export const PERMISSION_ADAPTER_NAME = 'my-extension:permission'
+
+// index.ts
+ctx.registry.permissions.register(PERMISSION_ADAPTER_NAME, adapter)
 
 // 避免：
-ctx.registry.permissions.register('preset-default:permission', adapter)
+ctx.registry.permissions.register('my-extension:permission', adapter)
 ```
 
 ### 1.7 新增共享常量
@@ -152,7 +155,7 @@ export interface I18nAdapter {
 从 `RuntimeRegistries` 中获取 i18n 适配器：
 
 ```typescript
-const i18n = ctx.registry.i18n.get('preset-default:i18n')
+const i18n = ctx.registry.i18n.get('my-extension:i18n')
 if (i18n) {
   const msg = i18n.t('error.model.adapterNotReady')
   const withParams = i18n.t('permission.safe.blocked', { reason: 'dangerous tool' })
@@ -188,7 +191,7 @@ i18n.t('permission.safe.blocked', { reason: 'dangerous tool' })
 
 ### 2.6 添加新语言
 
-在 [packages/preset-default/src/i18n/](file:///Users/qirang/Documents/Projects/Crai/packages/preset-default/src/i18n/) 目录下添加新的语言文件，然后在 [index.ts](file:///Users/qirang/Documents/Projects/Crai/packages/preset-default/src/i18n/index.ts) 中注册：
+在 extension 的 `src/i18n/` 目录下添加新的语言文件，然后在 `index.ts` 中注册：
 
 ```typescript
 import { ja } from './ja' // 新建 ja.ts
@@ -349,7 +352,7 @@ Preset 或 Extension 中的常量分为两类：
 **包内私有常量**：直接在当前包的 `src/constants.ts` 或就近定义：
 
 ```typescript
-// packages/preset-default/src/constants.ts
+// packages/<ext>/src/constants.ts
 export const DANGEROUS_COMMANDS = [
   'rm', 'sudo', 'chmod',
 ] as const
@@ -402,7 +405,7 @@ const BLOCKED_ENV_VARS = ['ANTHROPIC_API_KEY', ...] // 需要改代码才能变�
 |------|---------|------|
 | Core | `packages/core/src/constants.ts` | 跨层共享契约（事件/Hook/错误码） |
 | Runtime | `packages/runtime/src/constants.ts` | Runtime 内部私有常量 |
-| Preset | `packages/preset-default/src/constants.ts` | Preset 内部私有常量和默认值 |
+| Extension | `packages/<ext>/src/constants.ts` | Extension 内部私有常量 |
 | Extension | `packages/<ext>/src/constants.ts` | 各扩展内部私有常量 |
 
 ### 1.8 包内私有字符串（HTTP、类型字面量、API 内部值）

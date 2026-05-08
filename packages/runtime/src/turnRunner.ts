@@ -12,7 +12,6 @@ import type {
 import type { HookBus, HookMap, RuntimeHandle, Session } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, PERMISSION_MODES } from '@crai/core'
-import { FALLBACK_MODEL_NAME } from './constants'
 
 /**
  * 最小 turn 运行结果。
@@ -80,7 +79,7 @@ export async function runTurn(
   const request: ModelRequest = {
     sessionId: session.id,
     turnId,
-    model: modelName ?? FALLBACK_MODEL_NAME,
+    model: modelName ?? '<no-model>',
     context: contextWithTools,
   }
 
