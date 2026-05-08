@@ -3,7 +3,7 @@
  * 将 session、message、artifact 持久化到本地文件系统。
  * 通过 Extension 工厂注册到 runtime，支持热替换。
  */
-import type { Artifact, ID, Message, Session, StorageAdapter } from '../../../core/src'
+import type { Artifact, ID, Message, Session, StorageAdapter } from '@crai/core'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'

@@ -1,7 +1,23 @@
 /**
  * Crai core 基础类型。
  * 只放稳定、跨包共享的契约，不放产品层语义。
+ *
+ * 类型定义规范：
+ * 若类型有对应的运行时值常量（如 ToolSafetyLevel ↔ TOOL_SAFETY_LEVELS），
+ * 则类型由 constants.ts 中的 const 对象派生，此处只做重导出。
+ * 不得在两个文件中同时手写字面量。
  */
+import type {
+  ToolSafetyLevel,
+  PermissionMode,
+  PermissionKind,
+  MemoryScope,
+  TrustLevel,
+  ObservationType,
+  MessageRole,
+} from './constants'
+
+export type { ToolSafetyLevel, PermissionMode, PermissionKind, MemoryScope, TrustLevel, ObservationType, MessageRole }
 
 export type ID = string
 export type Timestamp = number
@@ -22,12 +38,6 @@ export type Metadata = Record<string, JsonValue | undefined>
 // 安全类型 (Safety types)
 // ============================================================
 
-/** 工具安全级别：每个 ToolDefinition 必须声明。值常量见 constants.ts `TOOL_SAFETY_LEVELS`。 */
-export type ToolSafetyLevel = 'safe' | 'restricted' | 'dangerous'
-
-/** 运行时权限模式。值常量见 constants.ts `PERMISSION_MODES`。 */
-export type PermissionMode = 'safe' | 'ask' | 'execute'
-
 /** 文件系统沙箱作用域。 */
 export interface SandboxScope {
   rootDir: string
@@ -39,7 +49,7 @@ export interface SandboxScope {
 
 /** 权限检查请求。 */
 export interface PermissionCheckRequest {
-  kind: 'tool' | 'transport' | 'storage' | 'extension' | 'custom'
+  kind: PermissionKind
   action: string
   payload?: unknown
   session?: Session
@@ -62,9 +72,6 @@ export interface Session {
   title?: string
   metadata?: Metadata
 }
-
-/** 保持角色集合最小，避免把 UI 状态引入 core。 */
-export type MessageRole = 'system' | 'user' | 'assistant' | 'tool' | 'custom'
 
 export interface BaseMessage {
   id: ID
@@ -118,9 +125,6 @@ export interface Artifact {
   metadata?: Metadata
 }
 
-/** 记忆作用域：决定记忆的生命周期和注入优先级。值常量见 constants.ts `MEMORY_SCOPES`。 */
-export type MemoryScope = 'global' | 'project' | 'session'
-
 /** 记忆溯源：记录每条记忆的来源信息。 */
 export interface MemoryProvenance {
   sessionId: ID
@@ -167,11 +171,11 @@ export interface SessionSummary {
   createdAt: Timestamp
 }
 
-/** Observation 是会话过程中提取的细粒度发现或决策。类型常量见 constants.ts `OBSERVATION_TYPES`。 */
+/** Observation 是会话过程中提取的细粒度发现或决策。类型由 OBSERVATION_TYPES 常量派生。 */
 export interface Observation {
   id: ID
   sessionId: ID
-  type: 'decision' | 'bugfix' | 'feature' | 'refactor' | 'discovery' | 'change'
+  type: ObservationType
   title: string
   subtitle?: string
   narrative?: string

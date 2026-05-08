@@ -97,7 +97,7 @@ packages/
 - `register()` 资源管理辅助
 
 ### 4.4 `packages/loader-ts`
-- 加载本地 `.ts` 扩展
+- 加载本地 `.ts` 扩展文件
 - 支持重新加载和卸载
 - 监听模式 (Watch-mode) 工具
 

@@ -3,7 +3,7 @@
  * 支持加载、卸载、重载本地 .ts 扩展文件。
  * 运行时依赖 tsx 或 ts-node 处理 TypeScript 转译。
  */
-import type { Extension, ExtensionModule } from '../../core/src'
+import type { Extension, ExtensionModule } from '@crai/core'
 import { createRequire } from 'node:module'
 import { watch } from 'node:fs'
 

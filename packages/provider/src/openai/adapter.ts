@@ -14,8 +14,8 @@ import type {
   TextPart,
   ToolCallPart,
   ToolResultPart,
-} from '../../../core/src'
-import { STREAM_EVENT_TYPES } from '../../../core/src'
+} from '@crai/core'
+import { STREAM_EVENT_TYPES } from '@crai/core'
 import { sseLines } from '../core/stream'
 import {
   API,

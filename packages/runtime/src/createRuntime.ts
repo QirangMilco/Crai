@@ -1,26 +1,44 @@
-import type { Logger, ModelAdapter, PromptOptions, PromptResult, Registry, RuntimeError, RuntimeHandle, RuntimeInput, Session, StorageAdapter, ToolDefinition } from '../../core/src'
+import type {
+  Logger,
+  ModelAdapter,
+  ModelMiddleware,
+  PromptOptions,
+  PromptResult,
+  Registry,
+  RuntimeError,
+  RuntimeHandle,
+  RuntimeInput,
+  Session,
+  StorageAdapter,
+  ToolDefinition,
+  ToolHandler,
+  ToolProvider,
+} from '@crai/core'
 import type {
   CacheAdapter,
   CommandRegistry,
   Disposable,
   EventBus,
   Extension,
+  ExtensionConfigStore,
   ExtensionContext,
   HookBus,
   HookMap,
   PermissionAdapter,
   RuntimeRegistries,
   SettingsStore,
-} from '../../core/src'
-import { EVENTS, ERROR_CODES, HOOKS } from '../../core/src'
+} from '@crai/core'
+import { EVENTS, ERROR_CODES, HOOKS } from '@crai/core'
 import {
   createCommandRegistry,
   createDefaultLogger,
   createEventBus,
   createHookBus,
+  createModelMiddlewareStore,
   createRuntimeRegistries,
   createSettingsStore,
   createTrackedRegistries,
+  type ModelMiddlewareStore,
 } from './bus'
 import { bootstrapRuntimeExtensions, setupExtension } from './bootstrap'
 import { buildRuntimeContext } from './contextBuilder'
@@ -34,6 +52,8 @@ export interface RuntimeOptions {
   permission?: PermissionAdapter
   extensions?: Array<Extension | string>
   logger?: Logger
+  /** 是否允许加载声明 trust: 'full-access' 的 Extension（默认 false，降级为 restricted）。 */
+  allowFullAccessExtensions?: boolean
 }
 
 /** runtime 内部依赖汇总，由 createDeps 统一组装，不暴露给外部。 */
@@ -46,6 +66,8 @@ interface RuntimeDeps {
   logger: Logger
   sessions: SessionManager
   storage?: StorageAdapter
+  middlewares: ModelMiddlewareStore
+  configStore: ExtensionConfigStore
 }
 
 function createDeps(options?: RuntimeOptions): RuntimeDeps {
@@ -56,8 +78,13 @@ function createDeps(options?: RuntimeOptions): RuntimeDeps {
   const commands = createCommandRegistry()
   const settings = createSettingsStore()
   const sessions = new SessionManager()
+  const middlewares = createModelMiddlewareStore()
+  const configStore: ExtensionConfigStore = {
+    get(_key) { return undefined },
+    async set(_key, _value) {},
+  }
 
-  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage }
+  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore }
 }
 
 function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
@@ -76,6 +103,58 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
 
   if (options?.storage) {
     deps.registries.storages.register('builtin:storage', options.storage)
+  }
+
+  /** 创建一个 ExtensionContext，包含 register() / registerTool() / registerModelMiddleware() 等。 */
+  function createCtx(
+    disposables: Set<Disposable>,
+    registry: RuntimeRegistries,
+  ): ExtensionContext {
+    return {
+      runtime,
+      hooks: deps.hooks,
+      events: deps.events,
+      bus: deps.events,
+      registry,
+      logger: deps.logger,
+      config: deps.configStore,
+      dataDir: '.',
+      register(disposable: Disposable) {
+        disposables.add(disposable)
+      },
+      registerTool(tool: ToolDefinition & { execute: ToolHandler['execute'] }) {
+        const extName = tool.name
+        const provider: ToolProvider = {
+          name: `registerTool:${extName}`,
+          listTools() {
+            return [{
+              name: tool.name,
+              description: tool.description,
+              inputSchema: tool.inputSchema,
+              safetyLevel: tool.safetyLevel,
+              sandbox: tool.sandbox,
+            }]
+          },
+          getTool(name: string) {
+            if (name !== tool.name) return undefined
+            return {
+              definition: {
+                name: tool.name,
+                description: tool.description,
+                inputSchema: tool.inputSchema,
+                safetyLevel: tool.safetyLevel,
+                sandbox: tool.sandbox,
+              },
+              execute: tool.execute,
+            }
+          },
+        }
+        return registry.tools.register(provider.name, provider)
+      },
+      registerModelMiddleware(mw: ModelMiddleware) {
+        return deps.middlewares.register(mw)
+      },
+    }
   }
 
   const runtime: RuntimeHandle = {
@@ -97,6 +176,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       const turnDeps: TurnRunnerDeps = {
         hooks: deps.hooks,
         emitEvent: deps.events.emit,
+        middlewares: deps.middlewares,
         buildContext: async () => {
           const storages = deps.registries.storages.list()
           const storage = storages[0]?.value ?? deps.storage
@@ -153,19 +233,12 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     async listMessages(_sessionId) {
       return []
     },
-    async loadExtension(source) {
-      const { loadExtension: loadFromFile } = await import('../../loader-ts/src/index')
-      const ext = await loadFromFile(source)
+    /** 加载一个已加载好的 Extension 对象。文件加载由 loader-ts 等外部工具负责。 */
+    async loadExtension(ext) {
       const disposables = new Set<Disposable>()
       const trackedRegistry = createTrackedRegistries(deps.registries, disposables)
-      const ctx: ExtensionContext = {
-        runtime,
-        hooks: deps.hooks,
-        events: deps.events,
-        registry: trackedRegistry,
-        logger: deps.logger,
-      }
-      await setupExtension(ext, ctx)
+      const ctx = createCtx(disposables, trackedRegistry)
+      await setupExtension(ext, ctx, options?.allowFullAccessExtensions ?? false)
       loadedExtensions.set(ext, disposables)
       await deps.events.emit(EVENTS.EXTENSION_LOADED, { name: ext.name })
     },
@@ -196,16 +269,11 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
 
   // 初始引导使用 tracked registries 以便扩展注册可被清理
   const bootstrapDisposables = new Set<Disposable>()
-  const bootstrapCtx: ExtensionContext = {
-    runtime,
-    hooks: deps.hooks,
-    events: deps.events,
-    registry: createTrackedRegistries(deps.registries, bootstrapDisposables),
-    logger: deps.logger,
-  }
+  const bootstrapRegistry = createTrackedRegistries(deps.registries, bootstrapDisposables)
+  const bootstrapCtx = createCtx(bootstrapDisposables, bootstrapRegistry)
 
   await deps.events.emit(EVENTS.RUNTIME_STARTED, { runtimeId })
-  await bootstrapRuntimeExtensions(options?.extensions, [], bootstrapCtx)
+  await bootstrapRuntimeExtensions(options?.extensions, [], bootstrapCtx, options?.allowFullAccessExtensions ?? false)
 
   return runtime
 }

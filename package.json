@@ -1,0 +1,17 @@
+{
+  "name": "crai",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "type": "module",
+  "packageManager": "pnpm@10.8.1",
+  "scripts": {
+    "test": "tsx --test packages/runtime/test/basic.test.ts",
+    "example": "tsx examples/minimal-runtime/index.ts"
+  },
+  "devDependencies": {
+    "@crai/core": "workspace:*",
+    "@crai/runtime": "workspace:*",
+    "@crai/storage-fs": "workspace:*",
+    "tsx": "^4.19.0"
+  }
+}

@@ -132,7 +132,7 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 事件总线 (Event bus，含 SKIP 链实现)
 - 钩子总线 (Hook bus)
 - 扩展生命周期管理
-- Extension 加载与卸载
+- 扩展加载与卸载
 - 适配器分发 (Adapter dispatch)
 - **工具执行前的安全检查拦截**
 - **文件路径沙箱校验**
@@ -151,7 +151,6 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 
 ### 4.4 `@crai/loader-ts`
 包含：
-- 本地 TypeScript 扩展加载
 - 本地 TypeScript 扩展加载
 - 支持重新加载和卸载
 - 监听模式 (Watch-mode) 工具

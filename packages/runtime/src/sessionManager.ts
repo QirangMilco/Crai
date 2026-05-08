@@ -1,4 +1,4 @@
-import type { Metadata, Session } from '../../core/src'
+import type { Metadata, Session } from '@crai/core'
 
 /**
  * 内存级 session 管理器，runtime 内部实现。

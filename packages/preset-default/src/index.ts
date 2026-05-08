@@ -3,10 +3,12 @@ import type {
   ModelAdapter,
   PermissionAdapter,
   PermissionDecision,
+  PermissionMode,
   RuntimeError,
+  StorageAdapter,
   ToolSafetyLevel,
-} from '../../core/src'
-import { ERROR_CODES, HOOKS, TOOL_SAFETY_LEVELS, PERMISSION_MODES } from '../../core/src'
+} from '@crai/core'
+import { ERROR_CODES, HOOKS, TOOL_SAFETY_LEVELS, PERMISSION_MODES } from '@crai/core'
 import { createDefaultI18nAdapter } from './i18n/index'
 
 // ============================================================
@@ -93,7 +95,7 @@ export function sanitizeEnv(env: Record<string, string | undefined>): Record<str
  * - ask 模式：safe 自动通过，restricted 和 dangerous 需确认（通过 hook 通知上层）
  * - execute 模式：safe 和 restricted 自动通过，dangerous 需确认
  */
-export function createDefaultPermissionAdapter(mode: 'safe' | 'ask' | 'execute' = 'ask'): PermissionAdapter {
+export function createDefaultPermissionAdapter(mode: PermissionMode = PERMISSION_MODES.ASK): PermissionAdapter {
   return {
     name: 'preset-default:permission',
     async check(request): Promise<PermissionDecision> {
@@ -161,16 +163,36 @@ export function createDefaultPresetExtensions(): Extension[] {
       // 注册默认权限适配器
       ctx.registry.permissions.register(
         'preset-default:permission',
-        createDefaultPermissionAdapter('ask'),
+        createDefaultPermissionAdapter(PERMISSION_MODES.ASK),
       )
 
       // 注册默认 i18n 适配器（自动检测系统语言）
       ctx.registry.i18n.register('preset-default:i18n', createDefaultI18nAdapter())
 
-      // 这些 hook 作为默认行为占位存在，后续可逐步替换为真正的默认策略。
-      ctx.hooks.on(HOOKS.CONTEXT_BUILD, async () => ({ continue: true }))
-      ctx.hooks.on(HOOKS.PERSIST_BEFORE, async () => ({ continue: true }))
-      ctx.hooks.on(HOOKS.PERSIST_AFTER, async () => ({ continue: true }))
+      // ---- 默认上下文注入：从 storage 加载历史消息追加到上下文 ----
+      ctx.hooks.on(HOOKS.CONTEXT_BUILD, async ({ session, messages }) => {
+        const storages = ctx.registry.storages.list()
+        const storage = storages[0]?.value
+        if (!storage) return { continue: true }
+
+        const history = await storage.listMessages(session.id)
+        if (history.length === 0) return { continue: true }
+
+        return { replace: { session, messages: [...history, ...messages] } }
+      })
+
+      // ---- 默认持久化：turn 结束后将消息写入存储 ----
+      ctx.hooks.on(HOOKS.TURN_AFTER, async ({ session, turnId, messages }) => {
+        const storages = ctx.registry.storages.list()
+        const storage = storages[0]?.value
+        if (!storage) return { continue: true }
+
+        await storage.updateSession(session).catch(() => {})
+        for (const msg of messages) {
+          await storage.appendMessage(session.id, msg).catch(() => {})
+        }
+        return { continue: true }
+      })
     },
   }
 

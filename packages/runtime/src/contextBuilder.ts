@@ -1,4 +1,4 @@
-import type { ModelContext, Message, Session, ToolDefinition } from '../../core/src'
+import type { ModelContext, Message, Session, ToolDefinition } from '@crai/core'
 
 /**
  * 构建最小模型上下文。

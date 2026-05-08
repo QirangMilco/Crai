@@ -1,4 +1,4 @@
-import type { I18nAdapter } from '../../../core/src'
+import type { I18nAdapter } from '@crai/core'
 import { en } from './en'
 import { zhCN } from './zh-CN'
 

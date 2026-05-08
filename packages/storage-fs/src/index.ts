@@ -1,5 +1,5 @@
 /** storage-fs Extension 工厂。注册后 runtime 自动持久化 session/message。 */
-import type { Extension } from '../../../core/src'
+import type { Extension } from '@crai/core'
 import { FileStorageAdapter, type FileStorageOptions } from './adapter'
 import { EXTENSION_NAME } from './constants'
 

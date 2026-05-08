@@ -2,7 +2,7 @@
  * Crai extension-sdk。
  * 扩展作者只需 import 此包即可编写扩展，无需直接知晓 core 包的存在。
  */
-import type { Extension, ExtensionContext, ExtensionPermissionDeclaration } from '../../core/src'
+import type { Extension, ExtensionContext, ExtensionPermissionDeclaration } from '@crai/core'
 
 // ============================================================
 // 类型重导出 — 扩展作者无需知晓 @crai/core 的位置
@@ -20,10 +20,12 @@ export type {
   MessagePart,
   MessageRole,
   Metadata,
+  ModelContext,
   Observation,
   PermissionCheckRequest,
   PermissionDecision,
   PermissionMode,
+  RuntimeError,
   RuntimeInput,
   SandboxScope,
   Session,
@@ -32,10 +34,13 @@ export type {
   ImagePart,
   ToolCallPart,
   ToolResultPart,
+  ToolExecutionRequest,
+  ToolExecutionResult,
   ToolSafetyLevel,
-} from '../../core/src'
+} from '@crai/core'
 
 export type {
+  AdapterContext,
   CacheAdapter,
   Command,
   CommandRegistry,
@@ -43,7 +48,9 @@ export type {
   EventBus,
   EventMap,
   Extension,
+  ExtensionConfigStore,
   ExtensionContext,
+  ExtensionManifest,
   ExtensionModule,
   ExtensionPermissionDeclaration,
   HookBus,
@@ -54,7 +61,9 @@ export type {
   I18nAdapter,
   MemoryAdapter,
   MemoryQueryInput,
+  Middleware,
   ModelAdapter,
+  ModelMiddleware,
   ModelRequest,
   ModelResponse,
   ModelStreamEvent,
@@ -73,7 +82,13 @@ export type {
   ToolResolver,
   TransportAdapter,
   TransportContext,
-} from '../../core/src'
+} from '@crai/core'
+
+export {
+  BUS_SKIP,
+  BusNoHandlerError,
+  BusTimeoutError,
+} from '@crai/core'
 
 // ============================================================
 // 扩展辅助函数
@@ -81,6 +96,7 @@ export type {
 
 export interface DefineExtensionConfig {
   name: string
+  manifest?: ExtensionManifest
   permissions?: ExtensionPermissionDeclaration[]
   setup: (ctx: ExtensionContext) => void | Promise<void>
   dispose?: () => void | Promise<void>
@@ -90,6 +106,7 @@ export interface DefineExtensionConfig {
 export function defineExtension(config: DefineExtensionConfig): Extension {
   return {
     name: config.name,
+    manifest: config.manifest,
     permissions: config.permissions,
     setup: config.setup,
     dispose: config.dispose,

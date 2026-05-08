@@ -8,9 +8,10 @@ import type {
   RuntimeError,
   ToolCallPart,
   ToolDefinition,
-} from '../../core/src'
-import type { HookBus, HookMap, RuntimeHandle, Session } from '../../core/src'
-import { EVENTS, HOOKS, ERROR_CODES } from '../../core/src'
+} from '@crai/core'
+import type { HookBus, HookMap, RuntimeHandle, Session } from '@crai/core'
+import type { ModelMiddlewareStore } from './bus'
+import { EVENTS, HOOKS, ERROR_CODES, PERMISSION_MODES } from '@crai/core'
 
 /**
  * 最小 turn 运行结果。
@@ -32,6 +33,8 @@ export interface TurnRunnerDeps {
   buildContext: (session: Session) => Promise<ModelContext>
   requestModel: (request: ModelRequest) => Promise<ModelResponse>
   resolveTools?: () => Promise<ToolDefinition[]>
+  /** 模型中间件存储，用于 before/after/wrap 拦截。 */
+  middlewares?: ModelMiddlewareStore
 }
 
 /**
@@ -56,16 +59,20 @@ export async function runTurn(
   await deps.hooks.run(HOOKS.INPUT_BEFORE, { session, input }, { runtime })
   const context = await deps.buildContext(session)
   const toolList = deps.resolveTools ? await deps.resolveTools() : []
-  const contextWithTools: ModelContext = {
+  let contextWithTools: ModelContext = {
     ...context,
     tools: toolList,
   }
 
-  await deps.hooks.run(
+  // context:build 钩子可追加/改写上下文消息（如注入历史记录）
+  const buildResult = await deps.hooks.run(
     HOOKS.CONTEXT_BUILD,
     { session, messages: contextWithTools.messages },
     { runtime },
   )
+  if (buildResult) {
+    contextWithTools = { ...contextWithTools, messages: buildResult.messages }
+  }
 
   await deps.emitEvent(EVENTS.CONTEXT_BUILT, { session, context: contextWithTools })
 
@@ -90,10 +97,15 @@ export async function runTurn(
 
   await deps.emitEvent(EVENTS.MODEL_REQUESTED, { session, request: preparedRequest.request })
 
-  // 请求模型，失败时发出结构化错误事件
+  // 请求模型（经过 middleware 链包裹），失败时发出结构化错误事件
   let response: ModelResponse | undefined
   try {
-    response = await deps.requestModel(preparedRequest.request)
+    const finalRequest = preparedRequest.request
+    if (deps.middlewares) {
+      response = await deps.middlewares.apply(finalRequest, deps.requestModel)
+    } else {
+      response = await deps.requestModel(finalRequest)
+    }
   } catch (cause) {
     const error: RuntimeError = {
       code: ERROR_CODES.MODEL_REQUEST_FAILED,
@@ -122,7 +134,7 @@ export async function runTurn(
         continue
       }
 
-      await deps.hooks.run(HOOKS.TOOL_SAFETY_CHECK, { session, toolCall: tc, definition: def, mode: 'ask' }, { runtime })
+      await deps.hooks.run(HOOKS.TOOL_SAFETY_CHECK, { session, toolCall: tc, definition: def, mode: PERMISSION_MODES.ASK }, { runtime })
       await deps.emitEvent(EVENTS.TOOL_REQUESTED, { session, toolCall: tc })
     }
   }

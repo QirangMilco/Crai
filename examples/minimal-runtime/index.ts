@@ -3,10 +3,10 @@
  * 使用文件系统存储演示多轮对话上下文延续。
  * 运行方式：npx tsx examples/minimal-runtime/index.ts
  */
-import { createRuntime } from '../../packages/runtime/src/createRuntime'
-import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '../../packages/core/src'
-import { HOOKS } from '../../packages/core/src'
-import { createFileStorage } from '../../packages/storage-fs/src/index'
+import { createRuntime } from '@crai/runtime'
+import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '@crai/core'
+import { HOOKS } from '@crai/core'
+import { createFileStorage } from '@crai/storage-fs'
 
 function createMockModel(responseText: string): ModelAdapter {
   return {

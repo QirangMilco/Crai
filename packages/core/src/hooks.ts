@@ -1,5 +1,5 @@
 import type { EventMap, ModelRequest, ModelResponse, ModelStreamEvent, RuntimeInput, ToolDefinition, ToolExecutionRequest, ToolExecutionResult } from './events'
-import type { Artifact, ID, MemoryEntry, MemoryScope, Metadata, Message, Observation, PermissionCheckRequest, PermissionDecision, PermissionMode, Session, SessionSummary, ToolCallPart } from './types'
+import type { Artifact, ID, MemoryEntry, MemoryScope, Metadata, Message, Observation, PermissionCheckRequest, PermissionDecision, PermissionMode, Session, SessionSummary, ToolCallPart, TrustLevel } from './types'
 import type { I18nAdapter } from './i18n'
 
 /** 统一可释放对象，便于卸载扩展时回收资源。 */
@@ -24,6 +24,38 @@ export type HookHandler<T> = (
   value: T,
   ctx: HookContext,
 ) => Promise<HookResult<T> | void> | HookResult<T> | void
+
+// ============================================================
+// Middleware 类型（借鉴 Eino，提供 before/after/wrap 三种拦截模式）
+// ============================================================
+
+/** Middleware 允许在核心流程前后插入逻辑，或完全包裹执行流。 */
+export interface Middleware<TInput, TOutput> {
+  before?: (input: TInput) => Promise<TInput>
+  after?: (output: TOutput) => Promise<TOutput>
+  wrap?: (input: TInput, next: (input: TInput) => Promise<TOutput>) => Promise<TOutput>
+}
+
+/** 模型请求中间件：封装 ModelRequest → ModelResponse 的调用。 */
+export type ModelMiddleware = Middleware<ModelRequest, ModelResponse>
+
+// ============================================================
+// EventBus SKIP 链错误类型
+// ============================================================
+
+export class BusNoHandlerError extends Error {
+  constructor(eventType: string) {
+    super(`Event "${eventType}" has no registered handler`)
+    this.name = 'BusNoHandlerError'
+  }
+}
+
+export class BusTimeoutError extends Error {
+  constructor(eventType: string, timeoutMs: number) {
+    super(`Event "${eventType}" request timed out after ${timeoutMs}ms`)
+    this.name = 'BusTimeoutError'
+  }
+}
 
 export interface HookMap {
   'session:create': { input?: Metadata; session: Session }
@@ -60,6 +92,19 @@ export interface HookBus<THooks extends Record<string, any>> {
   ): Promise<THooks[TKey]>
 }
 
+// ============================================================
+// EventBus 含 SKIP 链（借鉴 OpenHanako 的设计）
+// ============================================================
+
+/** EventBus SKIP sentinel — handler 返回此值表示自己不处理，交给下一个 handler。 */
+export const BUS_SKIP = Symbol('BusSKIP')
+
+/** EventBus 含 SKIP 链的请求-响应模式。
+ *
+ * request: 按注册顺序调用 handler，返回第一个非 SKIP 的值。
+ * handle: 注册请求处理器。仅 full-access Extension 可用。
+ * hasHandler: 检查是否有已注册的 handler（软依赖检测）。
+ */
 export interface EventBus<TEvents extends Record<string, any>> {
   emit<TKey extends keyof TEvents & string>(
     type: TKey,
@@ -70,9 +115,23 @@ export interface EventBus<TEvents extends Record<string, any>> {
     type: TKey,
     listener: (event: { id: ID; type: TKey; sessionId?: ID; timestamp: number; payload: TEvents[TKey]; metadata?: Metadata }) => void | Promise<void>,
   ): Disposable
+
+  /** 请求-响应模式：按注册顺序调用 handler，返回第一个非 SKIP 的值。 */
+  request<TKey extends string>(
+    type: TKey,
+    payload: unknown,
+  ): Promise<unknown>
+
+  /** 注册请求处理器（仅 full-access Extension 可用）。 */
+  handle<TKey extends string>(
+    type: TKey,
+    handler: (payload: unknown) => Promise<unknown>,
+  ): Disposable
+
+  /** 检查是否有注册的 handler。 */
+  hasHandler(type: string): boolean
 }
 
-/** 适配器执行上下文，携带 session、日志和取消信号。 */
 export interface AdapterContext {
   signal?: AbortSignal
   logger: Logger
@@ -198,18 +257,49 @@ export interface ExtensionPermissionDeclaration {
   payload?: unknown
 }
 
+/** Extension 元数据声明。 */
+export interface ExtensionManifest {
+  id: string
+  name?: string
+  version?: string
+  description?: string
+  /** 信任级别，默认 'restricted'。'full-access' 可获得 registry 写入、bus.handle、registerTool。 */
+  trust?: TrustLevel
+  /** 所需权限声明（加载时评估）。 */
+  permissions?: ExtensionPermissionDeclaration[]
+}
+
+/** Extension 配置读写接口（由 runtime 注入，持久化对 Extension 透明）。 */
+export interface ExtensionConfigStore {
+  get<T = unknown>(key: string): T | undefined
+  set<T = unknown>(key: string, value: T): Promise<void>
+}
+
 /** 扩展 setup 时接收的上下文：持有 runtime、hooks、events、registries 的访问权。 */
 export interface ExtensionContext {
   runtime: RuntimeHandle
   hooks: HookBus<HookMap>
   events: EventBus<EventMap>
+  /** events 的别名，与 OpenHanako 命名习惯对齐。 */
+  bus: EventBus<EventMap>
   registry: RuntimeRegistries
   logger: Logger
+  /** Extension 私有配置读写。 */
+  config: ExtensionConfigStore
+  /** Extension 私有数据目录。 */
+  dataDir: string
+  /** 注册可清理资源（卸载时逆序 dispose）。借鉴 OpenHanako register() 模式。 */
+  register(disposable: Disposable): void
+  /** 动态注册工具（仅 full-access）。返回清理函数。 */
+  registerTool(tool: ToolDefinition & { execute: ToolHandler['execute'] }): Disposable
+  /** 注册模型中间件。middleware 在模型请求前后按注册顺序执行。 */
+  registerModelMiddleware(mw: ModelMiddleware): Disposable
 }
 
 /** 扩展是 Crai 的能力单元：setup 中注册 hooks/adapters/commands，dispose 时清理资源。 */
 export interface Extension {
   name: string
+  manifest?: ExtensionManifest
   permissions?: ExtensionPermissionDeclaration[]
   setup(ctx: ExtensionContext): void | Promise<void>
   dispose?(): void | Promise<void>
@@ -240,7 +330,7 @@ export interface RuntimeHandle {
   stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
   listMessages(sessionId: ID): Promise<Message[]>
-  loadExtension(source: string): Promise<void>
+  loadExtension(ext: Extension): Promise<void>
   unloadExtension(name: string): Promise<void>
   dispose(): Promise<void>
 }

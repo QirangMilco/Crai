@@ -5,9 +5,16 @@
 import type {
   EventMap,
   Logger,
+  ModelMiddleware,
+  ModelRequest,
+  ModelResponse,
   RuntimeRegistries,
   SettingsStore,
-} from '../../core/src'
+} from '@crai/core'
+import {
+  BUS_SKIP,
+  BusNoHandlerError,
+} from '@crai/core'
 import type {
   CacheAdapter,
   Command,
@@ -26,7 +33,7 @@ import type {
   StorageAdapter,
   ToolProvider,
   TransportAdapter,
-} from '../../core/src'
+} from '@crai/core'
 
 export function createDisposable(dispose: () => void | Promise<void>): Disposable {
   return { dispose }
@@ -102,7 +109,10 @@ export function createRuntimeRegistries(): RuntimeRegistries {
 }
 
 export function createEventBus(): EventBus<EventMap> {
-  const listeners = new Map<keyof EventMap & string, Array<(event: any) => void | Promise<void>>>()
+  const listeners = new Map<string, Array<(event: any) => void | Promise<void>>>()
+  /** request / handle 专用的 handler 链。按注册顺序执行。 */
+  const requestHandlers = new Map<string, Array<(payload: unknown) => Promise<unknown>>>()
+
   return {
     async emit(type, payload) {
       const event = { id: `evt_${Date.now()}`, type, timestamp: Date.now(), payload }
@@ -112,13 +122,44 @@ export function createEventBus(): EventBus<EventMap> {
       }
     },
     on(type, listener) {
-      const list = listeners.get(type) ?? []
+      const key = type as string
+      const list = listeners.get(key) ?? []
       list.push(listener)
-      listeners.set(type, list)
+      listeners.set(key, list)
       return createDisposable(() => {
-        const next = (listeners.get(type) ?? []).filter((item) => item !== listener)
-        listeners.set(type, next)
+        const next = (listeners.get(key) ?? []).filter((item) => item !== listener)
+        listeners.set(key, next)
       })
+    },
+    /** 请求-响应模式：按注册顺序调用 handler，返回第一个非 SKIP 的值。 */
+    async request(type, payload) {
+      const list = requestHandlers.get(type)
+      if (!list || list.length === 0) {
+        throw new BusNoHandlerError(type)
+      }
+      for (const handler of list) {
+        const result = await handler(payload)
+        if (result !== BUS_SKIP) {
+          return result
+        }
+      }
+      throw new BusNoHandlerError(type)
+    },
+    /** 注册请求处理器。 */
+    handle(type, handler) {
+      const key = type
+      const list = requestHandlers.get(key) ?? []
+      list.push(handler)
+      requestHandlers.set(key, list)
+      return createDisposable(() => {
+        const next = (requestHandlers.get(key) ?? []).filter((h) => h !== handler)
+        requestHandlers.set(key, next)
+      })
+    },
+    /** 检查是否有注册的 handler。 */
+    hasHandler(type) {
+      const list = requestHandlers.get(type)
+      return !!list && list.length > 0
     },
   }
 }
@@ -205,3 +246,51 @@ export function createDefaultLogger(): Logger {
     },
   }
 }
+
+/** 模型中间件存储：维护注册的中间件列表并支持批量清理。 */
+export function createModelMiddlewareStore() {
+  const middlewares: ModelMiddleware[] = []
+
+  return {
+    register(mw: ModelMiddleware): Disposable {
+      middlewares.push(mw)
+      return createDisposable(() => {
+        const idx = middlewares.indexOf(mw)
+        if (idx >= 0) middlewares.splice(idx, 1)
+      })
+    },
+    /** 应用所有中间件到模型调用。按注册顺序执行 before → 原始调用 → after。 */
+    async apply(input: ModelRequest, next: (input: ModelRequest) => Promise<ModelResponse>): Promise<ModelResponse> {
+      // 1. before 链（正序）
+      let current = input
+      for (const mw of middlewares) {
+        if (mw.before) current = await mw.before(current)
+      }
+
+      // 2. 构造 wrap 链：从右向左嵌套，最内层调用 next
+      let chain: (input: ModelRequest) => Promise<ModelResponse> = next
+      for (let i = middlewares.length - 1; i >= 0; i--) {
+        const mw = middlewares[i]
+        if (mw.wrap) {
+          const inner = chain
+          chain = (input) => mw.wrap!(input, inner)
+        }
+      }
+
+      // 3. 执行 wrap 链（或直接 next）
+      let result = await chain(current)
+
+      // 4. after 链（逆序）
+      for (let i = middlewares.length - 1; i >= 0; i--) {
+        if (middlewares[i].after) result = await middlewares[i].after!(result)
+      }
+
+      return result
+    },
+    list() {
+      return [...middlewares]
+    },
+  }
+}
+
+export type ModelMiddlewareStore = ReturnType<typeof createModelMiddlewareStore>

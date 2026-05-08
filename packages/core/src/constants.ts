@@ -72,12 +72,16 @@ export const TOOL_SAFETY_LEVELS = {
   RESTRICTED: 'restricted',
   DANGEROUS: 'dangerous',
 } as const
+/** 工具安全级别。从 TOOL_SAFETY_LEVELS 派生。 */
+export type ToolSafetyLevel = typeof TOOL_SAFETY_LEVELS[keyof typeof TOOL_SAFETY_LEVELS]
 
 export const PERMISSION_MODES = {
   SAFE: 'safe',
   ASK: 'ask',
   EXECUTE: 'execute',
 } as const
+/** 运行时权限模式。从 PERMISSION_MODES 派生。 */
+export type PermissionMode = typeof PERMISSION_MODES[keyof typeof PERMISSION_MODES]
 
 export const PERMISSION_KINDS = {
   TOOL: 'tool',
@@ -86,12 +90,23 @@ export const PERMISSION_KINDS = {
   EXTENSION: 'extension',
   CUSTOM: 'custom',
 } as const
+/** 权限检查请求类型。从 PERMISSION_KINDS 派生。 */
+export type PermissionKind = typeof PERMISSION_KINDS[keyof typeof PERMISSION_KINDS]
 
 export const MEMORY_SCOPES = {
   GLOBAL: 'global',
   PROJECT: 'project',
   SESSION: 'session',
 } as const
+/** 记忆作用域。从 MEMORY_SCOPES 派生。 */
+export type MemoryScope = typeof MEMORY_SCOPES[keyof typeof MEMORY_SCOPES]
+
+export const TRUST_LEVELS = {
+  RESTRICTED: 'restricted',
+  FULL_ACCESS: 'full-access',
+} as const
+/** 扩展信任级别。从 TRUST_LEVELS 派生。 */
+export type TrustLevel = typeof TRUST_LEVELS[keyof typeof TRUST_LEVELS]
 
 export const OBSERVATION_TYPES = {
   DECISION: 'decision',
@@ -101,6 +116,8 @@ export const OBSERVATION_TYPES = {
   DISCOVERY: 'discovery',
   CHANGE: 'change',
 } as const
+/** Observation 提取类型。从 OBSERVATION_TYPES 派生。 */
+export type ObservationType = typeof OBSERVATION_TYPES[keyof typeof OBSERVATION_TYPES]
 
 export const MESSAGE_ROLES = {
   SYSTEM: 'system',
@@ -109,6 +126,8 @@ export const MESSAGE_ROLES = {
   TOOL: 'tool',
   CUSTOM: 'custom',
 } as const
+/** 消息角色。从 MESSAGE_ROLES 派生。 */
+export type MessageRole = typeof MESSAGE_ROLES[keyof typeof MESSAGE_ROLES]
 
 export const MESSAGE_PART_TYPES = {
   TEXT: 'text',

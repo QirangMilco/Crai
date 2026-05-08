@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRuntime } from '../src/createRuntime'
-import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '../../core/src'
+import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '@crai/core'
 
 // ============================================================
 // Mock 模型工厂 — 用于隔离测试，不依赖真实网络
