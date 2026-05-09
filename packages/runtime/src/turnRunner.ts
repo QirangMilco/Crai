@@ -13,10 +13,7 @@ import type { HookBus, HookMap, RuntimeHandle, Session } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, PERMISSION_MODES } from '@crai/core'
 
-/**
- * 最小 turn 运行结果。
- * 当前只返回调度结果，不内置任何默认持久化副作用。
- */
+/** 最小 turn 运行结果。只返回调度结果，不做持久化。 */
 export interface TurnRunResult {
   session: Session
   turnId: string
@@ -39,9 +36,9 @@ export interface TurnRunnerDeps {
 
 /**
  * 运行一个最小 turn。
- * kernel 只负责调度顺序，默认行为应由 preset extensions 提供。
+ * kernel 只负责调度顺序，具体行为由扩展通过 hook 注入。
  *
- * 执行流：input → hook 归一化 → 构建上下文 → 模型请求 → 事件通知 → persist hooks
+ * 执行流：input → hook 归一化 → 构建上下文 → 模型请求 → 安全检查 → 持久化
  */
 export async function runTurn(
   input: RuntimeInput,

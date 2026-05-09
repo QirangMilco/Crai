@@ -1,5 +1,5 @@
 /**
- * runtime 内部基础设施工厂函数。
+ * Runtime 内部基础设施工厂函数。
  * 每个函数创建独立的实例，便于后续替换为持久化或分布式版本。
  */
 import type {
@@ -15,7 +15,7 @@ import { BUS_SKIP, BusNoHandlerError } from '@crai/core'
 
 // ── Trace 辅助 ────────────────────────────────────
 
-/** trace 回调类型。 */
+/** Trace 回调类型。 */
 export type TraceFn = {
   /** handler 注册时调用。 */
   register(opts: { kind: 'event' | 'hook'; name: string; source: string }): void
@@ -29,7 +29,7 @@ export type TraceFn = {
   }): void
 }
 
-/** 调用方源代码位置（file:line:col）。跳过内部内部框架。 */
+/** 调用方源代码位置（file:line:col）。跳过 runtime 内部框架。 */
 function callerLocation(): string {
   const lines = new Error().stack?.split('\n') ?? []
   for (const line of lines) {
@@ -43,7 +43,7 @@ function callerLocation(): string {
   return '(unknown)'
 }
 
-/** emit 或 hook.run 的来源（触发位置）。显示调用栈中紧挨着 bus 框架之外的帧。 */
+/** emit 或 hook.run 的触发位置。显示调用栈中紧挨着 bus 之外的帧。 */
 function triggerSource(): string {
   const lines = new Error().stack?.split('\n') ?? []
   for (const line of lines) {
@@ -96,7 +96,7 @@ export function createTrackedRegistry<T>(
   }
 }
 
-/** 包装所有 registries，让扩展注册的资源可被批量清理。 */
+/** 包装所有 registries，扩展注册的资源可被批量清理。 */
 export function createTrackedRegistries(
   registries: RuntimeRegistries,
   tracker: Set<Disposable>,

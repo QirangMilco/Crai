@@ -3,9 +3,9 @@
  *
  * 使用方法：
  *   export AI_API_KEY=sk-xxx
- *   export AI_BASE_URL=https://api.deepseek.com   # 可选，默认 https://api.openai.com
- *   export AI_MODEL=gpt-4o-mini                    # 可选，默认 gpt-4o-mini
- *   npx tsx examples/openai-test/index.ts
+ *   export AI_BASE_URL=https://api.deepseek.com
+ *   export AI_MODEL=gpt-4o-mini 
+ *   pnpm openai
  *
  * 测试内容：
  *   - 单轮对话

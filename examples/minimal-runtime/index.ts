@@ -1,7 +1,7 @@
 /**
  * Crai 最小运行时示例（含持久化）。
  * 使用文件系统存储演示多轮对话上下文延续。
- * 运行方式：npx tsx examples/minimal-runtime/index.ts
+ * 运行方式：pnpm example
  */
 import { createRuntime } from '@crai/runtime'
 import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '@crai/core'
@@ -47,9 +47,7 @@ function createMockModelExtension(responseText: string): Extension {
   }
 }
 
-/**
- * 示例：turn 结束后将消息写入 storage 的持久化 extension。
- */
+/** 示例：turn 结束后将消息写入 storage 的持久化 extension。 */
 function createPersistExtension(): Extension {
   return {
     name: 'example:persist',

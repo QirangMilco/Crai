@@ -24,7 +24,7 @@ export interface TraceEntry {
   timestamp: number
 }
 
-/** 从 stack frame 行提取相对路径:行号。 */
+/** 从 stack frame 行提取相对路径和行号。 */
 function parseLocation(line: string): { display: string; link: string } {
   const parenMatch = line.match(/\((.+?(?::\d+)?(?::\d+)?)\)\s*$/)
   if (parenMatch) return formatLocation(parenMatch[1])
@@ -33,13 +33,13 @@ function parseLocation(line: string): { display: string; link: string } {
   return { display: line.trim(), link: '' }
 }
 
+/** 解析完整路径为显示名（文件名:行号）和可跳转链接（file:// 格式）。 */
 function formatLocation(full: string): { display: string; link: string } {
-  // 解析 /path/file.ts:line:col
   const m = full.match(/^(.+?)(?::(\d+))?(?::\d+)?$/)
   if (!m) return { display: full.trim(), link: '' }
 
-  let filePath = m[1]   // /Users/.../turnRunner.ts
-  const lineNum = m[2]    // '55' 或 undefined
+  let filePath = m[1]
+  const lineNum = m[2]
 
   // 确保绝对路径
   if (!filePath.startsWith('/')) {
@@ -58,9 +58,10 @@ function formatLocation(full: string): { display: string; link: string } {
   return { display, link }
 }
 
-/** 实时模式一行输出的最大宽度。 */
-const MAX_LABEL_WIDTH = 32
-
+/**
+ * 创建 trace 收集器。实现 TraceFn 接口。
+ * 调用 render() 生成结构化 Markdown 树，调用 writeFile() 写入磁盘。
+ */
 export function createTraceCollector(opts?: {
   outputDir?: string
   mode?: TraceMode
@@ -125,17 +126,17 @@ export function createTraceCollector(opts?: {
     const hCount = entry.handlers.length > 0
       ? ` (${entry.handlers.length})`
       : ''
-    const label = `${tag} ${entry.name}`.padEnd(MAX_LABEL_WIDTH)
+    const label = `${tag} ${entry.name}`.padEnd(32)
     console.error(`  ${label} ${loc}${hCount}`)
     for (const h of entry.handlers) {
       if (h.source) {
         const hl = parseLocation(h.source)
-        console.error(`  ${''.padEnd(MAX_LABEL_WIDTH)}  handled by ${hl.display}`)
+        console.error(`  ${''.padEnd(32)}  handled by ${hl.display}`)
       }
     }
   }
 
-  // ── mdLink ──
+  // ── Markdown 链接 ──
 
   function mdLink(loc: { display: string; link: string }): string {
     if (!loc.link) return loc.display
@@ -152,7 +153,7 @@ export function createTraceCollector(opts?: {
     return null
   }
 
-  // ── 渲染 ──
+  // ── 渲染 Markdown 文件 ──
 
   function render(): string {
     const lines: string[] = []
@@ -164,10 +165,8 @@ export function createTraceCollector(opts?: {
 
       // 注解行
       if (e.kind === 'note') {
-        if (prevGroup) {
-          lines.push('│')
-        }
-        lines.push(`${e.name}`)
+        if (prevGroup) lines.push('│')
+        lines.push(e.name)
         prevGroup = 'note'
         continue
       }
@@ -241,7 +240,8 @@ export function createTraceCollector(opts?: {
     }
   }
 
-  /** 纯文本渲染（无 md 链接，用于 console 模式）。 */
+  // ── 纯文本渲染（console 模式用） ──
+
   function renderConsole(): string {
     const lines: string[] = []
     let turnCounter = 0
