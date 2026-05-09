@@ -36,8 +36,10 @@ if (!API_KEY) {
   process.exit(1)
 }
 
-const providerOptions = { apiKey: API_KEY, models: [MODEL] }
-if (BASE_URL) (providerOptions as any).baseURL = BASE_URL
+/** 经过顶部的守卫检查，API_KEY 和 BASE_URL 在此之后保证有值。 */
+
+const providerOptions: { apiKey: string; models: string[]; baseURL?: string } = { apiKey: API_KEY!, models: [MODEL] }
+if (BASE_URL) providerOptions.baseURL = BASE_URL
 
 // ── 单轮对话 ─────────────────────────────────────────
 async function testSingleTurn() {
@@ -62,7 +64,7 @@ async function testMultiTurn() {
   const runtime = await createRuntime({
     extensions: [
       createOpenAIProvider(providerOptions),
-      createFileStorage({ basePath: '.test-data' }),
+      createFileStorage({ baseDir: '.test-data' }),
     ],
     trace: TRACE_OPTION,
   })
@@ -116,7 +118,7 @@ async function testWithSystemPrompt() {
 async function testStream() {
   console.log('\n═══ 流式测试 ═══\n')
 
-  const adapter = new OpenAIAdapter({ apiKey: API_KEY, baseURL: BASE_URL })
+  const adapter = new OpenAIAdapter({ apiKey: API_KEY!, baseURL: BASE_URL })
 
   const stream = adapter.stream({
     sessionId: 'stream-test',

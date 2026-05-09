@@ -2,7 +2,7 @@
  * Crai extension-sdk。
  * 扩展作者只需 import 此包即可编写扩展，无需直接知晓 core 包的存在。
  */
-import type { Extension, ExtensionContext, ExtensionPermissionDeclaration } from '@crai/core'
+import type { Extension, ExtensionContext, ExtensionManifest, ExtensionPermissionDeclaration } from '@crai/core'
 
 // ============================================================
 // 类型重导出 — 扩展作者无需知晓 @crai/core 的位置

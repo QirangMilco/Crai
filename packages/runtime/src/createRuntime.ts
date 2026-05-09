@@ -6,6 +6,7 @@ import type {
   PromptResult,
   Registry,
   RuntimeError,
+  Metadata,
   RuntimeHandle,
   RuntimeInput,
   Session,
@@ -244,7 +245,7 @@ async function handlePrompt(
 async function handleCreateSession(
   deps: RuntimeDeps,
   runtime: RuntimeHandle,
-  input?: Session,
+  input?: Metadata,
 ): Promise<Session> {
   await deps.hooks.run(HOOKS.SESSION_BEFORE_START, { session: { id: '', createdAt: 0, updatedAt: 0 }, input }, { runtime })
   const session = await deps.sessions.create(input)
@@ -346,7 +347,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     prompt: (input, opts) => handlePrompt(deps, runtime, input, opts),
     createSession: (input) => handleCreateSession(deps, runtime, input),
     stopSession: (sessionId, messages) => handleStopSession(deps, runtime, sessionId, messages),
-    getSession: (sessionId) => deps.sessions.get(sessionId) ?? undefined,
+    getSession: async (sessionId) => deps.sessions.get(sessionId) ?? undefined,
     listMessages: () => Promise.resolve([]),
     loadExtension: (ext) => handleLoadExtension(deps, runtime, loadedExtensions, options, ext),
     unloadExtension: (name) => handleUnloadExtension(deps, loadedExtensions, name),

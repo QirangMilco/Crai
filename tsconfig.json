@@ -6,7 +6,12 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true
+    "declaration": true,
+    "noEmit": true
   },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "examples/*/index.ts"
+  ],
   "exclude": ["node_modules"]
 }

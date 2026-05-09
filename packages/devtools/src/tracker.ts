@@ -18,7 +18,7 @@ export function parseTaskList(markdown: string, sectionTitle?: string): TaskList
       continue
     }
     // 如果在目标 section 内遇到下一个 section 则停止
-    if (inTargetSection && line.startsWith('## ') && !line.includes(sectionTitle)) {
+    if (inTargetSection && line.startsWith('## ') && sectionTitle && !line.includes(sectionTitle)) {
       // 不退出，允许跨 section 收集（简单实现只收集到下一 section 前）
       if (tasks.length > 0) break
     }
