@@ -6,11 +6,19 @@
   "packageManager": "pnpm@10.8.1",
   "scripts": {
     "test": "tsx --test packages/runtime/test/basic.test.ts",
-    "example": "tsx examples/minimal-runtime/index.ts"
+    "example": "tsx examples/minimal-runtime/index.ts",
+    "example:trace": "AI_TRACE=realtime tsx examples/minimal-runtime/index.ts",
+    "example:trace:file": "AI_TRACE=file tsx examples/minimal-runtime/index.ts",
+    "example:trace:console": "AI_TRACE=console tsx examples/minimal-runtime/index.ts",
+    "openai": "tsx examples/openai-test/index.ts",
+    "openai:trace": "AI_TRACE=realtime tsx examples/openai-test/index.ts",
+    "openai:trace:file": "AI_TRACE=file tsx examples/openai-test/index.ts",
+    "openai:trace:console": "AI_TRACE=console tsx examples/openai-test/index.ts"
   },
   "devDependencies": {
     "@crai/core": "workspace:*",
     "@crai/runtime": "workspace:*",
+    "@crai/provider": "workspace:*",
     "@crai/storage-fs": "workspace:*",
     "tsx": "^4.19.0"
   }

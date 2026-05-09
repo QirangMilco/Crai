@@ -11,6 +11,9 @@ importers:
       '@crai/core':
         specifier: workspace:*
         version: link:packages/core
+      '@crai/provider':
+        specifier: workspace:*
+        version: link:packages/provider
       '@crai/runtime':
         specifier: workspace:*
         version: link:packages/runtime

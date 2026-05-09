@@ -11,10 +11,48 @@ import type {
   RuntimeRegistries,
   SettingsStore,
 } from '@crai/core'
-import {
-  BUS_SKIP,
-  BusNoHandlerError,
-} from '@crai/core'
+import { BUS_SKIP, BusNoHandlerError } from '@crai/core'
+
+// ── Trace 辅助 ────────────────────────────────────
+
+/** trace 回调类型。 */
+export type TraceFn = {
+  /** handler 注册时调用。 */
+  register(opts: { kind: 'event' | 'hook'; name: string; source: string }): void
+  /** handler 执行前调用。 */
+  execute(opts: {
+    kind: 'event' | 'hook'
+    name: string
+    /** 触发这次 emit/run 的源代码位置。 */
+    triggeredBy: string
+    handlers: Array<{ source: string }>
+  }): void
+}
+
+/** 调用方源代码位置（file:line:col）。跳过内部内部框架。 */
+function callerLocation(): string {
+  const lines = new Error().stack?.split('\n') ?? []
+  for (const line of lines) {
+    if (line.includes('bus.ts') || line.includes('createRuntime.ts') || line.includes('bootstrap.ts')) continue
+    if (line.includes('callerLocation')) continue
+    if (line.includes('node_modules') || line.includes('at new ')) continue
+    const trimmed = line.trim()
+    if (!trimmed || trimmed === 'Error') continue
+    return trimmed
+  }
+  return '(unknown)'
+}
+
+/** emit 或 hook.run 的来源（触发位置）。显示调用栈中紧挨着 bus 框架之外的帧。 */
+function triggerSource(): string {
+  const lines = new Error().stack?.split('\n') ?? []
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed === 'Error' || trimmed.includes('triggerSource') || trimmed.includes('bus.ts')) continue
+    return trimmed
+  }
+  return '(unknown)'
+}
 import type {
   CacheAdapter,
   Command,
@@ -108,26 +146,30 @@ export function createRuntimeRegistries(): RuntimeRegistries {
   }
 }
 
-export function createEventBus(): EventBus<EventMap> {
-  const listeners = new Map<string, Array<(event: any) => void | Promise<void>>>()
-  /** request / handle 专用的 handler 链。按注册顺序执行。 */
-  const requestHandlers = new Map<string, Array<(payload: unknown) => Promise<unknown>>>()
+export function createEventBus(trace?: TraceFn): EventBus<EventMap> {
+  /** 普通事件 listener，附带注册源位置。 */
+  const listeners = new Map<string, Array<{ listener: (event: any) => void | Promise<void>; source: string }>>()
+  /** request / handle 专用的 handler 链，附带注册源位置。 */
+  const requestHandlers = new Map<string, Array<{ handler: (payload: unknown) => Promise<unknown>; source: string }>>()
 
   return {
     async emit(type, payload) {
       const event = { id: `evt_${Date.now()}`, type, timestamp: Date.now(), payload }
       const list = listeners.get(type) ?? []
-      for (const listener of list) {
+      trace?.execute({ kind: 'event', name: type, triggeredBy: triggerSource(), handlers: list.map(h => ({ source: h.source })) })
+      for (const { listener } of list) {
         await listener(event)
       }
     },
     on(type, listener) {
       const key = type as string
+      const source = callerLocation()
+      trace?.register({ kind: 'event', name: key, source })
       const list = listeners.get(key) ?? []
-      list.push(listener)
+      list.push({ listener, source })
       listeners.set(key, list)
       return createDisposable(() => {
-        const next = (listeners.get(key) ?? []).filter((item) => item !== listener)
+        const next = (listeners.get(key) ?? []).filter((item) => item.listener !== listener)
         listeners.set(key, next)
       })
     },
@@ -137,7 +179,8 @@ export function createEventBus(): EventBus<EventMap> {
       if (!list || list.length === 0) {
         throw new BusNoHandlerError(type)
       }
-      for (const handler of list) {
+      trace?.execute({ kind: 'event', name: `request:${type}`, triggeredBy: triggerSource(), handlers: list.map(h => ({ source: h.source })) })
+      for (const { handler } of list) {
         const result = await handler(payload)
         if (result !== BUS_SKIP) {
           return result
@@ -148,11 +191,13 @@ export function createEventBus(): EventBus<EventMap> {
     /** 注册请求处理器。 */
     handle(type, handler) {
       const key = type
+      const source = callerLocation()
+      trace?.register({ kind: 'event', name: `request:${key}`, source })
       const list = requestHandlers.get(key) ?? []
-      list.push(handler)
+      list.push({ handler, source })
       requestHandlers.set(key, list)
       return createDisposable(() => {
-        const next = (requestHandlers.get(key) ?? []).filter((h) => h !== handler)
+        const next = (requestHandlers.get(key) ?? []).filter((h) => h.handler !== handler)
         requestHandlers.set(key, next)
       })
     },
@@ -164,12 +209,14 @@ export function createEventBus(): EventBus<EventMap> {
   }
 }
 
-export function createHookBus(): HookBus<HookMap> {
-  const handlers = new Map<keyof HookMap & string, Array<{ priority: number; handler: HookHandler<any> }>>()
+export function createHookBus(trace?: TraceFn): HookBus<HookMap> {
+  const handlers = new Map<keyof HookMap & string, Array<{ priority: number; handler: HookHandler<any>; source: string }>>()
   return {
     on(key, handler, options) {
+      const source = callerLocation()
+      trace?.register({ kind: 'hook', name: key, source })
       const list = handlers.get(key) ?? []
-      list.push({ priority: options?.priority ?? 0, handler })
+      list.push({ priority: options?.priority ?? 0, handler, source })
       list.sort((a, b) => a.priority - b.priority)
       handlers.set(key, list)
       return createDisposable(() => {
@@ -179,6 +226,7 @@ export function createHookBus(): HookBus<HookMap> {
     },
     async run(key, value, ctx) {
       const list = handlers.get(key) ?? []
+      trace?.execute({ kind: 'hook', name: key, triggeredBy: triggerSource(), handlers: list.map(h => ({ source: h.source })) })
       let current = value
       for (const item of list) {
         const result = await item.handler(current, ctx)

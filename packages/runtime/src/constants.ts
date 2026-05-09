@@ -5,3 +5,6 @@
 
 /** 内置 storage 注册名，用于通过 RuntimeOptions.storage 传入的存储适配器。 */
 export const BUILTIN_STORAGE_NAME = 'builtin:storage'
+
+/** 默认 prompt pipeline 注册名。 */
+export const DEFAULT_PIPELINE_NAME = 'default'

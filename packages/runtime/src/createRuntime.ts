@@ -29,6 +29,7 @@ import type {
   SettingsStore,
 } from '@crai/core'
 import { EVENTS, ERROR_CODES, HOOKS } from '@crai/core'
+import type { TraceFn } from './bus'
 import {
   createCommandRegistry,
   createDefaultLogger,
@@ -44,7 +45,8 @@ import { bootstrapRuntimeExtensions, setupExtension } from './bootstrap'
 import { buildRuntimeContext } from './contextBuilder'
 import { runTurn, TurnRunnerDeps } from './turnRunner'
 import { SessionManager } from './sessionManager'
-import { BUILTIN_STORAGE_NAME } from './constants'
+import { BUILTIN_STORAGE_NAME, DEFAULT_PIPELINE_NAME } from './constants'
+import { createTraceCollector, type TraceMode } from './trace'
 
 /** 创建 runtime 时的可选注入项。kernel 不内置任何 adapter 默认实现。 */
 export interface RuntimeOptions {
@@ -55,6 +57,13 @@ export interface RuntimeOptions {
   logger?: Logger
   /** 是否允许加载声明 trust: 'full-access' 的 Extension（默认 false，降级为 restricted）。 */
   allowFullAccessExtensions?: boolean
+  /**
+   * trace 模式。
+   * - `true` / `'file'` — dispose 时写入 `.crai/trace-latest.md`
+   * - `'console'`      — dispose 时打印到 stderr
+   * - `'realtime'`     — 每步实时输出到 stderr
+   */
+  trace?: boolean | TraceMode
 }
 
 /** runtime 内部依赖汇总，由 createDeps 统一组装，不暴露给外部。 */
@@ -69,12 +78,29 @@ interface RuntimeDeps {
   storage?: StorageAdapter
   middlewares: ModelMiddlewareStore
   configStore: ExtensionConfigStore
+  traceCollector?: ReturnType<typeof createTraceCollector>
+}
+
+/** noop trace — trace 关闭时静默。 */
+const noopTrace = { register() {}, execute() {} }
+
+function resolveTraceMode(options?: RuntimeOptions): TraceMode | undefined {
+  if (!options?.trace) return undefined
+  if (options.trace === true) return 'file'
+  return options.trace
 }
 
 function createDeps(options?: RuntimeOptions): RuntimeDeps {
   const logger = options?.logger ?? createDefaultLogger()
-  const hooks = createHookBus()
-  const events = createEventBus()
+
+  let traceCollector: ReturnType<typeof createTraceCollector> | undefined
+  const traceMode = resolveTraceMode(options)
+  const traceFn: TraceFn = traceMode
+    ? (traceCollector = createTraceCollector({ mode: traceMode }))
+    : noopTrace
+
+  const hooks = createHookBus(traceFn)
+  const events = createEventBus(traceFn)
   const registries = createRuntimeRegistries()
   const commands = createCommandRegistry()
   const settings = createSettingsStore()
@@ -85,7 +111,7 @@ function createDeps(options?: RuntimeOptions): RuntimeDeps {
     async set(_key, _value) {},
   }
 
-  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore }
+  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore, traceCollector }
 }
 
 function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
@@ -97,8 +123,19 @@ function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
  * kernel 本身是纯调度器，所有默认行为（模型、持久化等）都在 preset extensions 中提供。
  */
 export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHandle> {
+  // 在 deps 创建前捕获调用方位置
+  const callerStackLines = new Error().stack?.split('\n') ?? []
+  const createRuntimeCaller = callerStackLines.find(line => {
+    const t = line.trim()
+    return !t.includes('createRuntime') && !t.includes('Error') && !t.includes('/node_modules/')
+  })
+
   const deps = createDeps(options)
   const runtimeId = `runtime_${Date.now()}`
+
+  if (deps.traceCollector) {
+    deps.traceCollector.note(`createRuntime — from ${createRuntimeCaller?.trim() ?? '(unknown)'}`)
+  }
   const loadedExtensions = new Map<Extension, Set<Disposable>>()
 
   if (options?.storage) {
@@ -160,7 +197,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
   const runtime: RuntimeHandle = {
     id: runtimeId,
     async prompt(input: RuntimeInput, promptOptions?: PromptOptions): Promise<PromptResult> {
-      const pipeline = deps.registries.promptPipelines.get('default')
+      const pipeline = deps.registries.promptPipelines.get(DEFAULT_PIPELINE_NAME)
       if (pipeline) {
         return pipeline.run(input, promptOptions)
       }
@@ -202,6 +239,8 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       }
 
       const modelName = promptOptions?.model ?? getFirstModel(deps.registries.models)
+      const inputText = typeof input === 'string' ? input : (input as any)?.text
+      deps.traceCollector?.note(`prompt — ${JSON.stringify(inputText ?? input)}`)
       const result = await runTurn(input, session, runtime, turnDeps, modelName)
 
       return {
@@ -214,6 +253,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     async createSession(input) {
       await deps.hooks.run(HOOKS.SESSION_BEFORE_START, { session: { id: '', createdAt: 0, updatedAt: 0 }, input }, { runtime })
       const session = await deps.sessions.create(input)
+      deps.traceCollector?.note(`createSession — ${session.id}`)
       await deps.events.emit(EVENTS.SESSION_CREATED, { session })
       return session
     },
@@ -264,6 +304,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       }
       loadedExtensions.clear()
       await deps.events.emit(EVENTS.RUNTIME_STOPPED, { runtimeId })
+      deps.traceCollector?.flush()
     },
   }
 

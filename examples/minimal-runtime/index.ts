@@ -8,6 +8,14 @@ import type { Extension, ModelAdapter, ModelRequest, ModelResponse } from '@crai
 import { HOOKS, MESSAGE_PART_TYPES, MESSAGE_ROLES, RUNTIME_INPUT_TYPES, STREAM_EVENT_TYPES } from '@crai/core'
 import { createFileStorage } from '@crai/storage-fs'
 
+const AI_TRACE = process.env.AI_TRACE ?? ''
+const TRACE_OPTION =
+  AI_TRACE === 'file' ? 'file'
+  : AI_TRACE === 'realtime' ? 'realtime'
+  : AI_TRACE === 'console' ? 'console'
+  : AI_TRACE === '1' || AI_TRACE === 'true' ? true
+  : undefined
+
 function createMockModel(responseText: string): ModelAdapter {
   return {
     name: 'example:mock',
@@ -71,6 +79,7 @@ async function main() {
       createFileStorage({ baseDir: '.crai/example-data' }),
       createPersistExtension(),
     ],
+    trace: TRACE_OPTION,
     logger: { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
   })
 
