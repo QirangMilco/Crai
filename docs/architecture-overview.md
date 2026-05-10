@@ -90,7 +90,24 @@ Runtime 内核不应拥有记忆策略实现。记忆策略由用户自行选择
 
 > 详细的安全模型设计请参见 [security-model.md](security-model.md)。
 
-### 3.6 行业基准对齐 (Industry Alignment)
+### 3.7 Adapter 与 Pipeline 的语义区分
+
+Crai 中有两种可替换的能力单元，虽然底层都使用 `Registry<T>` 注册，但语义不同：
+
+**Adapter** — 对接外部系统。把外部接口（LLM API、文件系统、数据库、缓存系统、权限校验、传输协议、国际化资源）翻译成 Crai 的内部契约。核心动作是 **翻译**。
+
+- `ModelAdapter` → 把 LLM API 翻译成 Crai 的 `request/stream`
+- `StorageAdapter` → 把数据库/文件系统翻译成 Crai 的 CRUD
+- `CacheAdapter` / `MemoryAdapter` / `TransportAdapter` / `I18nAdapter` → 同上
+
+**Pipeline** — 接管内部流程。替换运行时的一段完整执行逻辑，不是对接外部接口。核心动作是 **接管**。
+
+- `PromptPipeline` → 完全接管 `prompt()` 的全流程
+- `SessionPipeline` → 完全接管 session 的创建/销毁/查询
+
+选择依据：如果你需要**引入一个外部系统**，用 Adapter；如果你需要**重写运行时的某个完整流程**，用 Pipeline。
+
+### 3.8 行业基准对齐 (Industry Alignment)
 Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **[OpenHanako](file:///Users/qirang/Documents/Projects/Crai/refs/openhanako)**：借鉴其**两级权限模型（restricted / full-access）**、**EventBus SKIP 链多 handler 协作机制**、**register() 自动资源清理模式**、**错误隔离与前向兼容原则**。这些设计直接作用于 Crai 的 Extension SDK 设计，为 Crai 的运行时提供了一套经过实战验证的扩展管理方案。
 - **[CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)**：借鉴其组件抽象、中间件模式、检查点机制以及**中断/恢复（interrupt/resume）模式**，用于增强内核的治理能力和**人机确认流程**。

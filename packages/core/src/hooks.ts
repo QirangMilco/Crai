@@ -230,6 +230,13 @@ export interface PromptPipeline {
   run(input: RuntimeInput, options?: PromptOptions): Promise<PromptResult>
 }
 
+/** 接管 Session 完整生命周期。注册后 createSession / stopSession 直接委托给 pipeline。 */
+export interface SessionPipeline {
+  createSession(input?: Metadata): Promise<Session>
+  stopSession(sessionId: string, messages?: Message[]): Promise<void>
+  getSession(sessionId: string): Promise<Session | undefined>
+}
+
 export interface RuntimeRegistries {
   models: Registry<ModelAdapter>
   tools: Registry<ToolProvider>
@@ -239,6 +246,7 @@ export interface RuntimeRegistries {
   permissions: Registry<PermissionAdapter>
   transports: Registry<TransportAdapter>
   promptPipelines: Registry<PromptPipeline>
+  sessionPipelines: Registry<SessionPipeline>
   i18n: Registry<I18nAdapter>
 }
 

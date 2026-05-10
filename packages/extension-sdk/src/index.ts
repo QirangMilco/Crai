@@ -72,6 +72,7 @@ export type {
   PromptPipeline,
   PromptResult,
   Registry,
+  SessionPipeline,
   RuntimeHandle,
   RuntimeRegistries,
   SettingsStore,

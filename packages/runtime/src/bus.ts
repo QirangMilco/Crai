@@ -68,6 +68,7 @@ import type {
   PermissionAdapter,
   PromptPipeline,
   Registry,
+  SessionPipeline,
   StorageAdapter,
   ToolProvider,
   TransportAdapter,
@@ -110,6 +111,7 @@ export function createTrackedRegistries(
     permissions: createTrackedRegistry(registries.permissions, tracker),
     transports: createTrackedRegistry(registries.transports, tracker),
     promptPipelines: createTrackedRegistry(registries.promptPipelines, tracker),
+    sessionPipelines: createTrackedRegistry(registries.sessionPipelines, tracker),
     i18n: createTrackedRegistry(registries.i18n, tracker),
   }
 }
@@ -142,6 +144,7 @@ export function createRuntimeRegistries(): RuntimeRegistries {
     permissions: createRegistry<PermissionAdapter>(),
     transports: createRegistry<TransportAdapter>(),
     promptPipelines: createRegistry<PromptPipeline>(),
+    sessionPipelines: createRegistry<SessionPipeline>(),
     i18n: createRegistry<I18nAdapter>(),
   }
 }

@@ -247,6 +247,12 @@ async function handleCreateSession(
   runtime: RuntimeHandle,
   input?: Metadata,
 ): Promise<Session> {
+  // 优先使用注册的 session pipeline
+  const pipeline = deps.registries.sessionPipelines.get(DEFAULT_PIPELINE_NAME)
+  if (pipeline) {
+    return pipeline.createSession(input)
+  }
+
   await deps.hooks.run(HOOKS.SESSION_BEFORE_START, { session: { id: '', createdAt: 0, updatedAt: 0 }, input }, { runtime })
   const session = await deps.sessions.create(input)
   deps.traceCollector?.note(`createSession — ${session.id}`)
@@ -260,6 +266,12 @@ async function handleStopSession(
   sessionId: string,
   messages?: any[],
 ): Promise<void> {
+  // 优先使用注册的 session pipeline
+  const pipeline = deps.registries.sessionPipelines.get(DEFAULT_PIPELINE_NAME)
+  if (pipeline) {
+    return pipeline.stopSession(sessionId, messages)
+  }
+
   const session = deps.sessions.get(sessionId)
   if (!session) {
     throw new Error(`Session ${sessionId} 不存在`)
