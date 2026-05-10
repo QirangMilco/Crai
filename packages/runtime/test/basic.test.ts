@@ -29,9 +29,13 @@ function makeMockModel(responseText: string): ModelAdapter {
       }
     },
     async *stream() {
+      const msg = { id: `msg_${Date.now()}`, role: MESSAGE_ROLES.ASSISTANT, createdAt: Date.now(), parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: responseText }] }
       yield { type: STREAM_EVENT_TYPES.TEXT_START }
+      for (const ch of responseText) {
+        yield { type: STREAM_EVENT_TYPES.TEXT_DELTA, delta: ch }
+      }
       yield { type: STREAM_EVENT_TYPES.TEXT_END }
-      yield { type: STREAM_EVENT_TYPES.DONE, response: { message: { id: `msg_${Date.now()}`, role: MESSAGE_ROLES.ASSISTANT, createdAt: Date.now(), parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: responseText }] } } }
+      yield { type: STREAM_EVENT_TYPES.DONE, response: { message: msg, stopReason: MOCK_STOP_REASON } }
     },
   }
 }
@@ -62,9 +66,10 @@ describe('Crai runtime', () => {
 
     assert.equal(result.session.id.startsWith('session_'), true, '应创建 session')
     assert.equal(result.turnId.startsWith('turn_'), true, '应创建 turn')
-    assert.equal(result.messages.length, 1, '应返回一条消息')
-    assert.equal(result.messages[0].role, MESSAGE_ROLES.ASSISTANT)
-    assert.equal((result.messages[0].parts[0] as any).text, MOCK_RESPONSE_TEXT)
+    assert.equal(result.messages.length, 2, '应返回两条消息：input + response')
+    assert.equal(result.messages[0].role, MESSAGE_ROLES.USER, '第一条为 user input')
+    assert.equal(result.messages[1].role, MESSAGE_ROLES.ASSISTANT, '第二条为 assistant response')
+    assert.equal((result.messages[1].parts[0] as any).text, MOCK_RESPONSE_TEXT)
     assert.equal(result.response?.stopReason, MOCK_STOP_REASON)
 
     await runtime.dispose()

@@ -238,6 +238,17 @@ async function handlePrompt(
       }
       return tools
     },
+    resolveTool: async (name: string) => {
+      for (const { value: provider } of deps.registries.tools.list()) {
+        const handler = await provider.getTool(name)
+        if (handler) return handler
+      }
+      return undefined
+    },
+    adapterContext: {
+      logger: deps.logger,
+      session: session,
+    },
   }
 
   const modelName = promptOptions?.model ?? getFirstModel(deps.registries.models)
