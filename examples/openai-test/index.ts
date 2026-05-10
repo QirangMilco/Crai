@@ -16,8 +16,8 @@
  */
 
 import { createRuntime } from '@crai/runtime'
-import type { Extension } from '@crai/core'
-import { EVENTS, HOOKS } from '@crai/core'
+import type { Extension, ToolExecutionResult } from '@crai/core'
+import { EVENTS, HOOKS, TOOL_SAFETY_LEVELS } from '@crai/core'
 import { createOpenAIProvider, OpenAIAdapter } from '@crai/provider'
 import { createFileStorage } from '@crai/storage-fs'
 
@@ -185,6 +185,114 @@ async function testStream() {
   console.log(`流式回复: ${text}`)
 }
 
+// ── 测试工具 ─────────────────────────────────────────
+/** 三个测试工具：get_time / calculator / get_random。 */
+const toolExt: Extension = {
+  name: 'example:test-tools',
+  setup(ctx) {
+    // get_time：返回当前时间
+    ctx.registerTool({
+      name: 'get_time',
+      description: '获取当前系统时间',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+      safetyLevel: TOOL_SAFETY_LEVELS.SAFE,
+      execute: async (): Promise<ToolExecutionResult> => ({
+        toolCallId: '',
+        name: 'get_time',
+        content: [{ type: 'text', text: `当前时间: ${new Date().toLocaleString('zh-CN')}` }],
+      }),
+    })
+
+    // calculator：执行四则运算
+    ctx.registerTool({
+      name: 'calculator',
+      description: '执行四则运算，支持加(+)、减(-)、乘(*)、除(/)',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          a: { type: 'number', description: '第一个数' },
+          b: { type: 'number', description: '第二个数' },
+          op: { type: 'string', enum: ['+', '-', '*', '/'], description: '运算符' },
+        },
+        required: ['a', 'b', 'op'],
+      },
+      safetyLevel: TOOL_SAFETY_LEVELS.SAFE,
+      execute: async (request): Promise<ToolExecutionResult> => {
+        const { a, b, op } = request.toolCall.arguments as any
+        const ops: Record<string, (x: number, y: number) => number> = {
+          '+': (x, y) => x + y,
+          '-': (x, y) => x - y,
+          '*': (x, y) => x * y,
+          '/': (x, y) => (y === 0 ? NaN : x / y),
+        }
+        const fn = ops[op as string]
+        const result = fn ? fn(Number(a), Number(b)) : NaN
+        return {
+          toolCallId: request.toolCall.toolCallId,
+          name: 'calculator',
+          content: [{ type: 'text', text: `${a} ${op} ${b} = ${result}` }],
+        }
+      },
+    })
+
+    // get_random：返回 0-1 随机数
+    ctx.registerTool({
+      name: 'get_random',
+      description: '生成一个 0 到 1 之间的随机数',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+      safetyLevel: TOOL_SAFETY_LEVELS.SAFE,
+      execute: async (request): Promise<ToolExecutionResult> => ({
+        toolCallId: request.toolCall.toolCallId,
+        name: 'get_random',
+        content: [{ type: 'text', text: `随机数: ${Math.random().toFixed(4)}` }],
+      }),
+    })
+  },
+}
+
+async function testToolExecution() {
+  console.log('\n═══ 工具执行测试 ═══\n')
+
+  const runtime = await createRuntime({
+    extensions: [createOpenAIProvider(providerOptions), toolExt, streamDisplay()],
+    trace: TRACE_OPTION,
+  })
+
+  const session = await runtime.createSession()
+
+  process.stdout.write('用户: 请使用 get_time 工具告诉我当前时间\n')
+  process.stdout.write('助手: ')
+  const result = await runtime.prompt(
+    { type: 'text', text: '请使用 get_time 工具告诉我当前时间，然后再用 calculator 计算 123 + 456 的结果' },
+    { sessionId: session.id },
+  )
+  console.log()
+
+  // 打印工具调用详情
+  const toolCalls = result.messages.filter(m => m.role === 'tool')
+  if (toolCalls.length > 0) {
+    console.log(`\n工具调用次数: ${toolCalls.length}`)
+    for (const msg of toolCalls) {
+      for (const part of msg.parts) {
+        if (part.type === 'text') {
+          console.log(`  结果: ${(part as any).text}`)
+        }
+      }
+    }
+  }
+
+  await runtime.stopSession(session.id, result.messages)
+  await runtime.dispose()
+}
+
 // ── 错误处理 ──────────────────────────────────────────
 async function testErrorHandling() {
   console.log('\n═══ 错误处理（无效 key） ═══\n')
@@ -209,6 +317,7 @@ async function main() {
     ['单轮对话', testSingleTurn],
     ['多轮对话', testMultiTurn],
     ['System Prompt', testWithSystemPrompt],
+    ['工具执行', testToolExecution],
     ['流式测试', testStream],
     ['错误处理', testErrorHandling],
   ]

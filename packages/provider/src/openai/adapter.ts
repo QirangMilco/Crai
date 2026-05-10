@@ -166,6 +166,21 @@ function fromOpenAIResponse(openAIResp: OpenAIResponse): ModelResponse {
   }
 }
 
+/**
+ * 流式 tool_calls 的增量累积器。
+ * OpenAI 兼容 API 的 tool_calls args 是分 chunk 发送的，
+ * 每个 chunk 的 arguments 是 JSON 片段（可能为空），需要按 index 合并。
+ */
+const accumulatedToolCallsMap = new Map<
+  number,
+  { id: string; name: string; args: string }
+>()
+
+/** 重置累积器（每次新的模型调用前调用）。 */
+export function resetAccumulatedToolCalls(): void {
+  accumulatedToolCallsMap.clear()
+}
+
 /** 将 OpenAI 流式 chunk delta 组装到 accumulated parts 中。 */
 function accumulateChunk(
   chunk: OpenAIStreamChunk,
@@ -176,15 +191,19 @@ function accumulateChunk(
 
   if (delta?.tool_calls) {
     for (const tc of delta.tool_calls) {
-      toolCalls.push({
-        type: PART_TYPES.TOOL_CALL,
-        toolCallId: tc.id,
-        name: tc.function?.name ?? '',
-        arguments: JSON.parse(tc.function?.arguments ?? '{}'),
-      })
+      const index = tc.index ?? 0
+      const existing = accumulatedToolCallsMap.get(index) ?? { id: '', name: '', args: '' }
+
+      if (tc.id) existing.id = tc.id
+      if (tc.function?.name) existing.name = tc.function.name
+      if (tc.function?.arguments) existing.args += tc.function.arguments // 追加增量片段
+
+      accumulatedToolCallsMap.set(index, existing)
     }
   }
 
+  // 只返回累积完整的 tool-call（当这些 chunk 只是更新了累积器时，返回空数组）
+  // 实际 tool-call 完整结果由 buildDoneResponse 使用 accumulatedToolCallsMap 构建
   return { deltaText, toolCalls }
 }
 
@@ -217,6 +236,48 @@ function buildOpenAIBody(
   if (request.settings?.maxTokens !== undefined) body.max_tokens = request.settings.maxTokens
 
   return body
+}
+
+/** 从累积器构建 ToolCallPart 列表。 */
+function buildToolCallPartsFromAccumulator(): ToolCallPart[] {
+  const parts: ToolCallPart[] = []
+  for (const [, entry] of accumulatedToolCallsMap) {
+    try {
+      parts.push({
+        type: PART_TYPES.TOOL_CALL,
+        toolCallId: entry.id,
+        name: entry.name,
+        arguments: entry.args ? JSON.parse(entry.args) : {},
+      })
+    } catch {
+      // arguments 片段不完整就跳过
+    }
+  }
+  return parts
+}
+
+/** 构造 Stream done 事件响应。
+ *   tool-call 从 accumulatedToolCallsMap 读取，确保增量合并后的 arguments 为完整 JSON。
+ */
+function buildDoneResponse(
+  text: string,
+  finishReason: string | null,
+): ModelStreamEvent & { type: 'done' } {
+  const parts: MessagePart[] = text ? [{ type: PART_TYPES.TEXT, text }] : []
+  const toolParts = buildToolCallPartsFromAccumulator()
+  parts.push(...toolParts)
+  return {
+    type: 'done',
+    response: {
+      message: {
+        id: `${ID_PREFIX}${Date.now()}`,
+        role: OPENAI_ROLES.ASSISTANT,
+        createdAt: Date.now(),
+        parts,
+      },
+      stopReason: finishReason ?? undefined,
+    },
+  }
 }
 
 /**
@@ -280,7 +341,8 @@ export class OpenAIAdapter implements ModelAdapter {
 
     yield { type: STREAM_EVENT_TYPES.TEXT_START }
 
-    // 使用共享的 SSE 行解析器，只处理 OpenAI 特有的格式
+    // 重置工具调用累积器，准备新一轮流式解析
+    resetAccumulatedToolCalls()
     let fullContent = ''
 
     try {
@@ -292,35 +354,27 @@ export class OpenAIAdapter implements ModelAdapter {
           continue
         }
 
-        const { deltaText, toolCalls } = accumulateChunk(chunk)
+        const { deltaText } = accumulateChunk(chunk)
 
         if (deltaText) {
           fullContent += deltaText
           yield { type: STREAM_EVENT_TYPES.TEXT_DELTA, delta: deltaText }
         }
 
-        for (const tc of toolCalls) {
-          yield { type: STREAM_EVENT_TYPES.TOOL_CALL, toolCall: tc }
-        }
-
         if (chunk.choices[0]?.finish_reason) {
           yield { type: STREAM_EVENT_TYPES.TEXT_END }
-          yield {
-            type: STREAM_EVENT_TYPES.DONE,
-            response: {
-              message: {
-                id: `${ID_PREFIX}${Date.now()}`,
-                role: OPENAI_ROLES.ASSISTANT,
-                createdAt: Date.now(),
-                parts: fullContent ? [{ type: PART_TYPES.TEXT, text: fullContent }] : [],
-              },
-              stopReason: chunk.choices[0].finish_reason ?? undefined,
-            },
-          }
+          yield buildDoneResponse(fullContent, chunk.choices[0].finish_reason)
         }
       }
-    } catch {
-      // 流意外中断，不做额外处理
+
+      // 流正常结束但未收到 finish_reason（如 [DONE] 哨兵），也发 done
+      yield { type: STREAM_EVENT_TYPES.TEXT_END }
+      yield buildDoneResponse(fullContent, null)
+    } catch (err) {
+      yield {
+        type: STREAM_EVENT_TYPES.ERROR,
+        error: { code: ERROR_CODES.API_ERROR, message: `SSE 流解析出错: ${(err as Error).message}` },
+      }
     }
   }
 }

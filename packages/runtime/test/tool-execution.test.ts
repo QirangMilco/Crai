@@ -223,10 +223,12 @@ describe('工具执行循环', () => {
       { model: 'test:failing-model' },
     )
 
-    // 工具执行出错后，toll-result 消息应包含错误文本
+    // 工具执行出错后，tool-result 消息应包含错误文本
     const toolResult = result.messages[2]
     assert.equal(toolResult.role, MESSAGE_ROLES.TOOL)
-    const errText = (toolResult.parts[0] as any)?.text ?? ''
+    const trp = (toolResult.parts[0] as any)
+    assert.equal(trp.type, MESSAGE_PART_TYPES.TOOL_RESULT, '应为 tool-result 类型')
+    const errText = trp.content?.[0]?.text ?? ''
     assert.ok(errText.includes('意图出错'), `应包含原始错误信息，实际: ${errText}`)
 
     // 后续应继续完成

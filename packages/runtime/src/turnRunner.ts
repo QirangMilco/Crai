@@ -10,6 +10,7 @@ import type {
   TextPart,
   ToolCallPart,
   ToolDefinition,
+  ToolResultPart,
   ToolExecutionRequest,
   ToolExecutionResult,
   ToolHandler,
@@ -17,6 +18,7 @@ import type {
 import type { HookBus, HookMap, RuntimeHandle, Session, AdapterContext } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES } from '@crai/core'
+import { debugLog, DEBUG_SCOPES } from './debug'
 
 /** 单次 turn 中工具调用的最大轮次，防止无限循环。 */
 const MAX_TOOL_ROUNDS = 10
@@ -65,7 +67,7 @@ function inputToMessage(input: RuntimeInput, sessionId: string): Message {
   }
 }
 
-/** 消费流式事件，发 delta 事件，返回完整 response。 */
+/** 消费流式事件，发 delta 事件，返回完整 response。Adapter 的 done 事件已包含 tool-call parts。 */
 async function consumeStream(
   stream: AsyncIterable<ModelStreamEvent>,
   session: Session,
@@ -108,7 +110,7 @@ async function executeOneTool(
   session: Session,
   deps: TurnRunnerDeps,
   turnId: string,
-): Promise<{ part: TextPart; isError: boolean }> {
+): Promise<ToolResultPart> {
   const execRequest: ToolExecutionRequest = {
     session,
     toolCall,
@@ -137,15 +139,24 @@ async function executeOneTool(
       content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `执行出错: ${(cause as Error).message}` }],
     }
     await deps.emitEvent(EVENTS.TOOL_FAILED, { session, result: errResult })
-    return { part: errResult.content[0] as TextPart, isError: true }
+    return {
+      type: MESSAGE_PART_TYPES.TOOL_RESULT,
+      toolCallId: toolCall.toolCallId,
+      name: toolCall.name,
+      isError: true,
+      content: errResult.content,
+    }
   }
 
   await deps.emitEvent(EVENTS.TOOL_COMPLETED, { session, result })
   await deps.hooks.run(HOOKS.TOOL_AFTER, { session, result }, { runtime: undefined as any })
 
   return {
-    part: result.content[0] as TextPart,
+    type: MESSAGE_PART_TYPES.TOOL_RESULT,
+    toolCallId: toolCall.toolCallId,
+    name: toolCall.name,
     isError: result.isError ?? false,
+    content: result.content,
   }
 }
 
@@ -259,13 +270,18 @@ export async function runTurn(
     // 安全检查 + 执行工具
     const toolDefs = deps.resolveTools ? await deps.resolveTools() : []
     const defMap = new Map(toolDefs.map(d => [d.name, d]))
-    const toolResultParts: Array<TextPart> = []
+    const toolResultParts: Array<ToolResultPart> = []
 
     for (const tc of toolCalls) {
       const def = defMap.get(tc.name)
       if (!def) {
         await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 未注册` })
-        toolResultParts.push({ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 未注册` })
+        toolResultParts.push({
+          type: MESSAGE_PART_TYPES.TOOL_RESULT,
+          toolCallId: tc.toolCallId,
+          name: tc.name,
+          content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 未注册` }],
+        })
         continue
       }
 
@@ -278,17 +294,38 @@ export async function runTurn(
 
       // 查找 handler 并执行
       const handler = deps.resolveTool ? await deps.resolveTool(tc.name) : undefined
+
+      // 调试：输出工具调用的原始 JSON
+      debugLog(DEBUG_SCOPES.TOOLS, `工具调用: ${tc.name}`, {
+        toolCallId: tc.toolCallId,
+        name: tc.name,
+        arguments: tc.arguments,
+      })
+
       if (!handler) {
         await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 无 handler` })
-        toolResultParts.push({ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 无 handler` })
+        toolResultParts.push({
+          type: MESSAGE_PART_TYPES.TOOL_RESULT,
+          toolCallId: tc.toolCallId,
+          name: tc.name,
+          content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 无 handler` }],
+        })
         continue
       }
 
-      const { part, isError } = await executeOneTool(handler, tc, session, deps, turnId)
-      toolResultParts.push(part)
+      const trp = await executeOneTool(handler, tc, session, deps, turnId)
+      toolResultParts.push(trp)
 
-      if (isError) {
-        await deps.emitEvent(EVENTS.TOOL_FAILED, { session, result: { toolCallId: tc.toolCallId, name: tc.name, isError: true, content: [part] } })
+      // 调试：输出工具执行结果
+      debugLog(DEBUG_SCOPES.TOOLS, `工具结果: ${tc.name}`, {
+        toolCallId: trp.toolCallId,
+        name: trp.name,
+        isError: trp.isError,
+        content: trp.content.map(p => p.type === 'text' ? { type: 'text', text: (p as any).text } : p),
+      })
+
+      if (trp.isError) {
+        await deps.emitEvent(EVENTS.TOOL_FAILED, { session, result: { toolCallId: tc.toolCallId, name: tc.name, isError: true, content: trp.content } })
       }
     }
 
