@@ -44,7 +44,7 @@ function inputToMessage(input: RuntimeInput, sessionId: string): Message {
     return { ...input.message, id: `${sessionId}_msg_${Date.now()}` }
   }
   const text = input.type === RUNTIME_INPUT_TYPES.TEXT ? input.text
-    : input.type === RUNTIME_INPUT_TYPES.COMMAND ? input.command
+    : input.type === RUNTIME_INPUT_TYPES.COMMAND ? input.name
     : ''
   return {
     id: `${sessionId}_input_${Date.now()}`,
