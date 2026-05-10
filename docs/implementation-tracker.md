@@ -21,7 +21,7 @@
 - [x] **在 runtime 的 EventBus 中实现 SKIP 链（request/handle/hasHandler）**
 - [x] **在 runtime 中实现 Extension 两级权限检查（trust + allowFullAccessExtensions）**
 - [x] **实现 EventBus SKIP 链（request/handle/hasHandler）**
-- [x] **实现 Middleware 调度逻辑（before/after/wrap 模式）**
+- [x] **实现 Middleware 调度逻辑（wrap 洋葱圈模式）**
 - [ ] 实现 Checkpoint 机制（可中断执行，Phase 2 范畴）
 - [ ] 调研并集成 pi-mono 的 Agent 循环优化逻辑
 - [ ] 调研并集成 reasonix 的语义缓存机制
@@ -52,7 +52,7 @@
 - [x] **EventBus SKIP 链（request/handle/hasHandler）**
 - [x] **Extension 两级权限检查（trust + allowFullAccessExtensions）**
 - [x] **ExtensionContext 完整：register() / registerTool() / registerModelMiddleware() / bus 别名 / config / dataDir**
-- [x] **Middleware 调度（before/after/wrap 模式）**
+- [x] **Middleware 调度（wrap 洋葱圈模式）**
 - [x] **工具安全检查门（safetyLevel + PermissionMode）**
 - [x] **记忆体系设计文档 + 核心契约（MemoryEntry/MemoryScope/MemoryAdapter）**
 - [x] **Session 生命周期记忆事件触发点**
@@ -63,6 +63,12 @@
 - [x] 最小测试验证 prompt 完整流程
 - [x] 纯文本单轮/多轮 LLM 对话可工作（需加载 provider + storage-fs + 用户自行编写的 persist/inject extension）
 - [x] devtools 包骨架（tracker / inspect 模块）
+- [x] 工具执行循环（execute → append → re-call 闭环）
+- [x] 默认流式，回退非流式
+- [x] SessionPipeline（可接管 session 创建/销毁）
+- [x] Middleware 简化（去掉 before/after，只保留 wrap）
+- [x] 文档：Middleware vs Hook、Adapter vs Pipeline 语义区分
+- [x] 单元测试：工具执行循环
 
 ## 5. 阻塞项
 
