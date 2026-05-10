@@ -198,7 +198,7 @@ export async function runTurn(
     }
   }
 
-  const messages = [response.message]
+  const messages = [inputAsMsg, response.message]
   await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: response.message })
 
   // 持久化阶段：具体存储行为由 preset 或 hook 实现，kernel 不直接写存储

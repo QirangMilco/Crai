@@ -8,16 +8,16 @@
  *   pnpm openai
  *
  * 测试内容：
- *   - 单轮对话
+ *   - 单轮对话（流式展示）
  *   - 多轮对话（上下文记忆 + 持久化）
  *   - 带 system prompt
- *   - 直接调用 adapter.stream() 验证流式
+ *   - 直接调用 adapter.stream()
  *   - 错误处理（无效 key）
  */
 
 import { createRuntime } from '@crai/runtime'
 import type { Extension } from '@crai/core'
-import { HOOKS } from '@crai/core'
+import { EVENTS, HOOKS } from '@crai/core'
 import { createOpenAIProvider, OpenAIAdapter } from '@crai/provider'
 import { createFileStorage } from '@crai/storage-fs'
 
@@ -38,29 +38,27 @@ if (!API_KEY) {
   process.exit(1)
 }
 
-/** 经过顶部的守卫检查，API_KEY 和 BASE_URL 在此之后保证有值。 */
-
-const providerOptions: { apiKey: string; models: string[]; baseURL?: string } = { apiKey: API_KEY!, models: [MODEL] }
+const providerOptions: { apiKey: string; models: string[]; baseURL?: string } = {
+  apiKey: API_KEY!,
+  models: [MODEL],
+}
 if (BASE_URL) providerOptions.baseURL = BASE_URL
 
-// ── 单轮对话 ─────────────────────────────────────────
-async function testSingleTurn() {
-  console.log('\n═══ 单轮对话 ═══\n')
+// ── 辅助扩展 ─────────────────────────────────────────
 
-  const runtime = await createRuntime({
-    extensions: [createOpenAIProvider(providerOptions)],
-    trace: TRACE_OPTION,
-  })
-
-  const result = await runtime.prompt({ type: 'text', text: '用一句话解释量子纠缠' })
-  const text = (result.response?.message.parts[0] as any)?.text
-  console.log(`回复: ${text || '(空)'}`)
-
-  await runtime.dispose()
+/** 流式展示：将 model:delta 事件实时写到 stdout。 */
+function streamDisplay(): Extension {
+  return {
+    name: 'example:stream-display',
+    setup(ctx) {
+      ctx.events.on(EVENTS.MODEL_DELTA, (event: any) => {
+        process.stdout.write(event.payload.delta)
+      })
+    },
+  }
 }
 
-// ── 多轮对话 ─────────────────────────────────────────
-/** 将 turn 输出的消息保存到 storage，让下一轮能读到上下文。 */
+/** 持久化：turn 结束后将消息写入 storage。 */
 const persistExt: Extension = {
   name: 'example:persist',
   setup(ctx) {
@@ -77,36 +75,54 @@ const persistExt: Extension = {
   },
 }
 
+// ── 单轮对话 ─────────────────────────────────────────
+async function testSingleTurn() {
+  console.log('\n═══ 单轮对话 ═══')
 
+  const runtime = await createRuntime({
+    extensions: [createOpenAIProvider(providerOptions), streamDisplay()],
+    trace: TRACE_OPTION,
+  })
+
+  process.stdout.write('\n回复: ')
+  await runtime.prompt({ type: 'text', text: '用一句话解释量子纠缠' })
+  console.log()
+
+  await runtime.dispose()
+}
+
+// ── 多轮对话 ─────────────────────────────────────────
 async function testMultiTurn() {
   console.log('\n═══ 多轮对话（持久化） ═══\n')
 
   const runtime = await createRuntime({
     extensions: [
       createOpenAIProvider(providerOptions),
-      createFileStorage({ baseDir: './crai/openai-data' }),
+      createFileStorage({ baseDir: '.crai/openai-data' }),
       persistExt,
+      streamDisplay(),
     ],
     trace: TRACE_OPTION,
   })
 
   const session = await runtime.createSession({ title: '多轮测试' })
 
+  process.stdout.write('用户: 我的名字是水晶\n')
+  process.stdout.write('助手: ')
   const r1 = await runtime.prompt(
     { type: 'text', text: '我的名字是水晶' },
     { sessionId: session.id },
   )
+  console.log()
   const t1 = (r1.response?.message.parts[0] as any)?.text
-  console.log(`用户: 我的名字是水晶`)
-  console.log(`助手: ${t1?.slice(0, 100)}...`)
 
+  process.stdout.write('用户: 我刚才说了我叫什么？\n')
+  process.stdout.write('助手: ')
   const r2 = await runtime.prompt(
     { type: 'text', text: '我刚才说了我叫什么？' },
     { sessionId: session.id },
   )
-  const t2 = (r2.response?.message.parts[0] as any)?.text
-  console.log(`用户: 我刚才说了我叫什么？`)
-  console.log(`助手: ${t2?.slice(0, 100)}...`)
+  console.log()
 
   await runtime.stopSession(session.id, r2.messages)
   await runtime.dispose()
@@ -114,10 +130,10 @@ async function testMultiTurn() {
 
 // ── 带 System Prompt ─────────────────────────────────
 async function testWithSystemPrompt() {
-  console.log('\n═══ System Prompt ═══\n')
+  console.log('\n═══ System Prompt ═══')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider(providerOptions)],
+    extensions: [createOpenAIProvider(providerOptions), streamDisplay()],
     trace: TRACE_OPTION,
   })
 
@@ -125,12 +141,12 @@ async function testWithSystemPrompt() {
     system: '你是一个只用一个字的冷面大师',
   })
 
-  const result = await runtime.prompt(
+  process.stdout.write('\n回复: ')
+  await runtime.prompt(
     { type: 'text', text: '今天天气如何' },
     { sessionId: session.id },
   )
-  const text = (result.response?.message.parts[0] as any)?.text
-  console.log(`回复: ${text}`)
+  console.log()
 
   await runtime.dispose()
 }
