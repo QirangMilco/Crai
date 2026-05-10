@@ -16,6 +16,8 @@
  */
 
 import { createRuntime } from '@crai/runtime'
+import type { Extension } from '@crai/core'
+import { HOOKS } from '@crai/core'
 import { createOpenAIProvider, OpenAIAdapter } from '@crai/provider'
 import { createFileStorage } from '@crai/storage-fs'
 
@@ -58,13 +60,32 @@ async function testSingleTurn() {
 }
 
 // ── 多轮对话 ─────────────────────────────────────────
+/** 将 turn 输出的消息保存到 storage，让下一轮能读到上下文。 */
+const persistExt: Extension = {
+  name: 'example:persist',
+  setup(ctx) {
+    ctx.hooks.on(HOOKS.TURN_AFTER, async (payload: any) => {
+      const { session, messages } = payload
+      const storage = ctx.registry.storages.list()[0]?.value
+      if (!storage) return { continue: true }
+      await storage.updateSession(session)
+      for (const msg of messages) {
+        await storage.appendMessage(session.id, msg)
+      }
+      return { continue: true }
+    })
+  },
+}
+
+
 async function testMultiTurn() {
   console.log('\n═══ 多轮对话（持久化） ═══\n')
 
   const runtime = await createRuntime({
     extensions: [
       createOpenAIProvider(providerOptions),
-      createFileStorage({ baseDir: '.test-data' }),
+      createFileStorage({ baseDir: '../crai/openai-data' }),
+      persistExt,
     ],
     trace: TRACE_OPTION,
   })

@@ -11,7 +11,7 @@ import type {
 } from '@crai/core'
 import type { HookBus, HookMap, RuntimeHandle, Session } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
-import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, PERMISSION_MODES } from '@crai/core'
+import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES } from '@crai/core'
 
 /** 最小 turn 运行结果。只返回调度结果，不做持久化。 */
 export interface TurnRunResult {
@@ -32,6 +32,22 @@ export interface TurnRunnerDeps {
   resolveTools?: () => Promise<ToolDefinition[]>
   /** 模型中间件存储，用于 before/after/wrap 拦截。 */
   middlewares?: ModelMiddlewareStore
+}
+
+/** 将 RuntimeInput 转换为 Message 并追加到上下文。 */
+function inputToMessage(input: RuntimeInput, sessionId: string): Message {
+  if (input.type === RUNTIME_INPUT_TYPES.MESSAGE) {
+    return { ...input.message, id: `${sessionId}_msg_${Date.now()}` }
+  }
+  const text = input.type === RUNTIME_INPUT_TYPES.TEXT ? input.text
+    : input.type === RUNTIME_INPUT_TYPES.COMMAND ? input.command
+    : ''
+  return {
+    id: `${sessionId}_input_${Date.now()}`,
+    role: MESSAGE_ROLES.USER,
+    createdAt: Date.now(),
+    parts: [{ type: MESSAGE_PART_TYPES.TEXT, text }],
+  }
 }
 
 /**
@@ -55,9 +71,14 @@ export async function runTurn(
   // 输入归一化：让扩展有机会改写或阻断输入
   await deps.hooks.run(HOOKS.INPUT_BEFORE, { session, input }, { runtime })
   const context = await deps.buildContext(session)
+
+  // 将输入转换为消息并追加到上下文
+  const inputAsMsg: Message = inputToMessage(input, session.id)
+  const allMessages = [...context.messages, inputAsMsg]
   const toolList = deps.resolveTools ? await deps.resolveTools() : []
   let contextWithTools: ModelContext = {
     ...context,
+    messages: allMessages,
     tools: toolList,
   }
 
