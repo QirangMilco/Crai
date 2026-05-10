@@ -298,7 +298,7 @@ export function createDefaultLogger(): Logger {
   }
 }
 
-/** 模型中间件存储：维护注册的中间件列表并支持批量清理。 */
+/** 模型中间件存储：维护注册的中间件，洋葱圈包裹模型调用。 */
 export function createModelMiddlewareStore() {
   const middlewares: ModelMiddleware[] = []
 
@@ -310,33 +310,14 @@ export function createModelMiddlewareStore() {
         if (idx >= 0) middlewares.splice(idx, 1)
       })
     },
-    /** 应用所有中间件到模型调用。按注册顺序执行 before → 原始调用 → after。 */
+    /** 从右向左嵌套 wrap 链，从左向右执行。最内层调用 next。 */
     async apply(input: ModelRequest, next: (input: ModelRequest) => Promise<ModelResponse>): Promise<ModelResponse> {
-      // 1. before 链（正序）
-      let current = input
-      for (const mw of middlewares) {
-        if (mw.before) current = await mw.before(current)
-      }
-
-      // 2. 构造 wrap 链：从右向左嵌套，最内层调用 next
       let chain: (input: ModelRequest) => Promise<ModelResponse> = next
       for (let i = middlewares.length - 1; i >= 0; i--) {
-        const mw = middlewares[i]
-        if (mw.wrap) {
-          const inner = chain
-          chain = (input) => mw.wrap!(input, inner)
-        }
+        const inner = chain
+        chain = (input) => middlewares[i].wrap(input, inner)
       }
-
-      // 3. 执行 wrap 链（或直接 next）
-      let result = await chain(current)
-
-      // 4. after 链（逆序）
-      for (let i = middlewares.length - 1; i >= 0; i--) {
-        if (middlewares[i].after) result = await middlewares[i].after!(result)
-      }
-
-      return result
+      return chain(input)
     },
     list() {
       return [...middlewares]

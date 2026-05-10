@@ -2,6 +2,7 @@ import type {
   Logger,
   ModelAdapter,
   ModelMiddleware,
+  ModelStreamEvent,
   PromptOptions,
   PromptResult,
   Registry,
@@ -218,6 +219,16 @@ async function handlePrompt(
         throw err
       }
       return adapter.request(request)
+    },
+    streamModel: (request) => {
+      const adapter = deps.registries.models.get(request.model)
+      if (!adapter) {
+        throw { code: ERROR_CODES.MODEL_REQUEST_FAILED, message: `模型 "${request.model}" 未注册` } as RuntimeError
+      }
+      if (!('stream' in adapter)) {
+        throw { code: ERROR_CODES.MODEL_REQUEST_FAILED, message: `Adapter "${request.model}" 不支持流式` } as RuntimeError
+      }
+      return (adapter as any).stream(request) as AsyncIterable<ModelStreamEvent>
     },
     resolveTools: async () => {
       const tools: ToolDefinition[] = []

@@ -84,7 +84,7 @@ async function testMultiTurn() {
   const runtime = await createRuntime({
     extensions: [
       createOpenAIProvider(providerOptions),
-      createFileStorage({ baseDir: '../crai/openai-data' }),
+      createFileStorage({ baseDir: './crai/openai-data' }),
       persistExt,
     ],
     trace: TRACE_OPTION,

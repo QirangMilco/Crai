@@ -29,14 +29,12 @@ export type HookHandler<T> = (
 // Middleware 类型（借鉴 Eino，提供 before/after/wrap 三种拦截模式）
 // ============================================================
 
-/** Middleware 允许在核心流程前后插入逻辑，或完全包裹执行流。 */
+/** Middleware 洋葱圈包裹核心流程。不调 next() 可跳过原始逻辑。 */
 export interface Middleware<TInput, TOutput> {
-  before?: (input: TInput) => Promise<TInput>
-  after?: (output: TOutput) => Promise<TOutput>
-  wrap?: (input: TInput, next: (input: TInput) => Promise<TOutput>) => Promise<TOutput>
+  wrap(input: TInput, next: (input: TInput) => Promise<TOutput>): Promise<TOutput>
 }
 
-/** 模型请求中间件：封装 ModelRequest → ModelResponse 的调用。 */
+/** 模型请求中间件：包裹 ModelRequest → ModelResponse 的调用。 */
 export type ModelMiddleware = Middleware<ModelRequest, ModelResponse>
 
 // ============================================================
@@ -304,7 +302,7 @@ export interface ExtensionContext {
   register(disposable: Disposable): void
   /** 动态注册工具（仅 full-access）。返回清理函数。 */
   registerTool(tool: ToolDefinition & { execute: ToolHandler['execute'] }): Disposable
-  /** 注册模型中间件。middleware 在模型请求前后按注册顺序执行。 */
+  /** 注册模型中间件。洋葱圈包裹模型调用，不调 next() 可跳过原始调用。 */
   registerModelMiddleware(mw: ModelMiddleware): Disposable
 }
 

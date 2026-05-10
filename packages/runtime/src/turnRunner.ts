@@ -4,6 +4,7 @@ import type {
   ModelContext,
   ModelRequest,
   ModelResponse,
+  ModelStreamEvent,
   RuntimeInput,
   RuntimeError,
   ToolCallPart,
@@ -28,7 +29,10 @@ export interface TurnRunnerDeps {
     payload: EventMap[TKey],
   ) => Promise<void>
   buildContext: (session: Session) => Promise<ModelContext>
+  /** 非流式模型调用，当 adapter 没有 stream() 或存在 middleware 时回退。 */
   requestModel: (request: ModelRequest) => Promise<ModelResponse>
+  /** 流式模型调用。adapter 支持时优先走流。 */
+  streamModel?: (request: ModelRequest) => AsyncIterable<ModelStreamEvent>
   resolveTools?: () => Promise<ToolDefinition[]>
   /** 模型中间件存储，用于 before/after/wrap 拦截。 */
   middlewares?: ModelMiddlewareStore
@@ -48,6 +52,33 @@ function inputToMessage(input: RuntimeInput, sessionId: string): Message {
     createdAt: Date.now(),
     parts: [{ type: MESSAGE_PART_TYPES.TEXT, text }],
   }
+}
+
+/** 消费流式事件，发 delta 事件，返回完整 response。 */
+async function consumeStream(
+  stream: AsyncIterable<ModelStreamEvent>,
+  session: Session,
+  turnId: string,
+  emitEvent: TurnRunnerDeps['emitEvent'],
+): Promise<ModelResponse> {
+  for await (const event of stream) {
+    switch (event.type) {
+      case 'text-delta':
+        await emitEvent(EVENTS.MODEL_DELTA, { session, turnId, delta: event.delta })
+        break
+      case 'tool-call':
+        // 暂不处理，工具执行循环尚未实现
+        break
+      case 'message':
+        // 部分 message，暂不处理
+        break
+      case 'done':
+        return event.response
+      case 'error':
+        throw event.error
+    }
+  }
+  throw { code: ERROR_CODES.MODEL_REQUEST_FAILED, message: '流意外结束，未收到 done 事件' } as RuntimeError
 }
 
 /**
@@ -115,14 +146,24 @@ export async function runTurn(
 
   await deps.emitEvent(EVENTS.MODEL_REQUESTED, { session, request: preparedRequest.request })
 
-  // 请求模型（经过 middleware 链包裹），失败时发出结构化错误事件
+  // 请求模型：优先流式，回退非流式
   let response: ModelResponse | undefined
   try {
     const finalRequest = preparedRequest.request
-    if (deps.middlewares) {
-      response = await deps.middlewares.apply(finalRequest, deps.requestModel)
+
+    // 如果 adapter 支持流式，将 stream 包装为 requestModel 兼容的签名
+    let modelFn = deps.requestModel
+    if (deps.streamModel) {
+      modelFn = async (req) => {
+        const stream = deps.streamModel!(req)
+        return consumeStream(stream, session, turnId, deps.emitEvent)
+      }
+    }
+
+    if (deps.middlewares && deps.middlewares.list().length > 0) {
+      response = await deps.middlewares.apply(finalRequest, modelFn)
     } else {
-      response = await deps.requestModel(finalRequest)
+      response = await modelFn(finalRequest)
     }
   } catch (cause) {
     const error: RuntimeError = {

@@ -90,7 +90,40 @@ Runtime 内核不应拥有记忆策略实现。记忆策略由用户自行选择
 
 > 详细的安全模型设计请参见 [security-model.md](security-model.md)。
 
-### 3.7 Adapter 与 Pipeline 的语义区分
+### 3.7 Middleware 与 Hook 的语义区分
+
+**Middleware** — 洋葱圈包裹模型调用。注册多个 middleware 时会嵌套执行，每个 middleware 不调 `next()` 即可跳过原始调用。适合：缓存、重试、降级、日志、限流。
+
+```ts
+// 缓存中间件
+const cacheMw: ModelMiddleware = {
+  async wrap(input, next) {
+    const cached = cache.get(input)
+    if (cached) return cached
+    return next(input)
+  },
+}
+
+ctx.registerModelMiddleware(cacheMw)
+```
+
+**Hook** — 广播/管道模式。注册多个 handler 时全部执行，返回值可 `{replace}` 或 `{stop}` 影响后续 handler。适合：观察、注入副作用、转换数据。
+
+```ts
+// 持久化 hook
+ctx.hooks.on(HOOKS.TURN_AFTER, async (payload) => {
+  await storage.appendMessage(session.id, msg)
+  return { continue: true }
+})
+```
+
+| Middleware | Hook |
+|---|---|
+| 洋葱圈，一个包裹下一个 | 广播/管道，全部执行 |
+| 不调 `next()` 即可跳过原始调用 | 不能跳过原始流程 |
+| 只能包裹模型调用 | 覆盖 session、turn、消息等全生命周期 |
+
+### 3.8 Adapter 与 Pipeline 的语义区分
 
 Crai 中有两种可替换的能力单元，虽然底层都使用 `Registry<T>` 注册，但语义不同：
 
