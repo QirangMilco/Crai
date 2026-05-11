@@ -16,7 +16,7 @@
 |------|------|------|
 | Core (契约层) | 定义记忆的数据类型和适配器接口 | `MemoryEntry` 类型、`MemoryAdapter` 接口 |
 | Runtime (调度层) | 在 Session 生命周期中提供记忆触发点 | 记忆相关的 Event/Hook/Middleware |
-| Preset/Extension (策略层) | 实现具体的记忆策略 | Summary 注入、向量检索、知识图谱、记忆整理 |
+| Extension (策略层) | 实现具体的记忆策略 | Summary 注入、向量检索、知识图谱、记忆整理 |
 
 ### 2.2 空心记忆策略
 
@@ -247,8 +247,8 @@ activity_score = importance × e^(-λ × Δt)
 
 | SimpleMem 组件 | Crai 对应 | 借鉴内容 |
 |---------------|-----------|---------|
-| `MemoryBuilder` | `preset-memory` 中 | 语义结构化压缩：滑窗分割 + LLM 提取 → 多视图索引 |
-| `HybridRetriever` | `preset-memory` 中 | 意图分析 → 三路并行检索 → 结果合并 → 反思轮次 |
+| `MemoryBuilder` | 独立 extension | 语义结构化压缩：滑窗分割 + LLM 提取 → 多视图索引 |
+| `HybridRetriever` | 独立 extension | 意图分析 → 三路并行检索 → 结果合并 → 反思轮次 |
 | `AnswerGenerator` | 不直接对应 (Crai 使用 ModelAdapter) | 基于检索上下文的答案生成模式 |
 | `ContextInjector` | Extension 中 | 分层 Token 预算上下文注入 |
 
@@ -277,7 +277,7 @@ packages/
   core/                               ← MemoryEntry 类型, MemoryAdapter 接口
   runtime/                            ← 记忆相关 Event/Hook/Middleware 触发点
   memory-extension/                  ← Summary 记忆策略（由用户自行实现）
-  preset-memory/         (新增)       ← 完整记忆策略实现（借鉴 SimpleMem）
+  extension-memory/     (新增)       ← 完整记忆策略实现（借鉴 SimpleMem）
     ├── memory-builder.ts             ← 语义压缩 + 多视图索引
     ├── hybrid-retriever.ts           ← 语义/关键词/结构化混合检索
     ├── context-injector.ts           ← Token 预算分层上下文注入
@@ -298,7 +298,7 @@ packages/
 
 ### Phase 2 可完成的内容
 
-4. 创建 `packages/preset-memory`，实现完整的记忆策略
+4. 创建 `packages/extension-memory`，实现完整的记忆策略
 5. 实现 `ContextInjector` 的分层 Token 预算注入逻辑
 6. 实现 `HybridRetriever` 的三路并行检索
 7. 实现 `Consolidation` 的衰减/合并/裁剪机制

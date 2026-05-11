@@ -19,6 +19,7 @@ import { createPersistenceExtension } from '@crai/persistence'
 import { createCliRepl } from '@crai/cli-repl'
 import type { Extension, ToolExecutionResult } from '@crai/core'
 import { TOOL_SAFETY_LEVELS } from '@crai/core'
+import { resolve } from 'node:path'
 
 // ── 配置 ─────────────────────────────────────────────
 const API_KEY = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY
@@ -52,10 +53,25 @@ const provider = PROVIDER === 'deepseek'
   : createOpenAIProvider(providerOptions)
 
 // ── 内置工具 ─────────────────────────────────────────
+/** 校验路径在 workspace 范围内，返回标准化绝对路径。
+ *  \$resolve('proj', '../etc') 解析到 proj 之外 → 拒绝
+ *  resolve('proj', '/etc') 绝对路径覆盖 → 拒绝
+ */
+function resolveAllowedPath(inputPath: string, rootDir: string): string {
+  const normalizedRoot = resolve(rootDir)
+  const resolved = resolve(normalizedRoot, inputPath)
+  if (!resolved.startsWith(normalizedRoot)) {
+    throw new Error(`路径拒绝: ${inputPath} 不在工作区内`)
+  }
+  return resolved
+}
+
 function createBuiltinTools(): Extension {
   return {
     name: 'cli:builtin-tools',
     setup(ctx) {
+      const rootDir = process.cwd()
+
       ctx.registerTool({
         name: 'read_file',
         description: '读取文件内容',
@@ -65,7 +81,8 @@ function createBuiltinTools(): Extension {
           try {
             const { path } = request.toolCall.arguments as any
             const { readFile } = await import('node:fs/promises')
-            const content = await readFile(path, 'utf-8')
+            const allowedPath = resolveAllowedPath(path, rootDir)
+            const content = await readFile(allowedPath, 'utf-8')
             return { toolCallId: request.toolCall.toolCallId, name: 'read_file', content: [{ type: 'text', text: content }] }
           } catch (err: any) {
             return { toolCallId: request.toolCall.toolCallId, name: 'read_file', isError: true, content: [{ type: 'text', text: `读取失败: ${err.message}` }] }
@@ -81,9 +98,15 @@ function createBuiltinTools(): Extension {
         execute: async (request) => {
           try {
             const { pattern, path } = request.toolCall.arguments as any
-            const { execSync } = await import('node:child_process')
-            const result = execSync(`grep -rn "${pattern}" ${path || '.'} 2>/dev/null || true`, { encoding: 'utf-8', maxBuffer: 1024 * 1024 })
-            return { toolCallId: request.toolCall.toolCallId, name: 'grep', content: [{ type: 'text', text: result || '(无匹配)' }] }
+            const { spawnSync } = await import('node:child_process')
+            const searchPath = path ? resolveAllowedPath(path, rootDir) : rootDir
+            const result = spawnSync('grep', ['-rn', pattern, searchPath], {
+              encoding: 'utf-8',
+              maxBuffer: 1024 * 1024,
+              timeout: 10_000,
+            })
+            const output = result.stdout?.trim() || result.stderr?.trim() || ''
+            return { toolCallId: request.toolCall.toolCallId, name: 'grep', content: [{ type: 'text', text: output || '(无匹配)' }] }
           } catch (err: any) {
             return { toolCallId: request.toolCall.toolCallId, name: 'grep', isError: true, content: [{ type: 'text', text: `搜索失败: ${err.message}` }] }
           }

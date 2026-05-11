@@ -345,9 +345,9 @@ export const DEFAULT_POLL_INTERVAL = 100
 
 这些常量不应出现在 `EventMap` 或 `HookMap` 中——如果未来某个事件需要对外暴露，再升格到 Core 层。
 
-### 4.3 Preset / Extension 层（包内私有 + 可配置）
+### 4.3 Extension 层（包内私有 + 可配置）
 
-Preset 或 Extension 中的常量分为两类：
+Extension 中的常量分为两类：
 
 **包内私有常量**：直接在当前包的 `src/constants.ts` 或就近定义：
 

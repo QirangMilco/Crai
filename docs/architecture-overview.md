@@ -11,7 +11,7 @@ Crai 是一个 **极简的、默认空心的、高度可扩展的 AI Agent 运�
 - 存储/缓存后端 (Storage/Cache Backends)
 - 权限策略 (Permissions Policies)
 - 外部 TypeScript 扩展 (Extensions)
-- 提供默认行为的预设扩展 (Preset Extensions)
+- 扩展 (Extensions)
 
 ## 2. 非目标 (Non-goals)
 
@@ -215,7 +215,7 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **pi-mono**: 借鉴其轻量级的 `AgentLoop` 调度逻辑、`ModelProvider` 接口定义，确保内核足够薄。
 - **Eino**: 借鉴其中间件 (Middleware) 管道设计和检查点 (Checkpoint) 机制，增强执行流的可控性。
 
-### 5.2 扩展层 (Extensions / Presets) - 吸收自 OpenHanako / reasonix / snow-cli
+### 5.2 扩展层 (Extensions) - 吸收自 OpenHanako / reasonix / snow-cli
 - **OpenHanako**: 借鉴其两级权限模型（restricted / full-access）、EventBus SKIP 链设计、register() 资源管理、错误隔离和前向兼容原则，直接作用于 `@crai/extension-sdk` 的设计。
 - **reasonix**: 吸收其语义缓存 (Semantic Cache) 逻辑和状态持久化策略，作为 `CacheAdapter` 的参考实现落位到 `packages/cache-default`。
 - **snow-cli**: 吸收其 MCP (Model Context Protocol) 客户端实现和工具确认工作流，落位到 `@crai/extension-sdk` 或独立的 `packages/extension-mcp`。
@@ -225,7 +225,7 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **snow-cli**: 吸收其 LSP (Language Server Protocol) 集成和仓库分析逻辑，落位到 `packages/devtools`。
 
 ### 5.4 记忆层 (Memory) - 吸收自 SimpleMem / reasonix
-- **SimpleMem**: 吸收其三阶段记忆流水线（语义压缩→混合检索→答案生成）、多视图索引模型（语义/词汇/符号三层）以及 Token 预算分层上下文注入策略，作为 `packages/preset-memory` 的参考实现。
+- **SimpleMem**: 吸收其三阶段记忆流水线（语义压缩→混合检索→答案生成）、多视图索引模型（语义/词汇/符号三层）以及 Token 预算分层上下文注入策略。记忆策略以独立 extension 形式实现。
 - **reasonix**: 吸收其三层记忆作用域（user/project/session）设计，作为 MemoryScope 分层模型参考。
 
 ### 5.5 安全层 (Safety) - 吸收自 CrystalAgents / reasonix / snow-cli / pi-mono
@@ -262,7 +262,7 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - 命令系统
 - 更好的持久化和快照/检查点能力
 - 更多可选的运行时服务
-- **完整的记忆策略实现 (packages/preset-memory)**
+- **完整的记忆策略实现（独立 extension）**
 - **分层 Token 预算上下文注入**
 - **混合检索与记忆整理机制**
 

@@ -96,7 +96,7 @@ Session 内部的一次执行周期。一个 Turn 通常从输入开始，可能
 - `session`（会话）：当前对话上下文，Session 级有效
 
 ### MemoryAdapter (记忆适配器)
-记忆存储与检索的抽象契约。Core 层定义接口，具体的策略实现由 Preset/Extension 提供。
+记忆存储与检索的抽象契约。Core 层定义接口，具体的策略实现由 Extension 提供。
 
 ### Context Injection (上下文注入)
 在 Session 启动时，将历史记忆（摘要、观察、相关条目）按 Token 预算注入到系统提示中的过程。注入遵循"摘要优先 → 观察次之 → 语义检索补充"的优先级顺序。

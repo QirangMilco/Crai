@@ -65,7 +65,7 @@ Crai 的目标不是一开始就完全自给自足，而是先依赖外部 codin
 
 - **核心契约层（Core）**：定义安全类型枚举（`ToolSafetyLevel`、`PermissionMode`、`SandboxScope`）和 `PermissionAdapter` 接口
 - **运行时层（Runtime）**：在 turn runner 的工具执行路径上强制执行安全检查
-- **预设/扩展层（Preset/Extension）**：提供默认的危险命令列表、默认权限策略适配器、危险命令正则匹配器
+- **扩展层（Extension）**：提供默认的危险命令列表、默认权限策略适配器、危险命令正则匹配器
 - **应用/UI 层（App/Transport）**：负责权限确认的交互呈现（确认对话框、权限面板）
 
 ## 3. 建议分层

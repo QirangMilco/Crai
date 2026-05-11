@@ -146,31 +146,36 @@ Phase 1 应当聚焦于运行时外壳、扩展加载、事件/钩子流水线�
 - 开发工具可以被替换或卸载而不影响运行时核心
 - 使 Crai 自身的开发工作流作为 devtools 的一个用户，而不是硬编码在核心中
 
-## D-012 — 默认行为优先落到 preset extensions，runtime 尽量保持纯调度器
+## D-012 — 默认行为优先落到 extensions，runtime 尽量保持纯调度器
 
 ### 状态
-已接受 (Accepted)
+已接受 (Accepted) — 被 D-031 替代
 
 ### 决策
-运行时（Runtime）的职责仅限于调度和协调执行循环（Session/Turn/事件/钩子/适配器分发）。所有默认行为——如默认 Prompt 流水线、默认上下文构建、默认持久化策略——都应当由 `packages/preset-default` 提供。
+运行时（Runtime）的职责仅限于调度和协调执行循环（Session/Turn/事件/钩子/适配器分发）。所有默认行为都应当由 extension 提供，不再设 `packages/preset-default` 包。
 
 ### 理由
 - 保持运行时核心足够薄，易于理解和测试
-- 让用户可以通过替换 preset 来定制默认行为，而不需要修改运行时
+- 让用户可以通过加载所需 extension 来定制行为
 - 与"空心核心"架构原则一致
 
-## D-013 — preset 默认行为应长期放在 runtime 之外的独立包中
+### 变更记录
+D-031 移除了 `packages/preset-default`，用户自行组合所需的 extension。
+
+## D-013 — extension 的行为应保持在 runtime 之外的独立包中
 
 ### 状态
-已接受 (Accepted)
+已接受 (Accepted) — 被 D-031 替代
 
 ### 决策
-即使 preset-default 在 Phase 1 是事实上的标配，它的代码也应长期保持在 `packages/preset-default` 独立包中，不合并进 `packages/runtime`。
+Extension 的代码应长期保持在独立包中，不合并进 `packages/runtime`。
 
 ### 理由
-- 保持运行时和默认行为的独立版本演进
-- 使第三方能够创建替代的 preset 包
-- 避免运行时的 API 边界被默认行为的实现细节污染
+- 保持运行时和 extension 的独立版本演进
+- 避免运行时的 API 边界被 extension 的实现细节污染
+
+### 变更记录
+D-031 移除了 `packages/preset-default`，该原则仍适用于所有 extension。
 
 ## D-014 — 开发辅助能力应统一视为 devtools，而不是自举专属层
 
@@ -254,16 +259,16 @@ Crai 将引入以缓存为中心的语义索引和状态持久化机制，参考
 已接受 (Accepted)
 
 ### 决策
-记忆功能不归属于 Core、Runtime 或 Preset 中的单一层级，而是分布在三个层面上：
+记忆功能不归属于 Core、Runtime 或 Extension 中的单一层级，而是分布在三个层面上：
 
 - **Core 层**：定义 `MemoryEntry` 类型、`MemoryScope` 枚举和 `MemoryAdapter` 接口，仅关注记忆的数据形状和抽象契约
 - **Runtime 层**：在 Session 生命周期中提供记忆事件/钩子触发点（`session:beforeStart`、`session:afterStop`、`turn:beforeModel`、`turn:afterToolExec`），不实现任何记忆策略
-- **Preset/Extension 层**：实现具体的记忆策略，包括摘要生成、上下文注入、混合检索、记忆整理等
+- **Extension 层**：实现具体的记忆策略，包括摘要生成、上下文注入、混合检索、记忆整理等
 
 ### 理由
 - 保持 Core 和 Runtime 的空心特质，与 D-002（空心核心架构）一致
-- 让用户可以通过替换 preset 来定制记忆行为，而不需要修改 Core 或 Runtime
-- 记忆策略的复杂度较高，放在 Preset 层可以独立版本演进
+- 让用户可以通过加载不同 extension 来定制记忆行为，而不需要修改 Core 或 Runtime
+- 记忆策略的复杂度较高，放在 Extension 层可以独立版本演进
 
 ## D-021 — 借鉴 SimpleMem 的多视图索引模型与三阶段流水线
 
@@ -300,18 +305,20 @@ Crai 的记忆策略设计将参考 SimpleMem 的核心设计：
 - 越底层的约束越稳定，应优先注入以保持行为一致性
 - 分层优先级注入可有效控制 Token 成本
 
-## D-023 — 默认 Summary 记忆策略由 preset-default 提供
+## D-023 — 默认 Summary 记忆策略由用户自行实现
 
 ### 状态
-已接受 (Accepted)
+已接受 (Accepted) — 被 D-031 替代
 
 ### 决策
-在 Phase 1 中，默认的轻量级 Summary 记忆策略（Session 结束时生成摘要，Session 启动时注入摘要）由 `packages/preset-default` 提供。完整的记忆策略（包括混合检索、向量存储、记忆整理等）属于 Phase 2 的 `packages/preset-memory`。
+不再提供默认的记忆策略。用户根据需要自行编写 `context:build` 和 `turn:after` hook 实现摘要生成与注入。完整的记忆策略（混合检索、向量存储、记忆整理等）将在 Phase 2 作为独立 extension 提供。
 
 ### 理由
-- 保持 preset-default 在 Phase 1 即可提供有意义的记忆行为
-- 避免在 Phase 1 中引入向量数据库等重依赖
-- 与 D-012（默认行为优先落到 preset extensions）一致
+- D-031 移除了所有默认预设
+- 记忆策略由用户自行选择或实现
+
+### 变更记录
+D-031 移除了 `packages/preset-default`，记忆策略不再是默认行为。
 
 ## D-024 — UI 与 Markdown 渲染借鉴 crystalagents
 

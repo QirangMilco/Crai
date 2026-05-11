@@ -10,7 +10,7 @@
 接收到输入 (input received)
   -> 规范化输入 (normalize input)
   -> 触发输入事件 (emit input event)
-  -> 运行预设/默认扩展 (run preset/default extensions)
+  -> 运行扩展钩子 (run extension hooks)
   -> 构建上下文 (build context)
   -> 运行中间件/钩子: 模型请求前 (run Middleware: BeforeModel)
   -> 调用模型适配器 (call model adapter)
@@ -37,7 +37,7 @@
 - 创建一个新 Session
 - 或解析出一个默认 Session 策略
 
-具体的策略应当在实现中明确定义，或由预设扩展 (Preset Extension) 提供。
+具体的策略应当在实现中明确定义，或由扩展 (Extension) 提供。
 
 ### 3.3 上下文构建 (Context Build)
 

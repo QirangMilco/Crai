@@ -6,8 +6,8 @@
 
 - 目前阶段：Phase 1 已全部完成
 - 当前目标：完善 CLI/Transport 层，推进 Phase 2
-- 下一阶段：Phase 2 预设扩展与传输层
-- 核心冻结：core + runtime 不再需要修改，后续能力以 extension / preset / devtools / app 形式实现
+- 下一阶段：Phase 2 传输层与扩展能力
+- 核心冻结：core + runtime 不再需要修改，后续能力以 extension / devtools / app 形式实现
 
 ## 2. Todo
 
@@ -33,7 +33,7 @@
 - [x] 编写最小测试验证 prompt 完整流程
 - [x] 创建 `packages/storage-fs`（文件系统存储）
 - [x] 创建 `packages/devtools`（开发辅助工具包）
-- [ ] 创建 `packages/preset-memory`（完整记忆策略，Phase 2 范畴）
+- [ ] 创建内存策略 extension（完整记忆策略，Phase 2 范畴）
 - [x] **在 `packages/core` 中定义 MemoryEntry/MemoryScope/MemoryAdapter 类型**
 - [x] **在 `packages/runtime` 的 Session 生命周期中加入记忆事件/钩子触发点**
 - [ ] **调研并借鉴 SimpleMem 的三阶段记忆流水线与多视图索引模型**
@@ -56,7 +56,7 @@
 - [x] **工具安全检查门（safetyLevel + PermissionMode）**
 - [x] **记忆体系设计文档 + 核心契约（MemoryEntry/MemoryScope/MemoryAdapter）**
 - [x] **Session 生命周期记忆事件触发点**
-- [x] 默认行为已迁移到独立 preset 包
+- [x] 默认行为由用户自行组合 extension 实现（D-031）
 - [x] OpenAI provider 实现
 - [x] storage-fs 文件系统存储实现
 - [x] examples/minimal-runtime 示例（含持久化多轮对话）
@@ -88,7 +88,7 @@
 
 1. 补充 devtools 能力（task planner、repo inspector 增强）
 2. 实现 Summary 记忆策略（作为独立 extension）
-3. 调研 SimpleMem 三阶段流水线 → 准备 preset-memory
+3. 调研 SimpleMem 三阶段流水线 → 实现记忆策略 extension
 4. 实现 Transport 适配器（CLI、WebSocket）
 5. 调研 pi-mono Agent 循环优化与 reasonix 语义缓存
 6. 实现 Checkpoint 机制（可中断执行，Phase 2 范畴）

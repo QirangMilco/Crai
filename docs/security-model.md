@@ -12,7 +12,7 @@
 ```txt
 App/Transport 层     权限确认交互（confirm dialog / permission panel）
       ↑
-Preset/Extension 层   默认危险命令列表、权限策略适配器、OS 级沙箱
+Extension 层             默认危险命令列表、权限策略适配器、OS 级沙箱
       ↑
 Runtime 层           工具安全检查门、路径沙箱校验、权限模式切换
       ↑
@@ -36,7 +36,7 @@ Runtime 层在工具执行路径上强制执行安全检查：
 - **路径沙箱校验**：对于带文件路径参数的工具，校验目标路径是否在 `SandboxScope.rootDir` 范围内
 - **事件广播**：工具被拒绝时发出 `tool.blocked` 事件，权限被请求时发出 `permission.requested` 事件
 
-### 2.3 Preset/Extension 层 — 默认策略
+### 2.3 Extension 层 — 默认策略
 
 预设扩展包提供可替换的默认安全策略：
 

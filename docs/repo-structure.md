@@ -8,7 +8,7 @@ Crai 应当围绕五个层级进行组织：
 - **core**: 最小契约与类型（包括记忆类型定义与适配器契约）
 - **runtime**: 可执行内核与编排（包括记忆事件/钩子触发点）
 - **extension**: 可选行为与 SDK 助手
-- **preset**: 保持在运行时之外的默认行为捆绑包（包括记忆策略实现）
+- **extension**: 可选行为与 SDK 助手
 - **devtools**: 开发自动化、工作流助手和通用编码辅助
 - **app**: 产品表面、演示和开发工具
 
@@ -25,7 +25,7 @@ packages/
   devtools/
   provider/
   storage-fs/
-  preset-memory/           (新增) 完整记忆策略：压缩/检索/注入/整理
+  extension-memory/        (新增) 完整记忆策略：压缩/检索/注入/整理
   storage-vector/          (可选) 向量存储适配器（LanceDB/FAISS 等）
   cache-default/
   transport-websocket/
@@ -117,7 +117,7 @@ packages/
 - session/message/artifact 以 JSON 文件持久化到磁盘
 - 通过 Extension 注册到 registry.storages，支持热替换
 
-### 4.8 `packages/preset-memory` (新增)
+### 4.8 `packages/extension-memory` (新增，Phase 2)
 - 完整的记忆策略实现（借鉴 SimpleMem）
 - 语义结构化压缩：MemoryBuilder — 滑窗分割 + LLM 提取 → 多视图索引
 - 混合检索：HybridRetriever — 语义/关键词/结构化三路并行检索 + 反思轮次
@@ -182,4 +182,4 @@ packages/
 当开始实现记忆策略时，从以下文件开始：
 - `packages/core/src/types.ts`（追加 MemoryEntry/MemoryScope 类型）
 - `packages/core/src/hooks.ts`（追加 memoryEvents 相关钩子定义）
-- `packages/preset-memory/src/memory-builder.ts`（摘要生成与注入，Phase 2）
+- `packages/extension-memory/src/memory-builder.ts`（摘要生成与注入，Phase 2）
