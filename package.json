@@ -16,7 +16,11 @@
     "openai": "tsx examples/openai-test/index.ts",
     "openai:trace": "AI_TRACE=realtime tsx examples/openai-test/index.ts",
     "openai:trace:file": "AI_TRACE=file tsx examples/openai-test/index.ts",
-    "openai:trace:console": "AI_TRACE=console tsx examples/openai-test/index.ts"
+    "openai:trace:console": "AI_TRACE=console tsx examples/openai-test/index.ts",
+    "deepseek": "tsx examples/deepseek-test/index.ts",
+    "deepseek:trace": "AI_TRACE=realtime tsx examples/deepseek-test/index.ts",
+    "deepseek:trace:file": "AI_TRACE=file tsx examples/deepseek-test/index.ts",
+    "deepseek:trace:console": "AI_TRACE=console tsx examples/deepseek-test/index.ts"
   },
   "devDependencies": {
     "@crai/core": "workspace:*",

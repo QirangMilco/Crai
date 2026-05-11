@@ -345,6 +345,13 @@ function buildDoneResponse(text: string, finishReason: string | null): ModelStre
   const toolParts = buildToolCallPartsFromAccumulator()
   parts.push(...toolParts)
 
+  if (isDebugScope(DEBUG_SCOPES.API)) {
+    console.error(`[debug:api] stream response (model=..., finish_reason=${finishReason ?? 'null'}):\n${JSON.stringify({
+      text: text || '(no text content)',
+      toolCalls: toolParts.map(t => ({ name: t.name, arguments: t.arguments })),
+    }, null, 2)}\n`)
+  }
+
   return {
     type: 'done',
     response: {
@@ -489,7 +496,10 @@ export class DeepSeekAdapter implements ModelAdapter {
           continue
         }
 
-        const delta = chunk.choices[0]?.delta
+        const choice = chunk.choices?.[0]
+        if (!choice) continue
+
+        const delta = choice.delta
 
         // 捕获 reasoning_content（DeepSeek thinking mode 的思考链）
         if (delta?.reasoning_content) {
@@ -517,9 +527,9 @@ export class DeepSeekAdapter implements ModelAdapter {
         }
 
         // finish_reason 检测
-        if (chunk.choices[0]?.finish_reason) {
+        if (choice.finish_reason) {
           yield { type: STREAM_EVENT_TYPES.TEXT_END }
-          yield buildDoneResponse(fullContent, chunk.choices[0].finish_reason)
+          yield buildDoneResponse(fullContent, choice.finish_reason)
         }
       }
 

@@ -184,7 +184,9 @@ export function resetAccumulatedToolCalls(): void {
 function accumulateChunk(
   chunk: OpenAIStreamChunk,
 ): { deltaText: string; toolCalls: ToolCallPart[] } {
-  const delta = chunk.choices[0]?.delta
+  const choice = chunk.choices?.[0]
+  if (!choice) return { deltaText: '', toolCalls: [] }
+  const delta = choice.delta
   const deltaText = delta?.content ?? ''
   const toolCalls: ToolCallPart[] = []
 
@@ -265,6 +267,14 @@ function buildDoneResponse(
   const parts: MessagePart[] = text ? [{ type: PART_TYPES.TEXT, text }] : []
   const toolParts = buildToolCallPartsFromAccumulator()
   parts.push(...toolParts)
+
+  if (isDebugScope(DEBUG_SCOPES.API)) {
+    console.error(`[debug:api] stream response (model=..., finish_reason=${finishReason ?? 'null'}):\n${JSON.stringify({
+      text: text || '(no text content)',
+      toolCalls: toolParts.map(t => ({ name: t.name, arguments: t.arguments })),
+    }, null, 2)}\n`)
+  }
+
   return {
     type: 'done',
     response: {
@@ -381,9 +391,10 @@ export class OpenAIAdapter implements ModelAdapter {
           yield { type: STREAM_EVENT_TYPES.TEXT_DELTA, delta: deltaText }
         }
 
-        if (chunk.choices[0]?.finish_reason) {
+        const finishChoice = chunk.choices?.[0]
+        if (finishChoice?.finish_reason) {
           yield { type: STREAM_EVENT_TYPES.TEXT_END }
-          yield buildDoneResponse(fullContent, chunk.choices[0].finish_reason)
+          yield buildDoneResponse(fullContent, finishChoice.finish_reason)
         }
       }
 

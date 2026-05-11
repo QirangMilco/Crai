@@ -228,9 +228,13 @@ export async function runTurn(
         response = await modelFn(finalRequest)
       }
     } catch (cause) {
+      const causeMsg = cause && typeof cause === 'object'
+        ? ((cause as any).message ?? (cause as any).reason ?? '')
+        : String(cause ?? '')
+      const detail = causeMsg ? `: ${causeMsg}` : ''
       const error: RuntimeError = {
         code: ERROR_CODES.MODEL_REQUEST_FAILED,
-        message: '模型请求失败',
+        message: `模型请求失败${detail}`,
         cause,
       }
       await deps.emitEvent(EVENTS.TURN_FAILED, { session, turnId, error })

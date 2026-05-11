@@ -1,30 +1,33 @@
 /**
- * OpenAI 兼容 API 连通性测试。
+ * DeepSeek API 连通性测试。
+ *
+ * 自动处理 DeepSeek thinking mode 的 reasoning_content 捕获与回传。
  *
  * 使用方法：
  *   export AI_API_KEY=sk-xxx
- *   export AI_BASE_URL=https://api.openai.com
- *   export AI_MODEL=gpt-4o-mini
- *   pnpm openai
+ *   export AI_BASE_URL=https://api.deepseek.com
+ *   export AI_MODEL=deepseek-v4-flash
+ *   pnpm deepseek
  *
  * 测试内容：
  *   - 单轮对话（流式展示）
  *   - 多轮对话（上下文记忆 + 持久化）
  *   - 带 system prompt
+ *   - 工具执行（含多轮 tool-call 循环，验证 reasoning_content 回传）
  *   - 直接调用 adapter.stream()
- *   - 错误处理（无效 key）
+ *   - 错误处理
  */
 
 import { createRuntime } from '@crai/runtime'
 import type { Extension, ToolExecutionResult } from '@crai/core'
 import { EVENTS, HOOKS, TOOL_SAFETY_LEVELS } from '@crai/core'
-import { createOpenAIProvider, OpenAIAdapter } from '@crai/provider'
+import { createDeepSeekProvider, DeepSeekAdapter } from '@crai/provider'
 import { createFileStorage } from '@crai/storage-fs'
 
 // ── 配置 ─────────────────────────────────────────────
-const API_KEY = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY
-const BASE_URL = process.env.AI_BASE_URL ?? process.env.OPENAI_BASE_URL
-const MODEL = process.env.AI_MODEL ?? 'gpt-4o-mini'
+const API_KEY = process.env.AI_API_KEY ?? process.env.DEEPSEEK_API_KEY
+const BASE_URL = process.env.AI_BASE_URL ?? 'https://api.deepseek.com'
+const MODEL = process.env.AI_MODEL ?? 'deepseek-v4-flash'
 const AI_TRACE = process.env.AI_TRACE ?? ''
 const TRACE_OPTION =
   AI_TRACE === 'file' ? 'file'
@@ -34,7 +37,7 @@ const TRACE_OPTION =
   : undefined
 
 if (!API_KEY) {
-  console.error('请设置 AI_API_KEY 或 OPENAI_API_KEY 环境变量')
+  console.error('请设置 AI_API_KEY 或 DEEPSEEK_API_KEY 环境变量')
   process.exit(1)
 }
 
@@ -80,7 +83,7 @@ async function testSingleTurn() {
   console.log('\n═══ 单轮对话 ═══')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider(providerOptions), streamDisplay()],
+    extensions: [createDeepSeekProvider(providerOptions), streamDisplay()],
     trace: TRACE_OPTION,
   })
 
@@ -97,8 +100,8 @@ async function testMultiTurn() {
 
   const runtime = await createRuntime({
     extensions: [
-      createOpenAIProvider(providerOptions),
-      createFileStorage({ baseDir: '.crai/openai-data' }),
+      createDeepSeekProvider(providerOptions),
+      createFileStorage({ baseDir: '.crai/deepseek-data' }),
       persistExt,
       streamDisplay(),
     ],
@@ -114,7 +117,6 @@ async function testMultiTurn() {
     { sessionId: session.id },
   )
   console.log()
-  const t1 = (r1.response?.message.parts[0] as any)?.text
 
   process.stdout.write('用户: 我刚才说了我叫什么？\n')
   process.stdout.write('助手: ')
@@ -133,7 +135,7 @@ async function testWithSystemPrompt() {
   console.log('\n═══ System Prompt ═══')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider(providerOptions), streamDisplay()],
+    extensions: [createDeepSeekProvider(providerOptions), streamDisplay()],
     trace: TRACE_OPTION,
   })
 
@@ -155,7 +157,7 @@ async function testWithSystemPrompt() {
 async function testStream() {
   console.log('\n═══ 流式测试 ═══\n')
 
-  const adapter = new OpenAIAdapter({ apiKey: API_KEY!, baseURL: BASE_URL })
+  const adapter = new DeepSeekAdapter({ apiKey: API_KEY!, baseURL: BASE_URL })
 
   const stream = adapter.stream({
     sessionId: 'stream-test',
@@ -193,7 +195,11 @@ const toolExt: Extension = {
     ctx.registerTool({
       name: 'get_time',
       description: '获取当前系统时间',
-      inputSchema: { type: 'object', properties: {}, required: [] },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
       safetyLevel: TOOL_SAFETY_LEVELS.SAFE,
       execute: async (): Promise<ToolExecutionResult> => ({
         toolCallId: '',
@@ -218,8 +224,10 @@ const toolExt: Extension = {
       execute: async (request): Promise<ToolExecutionResult> => {
         const { a, b, op } = request.toolCall.arguments as any
         const ops: Record<string, (x: number, y: number) => number> = {
-          '+': (x, y) => x + y, '-': (x, y) => x - y,
-          '*': (x, y) => x * y, '/': (x, y) => (y === 0 ? NaN : x / y),
+          '+': (x, y) => x + y,
+          '-': (x, y) => x - y,
+          '*': (x, y) => x * y,
+          '/': (x, y) => (y === 0 ? NaN : x / y),
         }
         const fn = ops[op as string]
         const result = fn ? fn(Number(a), Number(b)) : NaN
@@ -234,7 +242,11 @@ const toolExt: Extension = {
     ctx.registerTool({
       name: 'get_random',
       description: '生成一个 0 到 1 之间的随机数',
-      inputSchema: { type: 'object', properties: {}, required: [] },
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
       safetyLevel: TOOL_SAFETY_LEVELS.SAFE,
       execute: async (request): Promise<ToolExecutionResult> => ({
         toolCallId: request.toolCall.toolCallId,
@@ -249,7 +261,7 @@ async function testToolExecution() {
   console.log('\n═══ 工具执行测试 ═══\n')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider(providerOptions), toolExt, streamDisplay()],
+    extensions: [createDeepSeekProvider(providerOptions), toolExt, streamDisplay()],
     trace: TRACE_OPTION,
   })
 
@@ -263,6 +275,7 @@ async function testToolExecution() {
   )
   console.log()
 
+  // 打印工具调用详情
   const toolMessages = result.messages.filter(m => m.role === 'tool')
   if (toolMessages.length > 0) {
     console.log(`\n工具调用次数: ${toolMessages.length}`)
@@ -284,7 +297,7 @@ async function testErrorHandling() {
   console.log('\n═══ 错误处理 ═══\n')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider({ apiKey: 'sk-invalid' })],
+    extensions: [createDeepSeekProvider({ apiKey: 'sk-invalid' })],
     trace: TRACE_OPTION,
   })
 
