@@ -25,7 +25,11 @@ packages/
   devtools/
   provider/
   storage-fs/
-  extension-memory/        (新增) 完整记忆策略：压缩/检索/注入/整理
+  tools-fs/               文件系统工具：读写搜索编辑
+  tools-shell/            shell 执行工具（含危险命令检测）
+  tools-web/              网络工具：搜索与抓取
+  security/               安全层：路径校验、权限确认
+  extension-memory/       完整记忆策略：压缩/检索/注入/整理
   storage-vector/          (可选) 向量存储适配器（LanceDB/FAISS 等）
   cache-default/
   transport-websocket/

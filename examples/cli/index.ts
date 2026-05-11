@@ -17,9 +17,11 @@ import { createOpenAIProvider, createDeepSeekProvider } from '@crai/provider'
 import { createFileStorage } from '@crai/storage-fs'
 import { createPersistenceExtension } from '@crai/persistence'
 import { createCliRepl } from '@crai/cli-repl'
-import type { Extension, ToolExecutionResult } from '@crai/core'
-import { TOOL_SAFETY_LEVELS } from '@crai/core'
-import { resolve } from 'node:path'
+import { createWorkspaceSecurity } from '@crai/security'
+import { createFsTools } from '@crai/tools-fs'
+import { createShellTools } from '@crai/tools-shell'
+import { createWebTools } from '@crai/tools-web'
+import { createInterface } from 'node:readline'
 
 // ── 配置 ─────────────────────────────────────────────
 const API_KEY = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY
@@ -41,7 +43,6 @@ if (!API_KEY) {
 }
 
 // ── Provider ─────────────────────────────────────────
-// 通过 AI_PROVIDER=openai|deepseek 显式选择，未指定时默认 openai
 const PROVIDER = (process.env.AI_PROVIDER ?? 'openai').toLowerCase()
 if (PROVIDER !== 'openai' && PROVIDER !== 'deepseek') {
   console.error('AI_PROVIDER 只能是 openai 或 deepseek')
@@ -52,80 +53,43 @@ const provider = PROVIDER === 'deepseek'
   ? createDeepSeekProvider(providerOptions)
   : createOpenAIProvider(providerOptions)
 
-// ── 内置工具 ─────────────────────────────────────────
-/** 校验路径在 workspace 范围内，返回标准化绝对路径。
- *  \$resolve('proj', '../etc') 解析到 proj 之外 → 拒绝
- *  resolve('proj', '/etc') 绝对路径覆盖 → 拒绝
- */
-function resolveAllowedPath(inputPath: string, rootDir: string): string {
-  const normalizedRoot = resolve(rootDir)
-  const resolved = resolve(normalizedRoot, inputPath)
-  if (!resolved.startsWith(normalizedRoot)) {
-    throw new Error(`路径拒绝: ${inputPath} 不在工作区内`)
-  }
-  return resolved
-}
+// ── CLI 确认回调 ───────────────────────────────────
+const askRl = createInterface({ input: process.stdin, output: process.stdout })
 
-function createBuiltinTools(): Extension {
-  return {
-    name: 'cli:builtin-tools',
-    setup(ctx) {
-      const rootDir = process.cwd()
-
-      ctx.registerTool({
-        name: 'read_file',
-        description: '读取文件内容',
-        inputSchema: { type: 'object', properties: { path: { type: 'string', description: '文件路径' } }, required: ['path'] },
-        safetyLevel: 'safe' as any,
-        execute: async (request) => {
-          try {
-            const { path } = request.toolCall.arguments as any
-            const { readFile } = await import('node:fs/promises')
-            const allowedPath = resolveAllowedPath(path, rootDir)
-            const content = await readFile(allowedPath, 'utf-8')
-            return { toolCallId: request.toolCall.toolCallId, name: 'read_file', content: [{ type: 'text', text: content }] }
-          } catch (err: any) {
-            return { toolCallId: request.toolCall.toolCallId, name: 'read_file', isError: true, content: [{ type: 'text', text: `读取失败: ${err.message}` }] }
-          }
-        },
+function createCliAskHandler() {
+  return async (request: { toolName: string; args: Record<string, unknown>; reason: string }): Promise<boolean> => {
+    return new Promise((resolvePromise) => {
+      const argStr = JSON.stringify(request.args, null, 2)
+      console.log('\n\u26A0\uFE0F  权限请求: 工具 ' + request.toolName)
+      console.log('参数: ' + argStr)
+      console.log('原因: ' + request.reason)
+      askRl.question('是否允许? (y/N) ', (answer) => {
+        const allowed = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes'
+        console.log(allowed ? '已允许。' : '已拒绝。')
+        resolvePromise(allowed)
       })
-
-      ctx.registerTool({
-        name: 'grep',
-        description: '在文件中搜索文本',
-        inputSchema: { type: 'object', properties: { pattern: { type: 'string', description: '搜索模式' }, path: { type: 'string', description: '搜索路径（可选，默认当前目录）' } }, required: ['pattern'] },
-        safetyLevel: 'safe' as any,
-        execute: async (request) => {
-          try {
-            const { pattern, path } = request.toolCall.arguments as any
-            const { spawnSync } = await import('node:child_process')
-            const searchPath = path ? resolveAllowedPath(path, rootDir) : rootDir
-            const result = spawnSync('grep', ['-rn', pattern, searchPath], {
-              encoding: 'utf-8',
-              maxBuffer: 1024 * 1024,
-              timeout: 10_000,
-            })
-            const output = result.stdout?.trim() || result.stderr?.trim() || ''
-            return { toolCallId: request.toolCall.toolCallId, name: 'grep', content: [{ type: 'text', text: output || '(无匹配)' }] }
-          } catch (err: any) {
-            return { toolCallId: request.toolCall.toolCallId, name: 'grep', isError: true, content: [{ type: 'text', text: `搜索失败: ${err.message}` }] }
-          }
-        },
-      })
-
-      // bash 工具需要 PermissionAdapter 支持才能安全使用，暂不添加
-    },
+    })
   }
 }
 
 // ── 启动 ─────────────────────────────────────────────
 async function main() {
+  const rootDir = process.cwd()
+  const security = createWorkspaceSecurity({
+    rootDir,
+    mode: 'ask',
+    askHandler: createCliAskHandler(),
+  })
+
   const runtime = await createRuntime({
     extensions: [
       provider,
       createFileStorage({ baseDir: STORAGE_DIR }),
       createPersistenceExtension(),
-      createBuiltinTools(),
+      createFsTools({ rootDir }),
+      createShellTools({ rootDir }),
+      createWebTools(),
+      security,
     ],
     trace: TRACE_OPTION,
   })
@@ -137,6 +101,7 @@ async function main() {
       sessionFile: SESSION_FILE,
     })
   } finally {
+    askRl.close()
     await runtime.dispose()
   }
 }

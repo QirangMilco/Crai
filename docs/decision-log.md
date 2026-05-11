@@ -461,3 +461,22 @@ Extension 通过 `ctx.register(disposable)` 注册资源，运行时在卸载时
 - 存储的消息即发送给 API 的消息，调试和日志零心智开销
 - Crai 已有 Turn 概念用于分组，multi-part tool message 提供的额外分组价值为零
 - 与 snow-cli、OpenAI、Anthropic、DeepSeek 等主流 Agent 框架和 API 的 wire format 对齐
+
+## D-033 — 工具包按领域拆分（Domain-based Tool Packages）
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+工具以 `@crai/tools-*` 独立包形式组织，按领域拆分：`tools-fs`（文件系统）、`tools-shell`（shell 执行）、`tools-web`（网络搜索）。每个包 export `createXxxTools(options): Extension` 工厂函数。
+
+### 理由
+- 依赖解耦：fs 包依赖 `node:fs`，shell 包依赖 `node:child_process`，web 包依赖 `fetch`。捆在一起增加不必要的依赖
+- 安全模型不同：fs 工具内嵌路径校验，shell 工具内嵌危险命令检测（从 snow-cli 直接吸收），web 工具不碰文件系统
+- 按需加载：web 应用可不加载 shell 包
+- 与 snow-cli 的模式一致（filesystem.ts / bash.ts / websearch/ 分离）
+
+### 变更记录
+- `@crai/tools-fs`: fs_read, fs_write, fs_grep, fs_list, fs_edit
+- `@crai/tools-shell`: bash（带 isDangerousCommand / isSelfDestructiveCommand）
+- `@crai/tools-web`: web_search, web_fetch（基于 DuckDuckGo Lite）

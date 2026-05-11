@@ -276,12 +276,26 @@ export async function runTurn(
         continue
       }
 
-      // 安全检查
-      await deps.hooks.run(
+      // 安全检查 —— hook handler 返回 { stop: true } 时拒绝执行
+      const safetyResult: any = await deps.hooks.run(
         HOOKS.TOOL_SAFETY_CHECK,
         { session, toolCall: tc, definition: def, mode: PERMISSION_MODES.ASK },
         { runtime },
       )
+
+      if (safetyResult?.stop) {
+        await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: safetyResult.reason ?? '权限拒绝' })
+        toolResultMessages.push({
+          id: createId('msg'),
+          role: MESSAGE_ROLES.TOOL,
+          createdAt: Date.now(),
+          parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: `权限拒绝: ${safetyResult.reason ?? '工具调用被安全策略阻止'}` }],
+          toolCallId: tc.toolCallId,
+          toolName: tc.name,
+          isError: true,
+        })
+        continue
+      }
 
       // 查找 handler 并执行
       const handler = deps.resolveTool ? await deps.resolveTool(tc.name) : undefined
