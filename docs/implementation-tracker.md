@@ -5,7 +5,7 @@
 ## 1. 当前聚焦
 
 - 目前阶段：Phase 1 已全部完成
-- 当前目标：创建 `packages/devtools` —— 开发辅助工具包
+- 当前目标：完善 CLI/Transport 层，推进 Phase 2
 - 下一阶段：Phase 2 预设扩展与传输层
 - 核心冻结：core + runtime 不再需要修改，后续能力以 extension / preset / devtools / app 形式实现
 
@@ -69,6 +69,10 @@
 - [x] Middleware 简化（去掉 before/after，只保留 wrap）
 - [x] 文档：Middleware vs Hook、Adapter vs Pipeline 语义区分
 - [x] 单元测试：工具执行循环
+- [x] DeepSeek provider（reasoning_content 捕获/回传、thinking mode、utility mode）
+- [x] D-032 工具结果独立消息模型
+- [x] AI_DEBUG 调试系统（tools/api scope、流式响应日志）
+- [x] 独立测试示例（openai-test、deepseek-test）
 
 ## 5. 阻塞项
 

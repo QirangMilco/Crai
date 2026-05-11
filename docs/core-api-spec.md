@@ -210,10 +210,11 @@ export interface EventMap {
   "permission.requested": { session: Session; request: PermissionCheckRequest }
   "permission.resolved": { session: Session; request: PermissionCheckRequest; decision: PermissionDecision }
 
-  // Phase 2 — 已确认设计但尚未实现
-  // "middleware.before": { session: Session; turnId: ID; kind: string; input: unknown }
-  // "middleware.after": { session: Session; turnId: ID; kind: string; output: unknown }
-  // "checkpoint.saved": { session: Session; turnId: ID; kind: string; artifactId: ID }
+  // Memory events
+  "session.memoryInjected": { session: Session; bundle: ContextBundle }
+  "session.summaryGenerated": { session: Session; summary: SessionSummary }
+  "memory.entriesStored": { session: Session; entries: MemoryEntry[] }
+  "observations.extracted": { session: Session; observations: Observation[] }
 }
 ```
 
@@ -222,11 +223,20 @@ export interface EventMap {
 ### 5.1 Hook
 
 ```ts
-export type HookHandler<T = unknown> = (context: HookContext, data: T) => Promise<T | void>
+export type HookHandler<T> = (value: T, ctx: HookContext) => Promise<HookResult<T> | void> | HookResult<T> | void
 
-export interface HookRegistry {
-  on(event: string, handler: HookHandler): void
-  emit(event: string, data: unknown): Promise<void>
+export interface HookBus<THooks extends Record<string, any>> {
+  on<TKey extends keyof THooks & string>(
+    key: TKey,
+    handler: HookHandler<THooks[TKey]>,
+    options?: { priority?: number },
+  ): Disposable
+
+  run<TKey extends keyof THooks & string>(
+    key: TKey,
+    value: THooks[TKey],
+    ctx: HookContext,
+  ): Promise<THooks[TKey]>
 }
 ```
 
@@ -235,11 +245,9 @@ export interface HookRegistry {
 中间件提供了一种比钩子更强的封装能力，允许在执行前后进行状态包装或完全替换行为。
 
 ```ts
+/** Middleware 洋葱圈包裹核心流程。不调 next() 可跳过原始逻辑。 */
 export interface Middleware<TInput, TOutput> {
-  before?: (input: TInput) => Promise<TInput>
-  after?: (output: TOutput) => Promise<TOutput>
-  // 环绕模式，允许完全控制执行流
-  wrap?: (input: TInput, next: (input: TInput) => Promise<TOutput>) => Promise<TOutput>
+  wrap(input: TInput, next: (input: TInput) => Promise<TOutput>): Promise<TOutput>
 }
 
 // 具体的模型中间件示例
@@ -284,9 +292,10 @@ export interface EventBus<TEvents extends Record<string, any>> {
   /** 检查是否有注册的 handler（软依赖检测） */
   hasHandler(type: string): boolean
 
-  /** 返回此值表示"我不处理，交给下一个 handler" */
-  readonly SKIP: unique symbol
 }
+
+/** SKIP sentinel — handler 返回此值表示自己不处理，交给下一个 handler。 */
+export const BUS_SKIP: unique symbol
 ```
 
 ## 7. Adapter Contracts
@@ -346,6 +355,11 @@ export interface ModelResponse {
     currency?: string
   }
   stopReason?: string
+  /**
+   * Provider 原始响应数据。核心不解释，由扩展或上层消费。
+   * 当一个响应字段被多个 provider 支持后，应提升为一等字段。
+   */
+  raw?: Record<string, unknown>
   metadata?: Metadata
 }
 
@@ -513,7 +527,7 @@ export interface RuntimeHandle {
   stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
   listMessages(sessionId: ID): Promise<Message[]>
-  loadExtension(source: string): Promise<void>
+  loadExtension(ext: Extension): Promise<void>
   unloadExtension(name: string): Promise<void>
   dispose(): Promise<void>
 }
@@ -536,6 +550,9 @@ export interface RuntimeRegistries {
   memories: Registry<MemoryAdapter>
   permissions: Registry<PermissionAdapter>
   transports: Registry<TransportAdapter>
+  promptPipelines: Registry<PromptPipeline>
+  sessionPipelines: Registry<SessionPipeline>
+  i18n: Registry<I18nAdapter>
 }
 ```
 
@@ -561,6 +578,8 @@ export interface ExtensionContext {
   register(disposable: Disposable): void
   /** 动态注册工具（仅 full-access，返回清理函数） */
   registerTool(tool: ToolDefinition & { execute: ToolHandler['execute'] }): Disposable
+  /** 注册模型中间件。洋葱圈包裹模型调用，不调 next() 可跳过原始调用。 */
+  registerModelMiddleware(mw: ModelMiddleware): Disposable
 }
 
 export interface ExtensionPermissionDeclaration {
@@ -644,6 +663,13 @@ export interface RuntimeOptions {
   logger?: Logger
   /** 是否允许加载声明 trust: 'full-access' 的 Extension（默认 false，它们会被降级为 restricted） */
   allowFullAccessExtensions?: boolean
+  /**
+   * trace 模式。
+   * - `true` / `'file'` — dispose 时写入 `.crai/trace-latest.md`
+   * - `'console'`      — dispose 时打印到 stderr
+   * - `'realtime'`     — 每步实时输出到 stderr
+   */
+  trace?: boolean | 'file' | 'console' | 'realtime'
 }
 
 export interface RuntimeFactory {
