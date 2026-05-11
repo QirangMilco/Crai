@@ -124,18 +124,21 @@ export interface ToolCallPart {
   arguments: Record<string, unknown>
 }
 
-export interface ToolResultPart {
-  type: "tool-result"
-  toolCallId: ID
-  name: string
-  isError?: boolean
-  content: Array<TextPart | ImagePart>
-}
+export type MessagePart = TextPart | ImagePart | ToolCallPart
 
-export type MessagePart = TextPart | ImagePart | ToolCallPart | ToolResultPart
-
+/**
+ * tool 角色的消息：每个工具结果独立成一条消息。
+ * toolCallId 标识对应的 tool_call，parts 存放结果内容（TextPart | ImagePart）。
+ * 参见决策记录 D-032。
+ */
 export interface Message extends BaseMessage {
   parts: MessagePart[]
+  /** 对于 tool 角色消息：对应的 tool_call_id。 */
+  toolCallId?: ID
+  /** 对于 tool 角色消息：产生该结果的工具名。 */
+  toolName?: string
+  /** 对于 tool 角色消息：是否执行出错。 */
+  isError?: boolean
 }
 ```
 

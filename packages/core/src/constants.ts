@@ -139,7 +139,6 @@ export const MESSAGE_PART_TYPES = {
   TEXT: 'text',
   IMAGE: 'image',
   TOOL_CALL: 'tool-call',
-  TOOL_RESULT: 'tool-result',
 } as const
 
 /** ModelStreamEvent 判别式。所有 provider 实现流式响应时都应引用此常量。 */

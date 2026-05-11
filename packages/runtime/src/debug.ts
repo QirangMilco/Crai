@@ -29,5 +29,6 @@ export const DEBUG_SCOPES = {
   TOOLS: 'tools',
   CONTEXT: 'context',
   MIDDLEWARE: 'middleware',
+  API: 'api',
   ALL: 'all',
 } as const

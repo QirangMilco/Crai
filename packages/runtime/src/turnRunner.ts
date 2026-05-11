@@ -10,7 +10,6 @@ import type {
   TextPart,
   ToolCallPart,
   ToolDefinition,
-  ToolResultPart,
   ToolExecutionRequest,
   ToolExecutionResult,
   ToolHandler,
@@ -103,14 +102,14 @@ function buildModelFn(
   return deps.requestModel
 }
 
-/** 执行单个工具，返回 ToolResultPart。 */
+/** 执行单个工具，返回执行结果。 */
 async function executeOneTool(
   handler: ToolHandler,
   toolCall: ToolCallPart,
   session: Session,
   deps: TurnRunnerDeps,
   turnId: string,
-): Promise<ToolResultPart> {
+): Promise<ToolExecutionResult> {
   const execRequest: ToolExecutionRequest = {
     session,
     toolCall,
@@ -127,11 +126,12 @@ async function executeOneTool(
   await deps.hooks.run(HOOKS.TOOL_BEFORE, { session, toolCall }, { runtime: undefined as any })
   await deps.emitEvent(EVENTS.TOOL_REQUESTED, { session, toolCall })
 
-  let result: ToolExecutionResult
   try {
-    result = await handler.execute(execRequest, execCtx)
+    const result = await handler.execute(execRequest, execCtx)
+    await deps.emitEvent(EVENTS.TOOL_COMPLETED, { session, result })
+    await deps.hooks.run(HOOKS.TOOL_AFTER, { session, result }, { runtime: undefined as any })
+    return result
   } catch (cause) {
-    // 执行失败，构造错误结果
     const errResult: ToolExecutionResult = {
       toolCallId: toolCall.toolCallId,
       name: toolCall.name,
@@ -139,24 +139,7 @@ async function executeOneTool(
       content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `执行出错: ${(cause as Error).message}` }],
     }
     await deps.emitEvent(EVENTS.TOOL_FAILED, { session, result: errResult })
-    return {
-      type: MESSAGE_PART_TYPES.TOOL_RESULT,
-      toolCallId: toolCall.toolCallId,
-      name: toolCall.name,
-      isError: true,
-      content: errResult.content,
-    }
-  }
-
-  await deps.emitEvent(EVENTS.TOOL_COMPLETED, { session, result })
-  await deps.hooks.run(HOOKS.TOOL_AFTER, { session, result }, { runtime: undefined as any })
-
-  return {
-    type: MESSAGE_PART_TYPES.TOOL_RESULT,
-    toolCallId: toolCall.toolCallId,
-    name: toolCall.name,
-    isError: result.isError ?? false,
-    content: result.content,
+    return errResult
   }
 }
 
@@ -268,19 +251,23 @@ export async function runTurn(
     }
 
     // 安全检查 + 执行工具
+    // 每个工具调用独立执行，每条结果独立成一条 Message（参见 D-032）
     const toolDefs = deps.resolveTools ? await deps.resolveTools() : []
     const defMap = new Map(toolDefs.map(d => [d.name, d]))
-    const toolResultParts: Array<ToolResultPart> = []
+    const toolResultMessages: Message[] = []
 
     for (const tc of toolCalls) {
       const def = defMap.get(tc.name)
       if (!def) {
         await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 未注册` })
-        toolResultParts.push({
-          type: MESSAGE_PART_TYPES.TOOL_RESULT,
+        toolResultMessages.push({
+          id: `${session.id}_tool_${tc.toolCallId}`,
+          role: MESSAGE_ROLES.TOOL,
+          createdAt: Date.now(),
+          parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 未注册` }],
           toolCallId: tc.toolCallId,
-          name: tc.name,
-          content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 未注册` }],
+          toolName: tc.name,
+          isError: true,
         })
         continue
       }
@@ -304,43 +291,46 @@ export async function runTurn(
 
       if (!handler) {
         await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 无 handler` })
-        toolResultParts.push({
-          type: MESSAGE_PART_TYPES.TOOL_RESULT,
+        toolResultMessages.push({
+          id: `${session.id}_tool_${tc.toolCallId}`,
+          role: MESSAGE_ROLES.TOOL,
+          createdAt: Date.now(),
+          parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 无 handler` }],
           toolCallId: tc.toolCallId,
-          name: tc.name,
-          content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 无 handler` }],
+          toolName: tc.name,
+          isError: true,
         })
         continue
       }
 
-      const trp = await executeOneTool(handler, tc, session, deps, turnId)
-      toolResultParts.push(trp)
+      const execResult = await executeOneTool(handler, tc, session, deps, turnId)
 
       // 调试：输出工具执行结果
       debugLog(DEBUG_SCOPES.TOOLS, `工具结果: ${tc.name}`, {
-        toolCallId: trp.toolCallId,
-        name: trp.name,
-        isError: trp.isError,
-        content: trp.content.map(p => p.type === 'text' ? { type: 'text', text: (p as any).text } : p),
+        toolCallId: execResult.toolCallId,
+        name: execResult.name,
+        isError: execResult.isError,
+        content: execResult.content,
       })
 
-      if (trp.isError) {
-        await deps.emitEvent(EVENTS.TOOL_FAILED, { session, result: { toolCallId: tc.toolCallId, name: tc.name, isError: true, content: trp.content } })
-      }
+      toolResultMessages.push({
+        id: `${session.id}_tool_${tc.toolCallId}`,
+        role: MESSAGE_ROLES.TOOL,
+        createdAt: Date.now(),
+        parts: execResult.content,
+        toolCallId: tc.toolCallId,
+        toolName: tc.name,
+        isError: execResult.isError ?? false,
+      })
     }
 
-    // 构造 tool 结果消息并追加到上下文
-    const toolResultMsg: Message = {
-      id: `${session.id}_tool_${Date.now()}`,
-      role: MESSAGE_ROLES.TOOL,
-      createdAt: Date.now(),
-      parts: toolResultParts,
+    // 每条 tool result 独立追加到上下文
+    for (const toolMsg of toolResultMessages) {
+      allRoundMessages.push(toolMsg)
     }
-
-    allRoundMessages.push(toolResultMsg)
     contextWithTools = {
       ...contextWithTools,
-      messages: [...contextWithTools.messages, response.message, toolResultMsg],
+      messages: [...contextWithTools.messages, response.message, ...toolResultMessages],
     }
   }
 

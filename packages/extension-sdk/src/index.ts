@@ -33,7 +33,6 @@ export type {
   TextPart,
   ImagePart,
   ToolCallPart,
-  ToolResultPart,
   ToolExecutionRequest,
   ToolExecutionResult,
   ToolSafetyLevel,

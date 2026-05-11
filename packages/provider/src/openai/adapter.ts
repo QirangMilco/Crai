@@ -13,9 +13,9 @@ import type {
   RuntimeError,
   TextPart,
   ToolCallPart,
-  ToolResultPart,
 } from '@crai/core'
 import { STREAM_EVENT_TYPES } from '@crai/core'
+import { isDebugScope, DEBUG_SCOPES } from '../core/debug'
 import { sseLines } from '../core/stream'
 import {
   API,
@@ -115,12 +115,11 @@ function toOpenAIMessages(contextMessages: Message[], system?: string): OpenAIMe
     }
 
     if (msg.role === OPENAI_ROLES.TOOL) {
-      const toolResult = msg.parts[0] as ToolResultPart | undefined
-      const textContent = toolResult?.content.find((p): p is TextPart => p.type === PART_TYPES.TEXT) as TextPart | undefined
+      const textPart = msg.parts.find((p): p is TextPart => p.type === PART_TYPES.TEXT) as TextPart | undefined
       result.push({
         role: OPENAI_ROLES.TOOL,
-        content: textContent?.text ?? '',
-        tool_call_id: toolResult?.toolCallId ?? '',
+        content: textPart?.text ?? '',
+        tool_call_id: msg.toolCallId ?? '',
       })
     }
   }
@@ -301,6 +300,12 @@ export class OpenAIAdapter implements ModelAdapter {
 
   async request(request: ModelRequest): Promise<ModelResponse> {
     const body = buildOpenAIBody(request)
+    const bodyJson = JSON.stringify(body)
+
+    if (isDebugScope(DEBUG_SCOPES.API)) {
+      console.error(`[debug:api] POST ${this.chatURL}`)
+      console.error(`[debug:api] request body (model=${request.model}):\n${bodyJson}\n`)
+    }
 
     const res = await fetch(this.chatURL, {
       method: API.METHOD,
@@ -308,21 +313,33 @@ export class OpenAIAdapter implements ModelAdapter {
         'Content-Type': API.CONTENT_TYPE,
         Authorization: `${API.AUTH_SCHEME} ${this.options.apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: bodyJson,
     })
 
     if (!res.ok) {
       const errBody = await res.text()
+      if (isDebugScope(DEBUG_SCOPES.API)) {
+        console.error(`[debug:api] response error (${res.status}):\n${errBody}\n`)
+      }
       const err: RuntimeError = { code: ERROR_CODES.API_ERROR, message: `OpenAI API error (${res.status}): ${errBody}` }
       throw err
     }
 
     const data = (await res.json()) as OpenAIResponse
+    if (isDebugScope(DEBUG_SCOPES.API)) {
+      console.error(`[debug:api] response body:\n${JSON.stringify(data, null, 2)}\n`)
+    }
     return fromOpenAIResponse(data)
   }
 
   async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
     const body = buildOpenAIBody(request, true)
+    const bodyJson = JSON.stringify(body)
+
+    if (isDebugScope(DEBUG_SCOPES.API)) {
+      console.error(`[debug:api] POST ${this.chatURL} (stream)`)
+      console.error(`[debug:api] request body (model=${request.model}):\n${bodyJson}\n`)
+    }
 
     const res = await fetch(this.chatURL, {
       method: API.METHOD,
@@ -330,11 +347,14 @@ export class OpenAIAdapter implements ModelAdapter {
         'Content-Type': API.CONTENT_TYPE,
         Authorization: `${API.AUTH_SCHEME} ${this.options.apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: bodyJson,
     })
 
     if (!res.ok) {
       const errBody = await res.text()
+      if (isDebugScope(DEBUG_SCOPES.API)) {
+        console.error(`[debug:api] stream response error (${res.status}):\n${errBody}\n`)
+      }
       yield { type: STREAM_EVENT_TYPES.ERROR, error: { code: ERROR_CODES.API_ERROR, message: `OpenAI API error (${res.status}): ${errBody}` } }
       return
     }

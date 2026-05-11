@@ -432,3 +432,25 @@ Extension 通过 `ctx.register(disposable)` 注册资源，运行时在卸载时
 - 删除了 D-023（默认记忆策略由 preset-default 提供）——记忆策略由用户自行选择或实现。
 - 与 D-004（provider/transport/storage/UI 外置）一致，将"默认行为"也外置到用户层。
 - 减少核心维护负担，无需维护一份"默认但不一定适用"的配置。
+
+## D-032 — 工具结果采用独立消息模型（参考 snow-cli）
+
+### 状态
+已接受 (Accepted)
+
+### 决策
+每个工具调用的结果是一条独立的 `role: 'tool'` Message，不再将多个 ToolResultPart 打包在同一条消息的 parts 数组中。
+
+具体变更：
+- 删除 `ToolResultPart` 类型
+- `Message` 增加 `toolCallId`、`toolName`、`isError` 可选字段，直接承载工具结果的元数据
+- `role: 'tool'` 的消息使用 `TextPart | ImagePart` 作为 parts 内容
+- turnRunner 中每个工具执行后生成独立的 tool 消息
+- Provider adapter（如 OpenAI/DeepSeek）在 `toOpenAIMessages` 中不再需要拆包，tool 消息天然对应 wire format 的一条 tool-role message
+
+### 理由
+- 消除 Crai 数据模型与 OpenAI wire format 之间的阻抗不匹配：之前 1 条 Message N 个 ToolResultPart → adapter 只取 parts[0] 导致丢失 N-1 个工具结果，API 报错
+- 每条 tool result 自包含（toolCallId 在 Message 自身，不需要进入 parts 解析），降低 adapter 实现复杂度
+- 存储的消息即发送给 API 的消息，调试和日志零心智开销
+- Crai 已有 Turn 概念用于分组，multi-part tool message 提供的额外分组价值为零
+- 与 snow-cli、OpenAI、Anthropic、DeepSeek 等主流 Agent 框架和 API 的 wire format 对齐

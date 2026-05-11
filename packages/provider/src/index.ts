@@ -7,4 +7,10 @@ export { createOpenAIProvider } from './openai/index'
 export type { OpenAIProviderOptions } from './openai/index'
 export { OpenAIAdapter } from './openai/adapter'
 export type { OpenAIAdapterOptions } from './openai/adapter'
+
+export { createDeepSeekProvider } from './deepseek/index'
+export type { DeepSeekProviderOptions } from './deepseek/index'
+export { DeepSeekAdapter } from './deepseek/adapter'
+export type { DeepSeekAdapterOptions } from './deepseek/adapter'
+
 export { sseLines } from './core/stream'

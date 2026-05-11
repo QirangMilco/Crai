@@ -1,16 +1,21 @@
 /**
- * OpenAI 兼容 API 连通性测试。
+ * OpenAI / DeepSeek 兼容 API 连通性测试。
+ *
+ * 自动检测 provider：
+ *   AI_BASE_URL 包含 deepseek.com → 使用 DeepSeekAdapter（处理 reasoning_content）
+ *   否则 → 使用 OpenAIAdapter
  *
  * 使用方法：
  *   export AI_API_KEY=sk-xxx
  *   export AI_BASE_URL=https://api.deepseek.com
- *   export AI_MODEL=gpt-4o-mini 
+ *   export AI_MODEL=deepseek-v4-flash
  *   pnpm openai
  *
  * 测试内容：
  *   - 单轮对话（流式展示）
  *   - 多轮对话（上下文记忆 + 持久化）
  *   - 带 system prompt
+ *   - 工具执行（含多轮 tool-call 循环）
  *   - 直接调用 adapter.stream()
  *   - 错误处理（无效 key）
  */
@@ -18,13 +23,13 @@
 import { createRuntime } from '@crai/runtime'
 import type { Extension, ToolExecutionResult } from '@crai/core'
 import { EVENTS, HOOKS, TOOL_SAFETY_LEVELS } from '@crai/core'
-import { createOpenAIProvider, OpenAIAdapter } from '@crai/provider'
+import { createOpenAIProvider, createDeepSeekProvider, OpenAIAdapter, DeepSeekAdapter } from '@crai/provider'
 import { createFileStorage } from '@crai/storage-fs'
 
 // ── 配置 ─────────────────────────────────────────────
 const API_KEY = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY
 const BASE_URL = process.env.AI_BASE_URL ?? process.env.OPENAI_BASE_URL
-const MODEL = process.env.AI_MODEL ?? 'gpt-4o-mini'
+const MODEL = process.env.AI_MODEL ?? 'deepseek-v4-flash'
 const AI_TRACE = process.env.AI_TRACE ?? ''
 const TRACE_OPTION =
   AI_TRACE === 'file' ? 'file'
@@ -38,11 +43,18 @@ if (!API_KEY) {
   process.exit(1)
 }
 
+// 自动检测 provider：DeepSeek API 需要使用 DeepSeek Adapter 处理 reasoning_content
+const isDeepSeek = (BASE_URL ?? '').includes('deepseek.com')
+
 const providerOptions: { apiKey: string; models: string[]; baseURL?: string } = {
   apiKey: API_KEY!,
   models: [MODEL],
 }
 if (BASE_URL) providerOptions.baseURL = BASE_URL
+
+function createProvider() {
+  return isDeepSeek ? createDeepSeekProvider(providerOptions) : createOpenAIProvider(providerOptions)
+}
 
 // ── 辅助扩展 ─────────────────────────────────────────
 
@@ -80,7 +92,7 @@ async function testSingleTurn() {
   console.log('\n═══ 单轮对话 ═══')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider(providerOptions), streamDisplay()],
+    extensions: [createProvider(), streamDisplay()],
     trace: TRACE_OPTION,
   })
 
@@ -97,7 +109,7 @@ async function testMultiTurn() {
 
   const runtime = await createRuntime({
     extensions: [
-      createOpenAIProvider(providerOptions),
+      createProvider(),
       createFileStorage({ baseDir: '.crai/openai-data' }),
       persistExt,
       streamDisplay(),
@@ -133,7 +145,7 @@ async function testWithSystemPrompt() {
   console.log('\n═══ System Prompt ═══')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider(providerOptions), streamDisplay()],
+    extensions: [createProvider(), streamDisplay()],
     trace: TRACE_OPTION,
   })
 
@@ -155,7 +167,9 @@ async function testWithSystemPrompt() {
 async function testStream() {
   console.log('\n═══ 流式测试 ═══\n')
 
-  const adapter = new OpenAIAdapter({ apiKey: API_KEY!, baseURL: BASE_URL })
+  const adapter = isDeepSeek
+    ? new DeepSeekAdapter({ apiKey: API_KEY!, baseURL: BASE_URL })
+    : new OpenAIAdapter({ apiKey: API_KEY!, baseURL: BASE_URL })
 
   const stream = adapter.stream({
     sessionId: 'stream-test',
@@ -262,16 +276,16 @@ async function testToolExecution() {
   console.log('\n═══ 工具执行测试 ═══\n')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider(providerOptions), toolExt, streamDisplay()],
+    extensions: [createProvider(), toolExt, streamDisplay()],
     trace: TRACE_OPTION,
   })
 
   const session = await runtime.createSession()
 
-  process.stdout.write('用户: 请使用 get_time 工具告诉我当前时间\n')
+  process.stdout.write('用户: 请使用 get_time 工具告诉我当前时间，然后再用 calculator 计算 123 + 456 的结果，然后用 get_random 工具生成一个随机数，最后用 calculator 计算随机数与结果的和\n')
   process.stdout.write('助手: ')
   const result = await runtime.prompt(
-    { type: 'text', text: '请使用 get_time 工具告诉我当前时间，然后再用 calculator 计算 123 + 456 的结果' },
+    { type: 'text', text: '请使用 get_time 工具告诉我当前时间，然后再用 calculator 计算 123 + 456 的结果，然后用 get_random 工具生成一个随机数，最后用 calculator 计算随机数与结果的和' },
     { sessionId: session.id },
   )
   console.log()
@@ -295,10 +309,10 @@ async function testToolExecution() {
 
 // ── 错误处理 ──────────────────────────────────────────
 async function testErrorHandling() {
-  console.log('\n═══ 错误处理（无效 key） ═══\n')
+  console.log('\n═══ 错误处理 ═══\n')
 
   const runtime = await createRuntime({
-    extensions: [createOpenAIProvider({ apiKey: 'sk-invalid' })],
+    extensions: [createProvider()],
     trace: TRACE_OPTION,
   })
 

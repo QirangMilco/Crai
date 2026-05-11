@@ -100,19 +100,22 @@ export interface ToolCallPart {
   arguments: Record<string, unknown>
 }
 
-export interface ToolResultPart {
-  type: 'tool-result'
-  toolCallId: ID
-  name: string
-  isError?: boolean
-  content: Array<TextPart | ImagePart>
-}
+export type MessagePart = TextPart | ImagePart | ToolCallPart
 
-export type MessagePart = TextPart | ImagePart | ToolCallPart | ToolResultPart
-
-/** Message 是会话中的持久化交互单元，使用 parts 支持多模态与工具交互。 */
+/**
+ * Message 是会话中的持久化交互单元，使用 parts 支持多模态与工具交互。
+ *
+ * tool 角色的消息：toolCallId 标识对应的 tool_call，parts 直接存放结果内容（TextPart | ImagePart），
+ * 每个工具结果是一条独立消息。参见 D-032。
+ */
 export interface Message extends BaseMessage {
   parts: MessagePart[]
+  /** 对于 tool 角色消息：对应的 tool_call_id。 */
+  toolCallId?: ID
+  /** 对于 tool 角色消息：产生该结果的工具名。 */
+  toolName?: string
+  /** 对于 tool 角色消息：是否执行出错。 */
+  isError?: boolean
 }
 
 /** Artifact 是生成物、附件或持久化资产的统一引用。 */
