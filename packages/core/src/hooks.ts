@@ -130,11 +130,26 @@ export interface EventBus<TEvents extends Record<string, any>> {
   hasHandler(type: string): boolean
 }
 
+export interface ProgressEvent {
+  /** 进度描述文本 */
+  message: string
+  /** 已完成比例（0-1），可选 */
+  progress?: number
+  /** 是否结束（工具执行完毕时设为 true） */
+  done?: boolean
+}
+
 export interface AdapterContext {
   signal?: AbortSignal
   logger: Logger
   session: Session
   turnId?: ID
+  /**
+   * 工具在执行过程中发射进度事件。
+   * GUI/Web 应用可以监听此类事件实现实时显示执行进度。
+   * 默认空实现，不发射任何事件。
+   */
+  emitProgress?(event: ProgressEvent): void
 }
 
 /** 存储适配器：session/message/artifact 的持久化。 */

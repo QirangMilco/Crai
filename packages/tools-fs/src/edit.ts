@@ -1,97 +1,170 @@
 import { promises as fs } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { lineHash } from './line-hash'
+import { findBestMatch } from './fuzzy-match'
+
+export interface EditResult {
+  success: boolean
+  linesChanged: number
+  message: string
+}
 
 /**
- * Search-and-replace edit on a file.
+ * 基于 searchContent 的编辑（精确 → 归一化行匹配 → 模糊 fallback）。
  *
- * Finds exact match of `searchContent` in the file and replaces with
- * `replaceContent`. If `occurrence` is specified, replaces the nth match
- * (1-indexed). Default replaces the first match.
- *
- * Returns a summary of what changed.
+ * 替换第 `occurrence` 处匹配（1-indexed，默认 1）。
+ * 备份文件到 `.crai/backups/`。
  */
-export async function editFile(
+export async function editBySearch(
   filePath: string,
   searchContent: string,
   replaceContent: string,
-  occurrence?: number,
-): Promise<{ success: boolean; linesChanged: number; message: string }> {
-  const content = await fs.readFile(filePath, 'utf-8')
+  occurrence: number,
+  backupDir: string,
+): Promise<EditResult> {
+  const content = await normalizedRead(filePath)
+  const normSearch = searchContent.replace(/\r\n/g, '\n')
+
+  // 定位第 occ 处匹配
+  let lastEnd = 0
+  let found = 0
+
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const remaining = content.slice(lastEnd)
+    const match = findBestMatch(remaining, normSearch)
+    if (!match) break
+
+    found++
+    const globalIdx = lastEnd + match.index
+
+    if (found === occurrence) {
+      // 备份
+      await backupFile(filePath, 'editBySearch', backupDir)
+
+      // 替换
+      const newContent =
+        content.slice(0, globalIdx) +
+        replaceContent +
+        content.slice(globalIdx + match.length)
+
+      await fs.writeFile(filePath, newContent, 'utf-8')
+
+      const searchLines = normSearch.split('\n').length
+      const replaceLines = replaceContent.split('\n').length
+      const linesChanged = Math.max(searchLines, replaceLines)
+
+      const matchInfo = match.score < 1
+        ? `（模糊匹配，相似度 ${(match.score * 100).toFixed(0)}%）`
+        : ''
+
+      return {
+        success: true,
+        linesChanged,
+        message: `已替换第 ${occurrence} 处匹配${matchInfo}，影响约 ${linesChanged} 行。`,
+      }
+    }
+
+    lastEnd = globalIdx + match.length
+  }
+
+  const msg = found === 0
+    ? `未找到匹配内容。请确保 searchContent 与文件中内容完全一致。`
+    : `仅找到 ${found} 处匹配，未找到第 ${occurrence} 处。`
+
+  return { success: false, linesChanged: 0, message: msg }
+}
+
+/**
+ * 基于 hashline 锚点的编辑。
+ *
+ * `startAnchor` 和 `endAnchor` 格式为 `"lineno:hash"`（如 `"42:a3c7"`）。
+ * 替换 startAnchor 所在行到 endAnchor 所在行的内容为 `replaceContent`。
+ * 单行编辑时 endAnchor 与 startAnchor 相同。
+ */
+export async function editByHashline(
+  filePath: string,
+  startAnchor: string,
+  endAnchor: string,
+  replaceContent: string,
+  backupDir: string,
+): Promise<EditResult> {
+  const content = await normalizedRead(filePath)
   const lines = content.split('\n')
 
-  // Build search patterns: try exact line-by-line first, then substring
-  let index = content.indexOf(searchContent)
-
-  if (index === -1) {
-    // Try normalizing whitespace
-    const normalizedSearch = searchContent.replace(/\r\n/g, '\n')
-    const normalizedContent = content.replace(/\r\n/g, '\n')
-    index = normalizedContent.indexOf(normalizedSearch)
-
-    if (index === -1) {
-      return {
-        success: false,
-        linesChanged: 0,
-        message: `未找到匹配内容。请确保 searchContent 与文件中内容完全一致。`,
-      }
-    }
-
-    // Find occurrence
-    let currentIdx = -1
-    let occ = occurrence ?? 1
-    for (let i = 0; i < occ; i++) {
-      currentIdx = normalizedContent.indexOf(normalizedSearch, currentIdx + 1)
-      if (currentIdx === -1) {
-        return {
-          success: false,
-          linesChanged: 0,
-          message: `仅找到 ${i} 处匹配，未找到第 ${occ} 处。`,
-        }
-      }
-    }
-
-    // Perform replacement on original content (preserve original line endings)
-    const beforeMatch = content.slice(0, currentIdx)
-    const afterMatch = content.slice(currentIdx + normalizedSearch.length)
-    const newContent = beforeMatch + replaceContent + afterMatch
-
-    await fs.writeFile(filePath, newContent, 'utf-8')
-
-    // Count changed lines
-    const beforeLines = beforeMatch.split('\n')
-    const changedInSearch = searchContent.split('\n').length
-    const linesChanged = Math.min(changedInSearch, replaceContent.split('\n').length)
-
-    return { success: true, linesChanged, message: `已替换第 ${occ} 处匹配，影响约 ${linesChanged} 行。` }
+  // 解析锚点
+  const startLine = resolveAnchor(startAnchor, lines)
+  if (startLine === -1) {
+    return { success: false, linesChanged: 0, message: `锚点 ${startAnchor} 不匹配——文件内容可能已变化。` }
   }
 
-  // Exact match found
-  let currentIdx = -1
-  let occ = occurrence ?? 1
-  for (let i = 0; i < occ; i++) {
-    currentIdx = content.indexOf(searchContent, currentIdx + 1)
-    if (currentIdx === -1) {
-      return {
-        success: false,
-        linesChanged: 0,
-        message: `仅找到 ${i} 处匹配，未找到第 ${occ} 处。`,
-      }
+  let endLine: number
+  if (endAnchor === startAnchor) {
+    endLine = startLine // 单行编辑
+  } else {
+    endLine = resolveAnchor(endAnchor, lines)
+    if (endLine === -1) {
+      return { success: false, linesChanged: 0, message: `锚点 ${endAnchor} 不匹配——文件内容可能已变化。` }
+    }
+    if (endLine < startLine) {
+      return { success: false, linesChanged: 0, message: `endAnchor 行号 ${endLine + 1} 小于 startAnchor 行号 ${startLine + 1}。` }
     }
   }
 
-  // Back up original file
-  const backupPath = filePath + '.bak'
-  await fs.copyFile(filePath, backupPath).catch(() => {})
+  // 备份
+  await backupFile(filePath, 'editByHashline', backupDir)
 
-  // Perform replacement
-  const beforeMatch = content.slice(0, currentIdx)
-  const afterMatch = content.slice(currentIdx + searchContent.length)
-  const newContent = beforeMatch + replaceContent + afterMatch
+  // 替换
+  const beforeLines = lines.slice(0, startLine)
+  const afterLines = lines.slice(endLine + 1)
+  const newContent = beforeLines.join('\n') +
+    (beforeLines.length > 0 ? '\n' : '') +
+    replaceContent +
+    (afterLines.length > 0 ? '\n' : '') +
+    afterLines.join('\n')
 
   await fs.writeFile(filePath, newContent, 'utf-8')
 
-  const changedInSearch = searchContent.split('\n').length
-  const linesChanged = Math.min(changedInSearch, replaceContent.split('\n').length)
+  const linesChanged = (endLine - startLine + 1)
 
-  return { success: true, linesChanged, message: `已替换第 ${occ} 处匹配，影响约 ${linesChanged} 行。备份文件: ${backupPath}` }
+  return {
+    success: true,
+    linesChanged,
+    message: `已按锚点替换行 ${startLine + 1}-${endLine + 1}，影响约 ${linesChanged} 行。`,
+  }
+}
+
+// ── 内部函数 ────────────────────────────────────────
+
+/** 读取并归一化文件。 */
+async function normalizedRead(filePath: string): Promise<string> {
+  const raw = await fs.readFile(filePath, 'utf-8')
+  return raw.replace(/\r\n/g, '\n')
+}
+
+/** 解析锚点 "lineno:hash"，验证 lineHash 是否匹配。返回 0-indexed 行号，不匹配返回 -1。 */
+function resolveAnchor(anchor: string, lines: string[]): number {
+  const match = anchor.match(/^(\d+):([0-9a-f]+)$/)
+  if (!match) return -1
+
+  const lineNum = parseInt(match[1], 10) - 1 // 转为 0-indexed
+  if (lineNum < 0 || lineNum >= lines.length) return -1
+
+  const expectedHash = match[2]
+  const actualHash = lineHash(lines[lineNum])
+  return actualHash === expectedHash ? lineNum : -1
+}
+
+/** 备份文件到 `.crai/backups/{timestamp}_{originName}`。 */
+async function backupFile(filePath: string, origin: string, backupDir: string): Promise<string | null> {
+  try {
+    const { resolve, dirname } = await import('node:path')
+    const timestamp = Date.now().toString(36)
+    const name = filePath.replace(/[/\\]/g, '_')
+    const dest = resolve(backupDir, `${timestamp}_${origin}_${name}.bak`)
+
+    await fs.mkdir(backupDir, { recursive: true })
+    await fs.copyFile(filePath, dest)
+    return dest
+  } catch {
+    return null
+  }
 }

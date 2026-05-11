@@ -1,12 +1,17 @@
 import type { Extension } from '@crai/core'
 import { TOOL_SAFETY_LEVELS } from '@crai/core'
+import type { SearchEngine } from './engines/types'
+import { DuckDuckGoEngine } from './engines/duckduckgo'
+import { BingApiEngine } from './engines/bing-api'
 
 // ── 配置 ─────────────────────────────────────────────
 
 export interface WebToolsOptions {
-  /** 搜索 API 的 base URL（可选，默认使用 DuckDuckGo 非官方搜索）。 */
-  searchBaseUrl?: string
-  /** 搜索结果的 max results（默认 5）。 */
+  /** 搜索引擎 id（默认 'duckduckgo'）。 */
+  searchEngine?: string
+  /** 搜索引擎所需的 API key（如 Bing API key）。 */
+  apiKey?: string
+  /** 最大返回结果数（默认 5）。 */
   maxResults?: number
 }
 
@@ -14,6 +19,9 @@ export interface WebToolsOptions {
 
 export function createWebTools(options?: WebToolsOptions): Extension {
   const maxResults = options?.maxResults ?? 5
+
+  // 选择搜索引擎
+  const searchEngine = resolveEngine(options)
 
   return {
     name: 'tools-web',
@@ -44,28 +52,7 @@ export function createWebTools(options?: WebToolsOptions): Extension {
               }
             }
 
-            // 使用 DuckDuckGo Lite API（免费、无需 key）
-            const url = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`
-            const response = await fetch(url, {
-              headers: {
-                'User-Agent': 'Crai/0.1 (AI Agent)',
-              },
-              signal: AbortSignal.timeout(10_000),
-            })
-
-            if (!response.ok) {
-              return {
-                toolCallId: request.toolCall.toolCallId,
-                name: 'web_search',
-                isError: true,
-                content: [{ type: 'text', text: `搜索失败: HTTP ${response.status}` }],
-              }
-            }
-
-            const html = await response.text()
-
-            // 从 DuckDuckGo Lite HTML 中解析结果
-            const results = parseDuckDuckGoLiteResults(html, maxResults)
+            const results = await searchEngine.search(query, maxResults)
 
             if (results.length === 0) {
               return {
@@ -128,9 +115,7 @@ export function createWebTools(options?: WebToolsOptions): Extension {
             }
 
             const response = await fetch(url, {
-              headers: {
-                'User-Agent': 'Crai/0.1 (AI Agent)',
-              },
+              headers: { 'User-Agent': 'Crai/0.1 (AI Agent)' },
               signal: AbortSignal.timeout(15_000),
               redirect: 'follow',
             })
@@ -145,7 +130,6 @@ export function createWebTools(options?: WebToolsOptions): Extension {
             }
 
             const text = await response.text()
-            // 简单去除 HTML 标签
             const plain = text
               .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
               .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -182,43 +166,19 @@ export function createWebTools(options?: WebToolsOptions): Extension {
   }
 }
 
-// ── DuckDuckGo Lite HTML 解析 ───────────────────────
+// ── 引擎选择 ────────────────────────────────────────
 
-interface SearchResult {
-  title: string
-  url: string
-  snippet: string
-}
+function resolveEngine(options?: WebToolsOptions): SearchEngine {
+  const engineId = options?.searchEngine ?? 'duckduckgo'
+  const apiKey = options?.apiKey
 
-function parseDuckDuckGoLiteResults(html: string, maxResults: number): SearchResult[] {
-  const results: SearchResult[] = []
-
-  // DuckDuckGo Lite 结果在 <a> 标签中，class 为 "result-link"
-  const linkRegex = /<a[^>]*class="result-link"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi
-  const snippetRegex = /<td[^>]*class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi
-
-  const links: Array<{ url: string; title: string }> = []
-  let match: RegExpExecArray | null
-
-  while ((match = linkRegex.exec(html)) !== null) {
-    links.push({
-      url: match[1].trim(),
-      title: match[2].replace(/<[^>]+>/g, '').trim(),
-    })
+  if (engineId === 'bing' || engineId === 'bing-api') {
+    if (!apiKey) {
+      console.warn('[tools-web] Bing API 需要 apiKey，回退到 DuckDuckGo')
+      return new DuckDuckGoEngine()
+    }
+    return new BingApiEngine(apiKey)
   }
 
-  const snippets: string[] = []
-  while ((match = snippetRegex.exec(html)) !== null) {
-    snippets.push(match[1].replace(/<[^>]+>/g, '').trim())
-  }
-
-  for (let i = 0; i < Math.min(links.length, maxResults); i++) {
-    results.push({
-      title: links[i]?.title ?? '',
-      url: links[i]?.url ?? '',
-      snippet: snippets[i] ?? '',
-    })
-  }
-
-  return results
+  return new DuckDuckGoEngine()
 }

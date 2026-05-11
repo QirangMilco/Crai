@@ -19,7 +19,7 @@ import { createPersistenceExtension } from '@crai/persistence'
 import { createCliRepl } from '@crai/cli-repl'
 import { createWorkspaceSecurity } from '@crai/security'
 import { createFsTools } from '@crai/tools-fs'
-import { createShellTools } from '@crai/tools-shell'
+import { createShellTools, processManager } from '@crai/tools-shell'
 import { createWebTools } from '@crai/tools-web'
 import { createInterface } from 'node:readline'
 
@@ -55,18 +55,31 @@ const provider = PROVIDER === 'deepseek'
 
 // ── CLI 确认回调 ───────────────────────────────────
 const askRl = createInterface({ input: process.stdin, output: process.stdout })
+const sessionApprovedTools = new Set<string>()
 
 function createCliAskHandler() {
   return async (request: { toolName: string; args: Record<string, unknown>; reason: string }): Promise<boolean> => {
+    // 会话内已批准，跳过确认
+    if (sessionApprovedTools.has(request.toolName)) return true
+
     return new Promise((resolvePromise) => {
       const argStr = JSON.stringify(request.args, null, 2)
       console.log('\n\u26A0\uFE0F  权限请求: 工具 ' + request.toolName)
       console.log('参数: ' + argStr)
       console.log('原因: ' + request.reason)
-      askRl.question('是否允许? (y/N) ', (answer) => {
-        const allowed = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes'
-        console.log(allowed ? '已允许。' : '已拒绝。')
-        resolvePromise(allowed)
+      askRl.question('是否允许? (y/N/a = 本次会话始终允许) ', (answer) => {
+        const lower = answer.toLowerCase()
+        if (lower === 'a' || lower === 'always') {
+          sessionApprovedTools.add(request.toolName)
+          console.log('已允许，本次会话不再询问。')
+          resolvePromise(true)
+        } else if (lower === 'y' || lower === 'yes') {
+          console.log('已允许。')
+          resolvePromise(true)
+        } else {
+          console.log('已拒绝。')
+          resolvePromise(false)
+        }
       })
     })
   }
@@ -101,10 +114,15 @@ async function main() {
       sessionFile: SESSION_FILE,
     })
   } finally {
+    processManager.killAll()
     askRl.close()
     await runtime.dispose()
   }
 }
+
+// 进程退出时清理子进程
+process.on('SIGINT', () => { processManager.killAll(); process.exit(0) })
+process.on('SIGTERM', () => { processManager.killAll(); process.exit(0) })
 
 main().catch((err) => {
   console.error('Fatal:', err)
