@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@crai/core": "workspace:*",
+    "@crai/persistence": "workspace:*",
     "@crai/provider": "workspace:*",
     "@crai/runtime": "workspace:*",
     "@crai/storage-fs": "workspace:*",

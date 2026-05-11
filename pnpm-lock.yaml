@@ -11,6 +11,9 @@ importers:
       '@crai/core':
         specifier: workspace:*
         version: link:packages/core
+      '@crai/persistence':
+        specifier: workspace:*
+        version: link:packages/persistence
       '@crai/provider':
         specifier: workspace:*
         version: link:packages/provider
@@ -39,6 +42,12 @@ importers:
         version: link:../core
 
   packages/loader-ts:
+    dependencies:
+      '@crai/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/persistence:
     dependencies:
       '@crai/core':
         specifier: workspace:*

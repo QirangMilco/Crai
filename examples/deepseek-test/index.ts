@@ -20,9 +20,10 @@
 
 import { createRuntime } from '@crai/runtime'
 import type { Extension, ToolExecutionResult } from '@crai/core'
-import { EVENTS, HOOKS, TOOL_SAFETY_LEVELS } from '@crai/core'
+import { EVENTS, TOOL_SAFETY_LEVELS } from '@crai/core'
 import { createDeepSeekProvider, DeepSeekAdapter } from '@crai/provider'
 import { createFileStorage } from '@crai/storage-fs'
+import { createPersistenceExtension } from '@crai/persistence'
 
 // ── 配置 ─────────────────────────────────────────────
 const API_KEY = process.env.AI_API_KEY ?? process.env.DEEPSEEK_API_KEY
@@ -61,23 +62,6 @@ function streamDisplay(): Extension {
   }
 }
 
-/** 持久化：turn 结束后将消息写入 storage。 */
-const persistExt: Extension = {
-  name: 'example:persist',
-  setup(ctx) {
-    ctx.hooks.on(HOOKS.TURN_AFTER, async (payload: any) => {
-      const { session, messages } = payload
-      const storage = ctx.registry.storages.list()[0]?.value
-      if (!storage) return { continue: true }
-      await storage.updateSession(session)
-      for (const msg of messages) {
-        await storage.appendMessage(session.id, msg)
-      }
-      return { continue: true }
-    })
-  },
-}
-
 // ── 单轮对话 ─────────────────────────────────────────
 async function testSingleTurn() {
   console.log('\n═══ 单轮对话 ═══')
@@ -102,7 +86,7 @@ async function testMultiTurn() {
     extensions: [
       createDeepSeekProvider(providerOptions),
       createFileStorage({ baseDir: '.crai/deepseek-data' }),
-      persistExt,
+      createPersistenceExtension(),
       streamDisplay(),
     ],
     trace: TRACE_OPTION,
