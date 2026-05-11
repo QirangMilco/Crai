@@ -23,9 +23,21 @@ importers:
       '@crai/runtime':
         specifier: workspace:*
         version: link:packages/runtime
+      '@crai/security':
+        specifier: workspace:*
+        version: link:packages/security
       '@crai/storage-fs':
         specifier: workspace:*
         version: link:packages/storage-fs
+      '@crai/tools-fs':
+        specifier: workspace:*
+        version: link:packages/tools-fs
+      '@crai/tools-shell':
+        specifier: workspace:*
+        version: link:packages/tools-shell
+      '@crai/tools-web':
+        specifier: workspace:*
+        version: link:packages/tools-web
       '@types/node':
         specifier: ^25.6.2
         version: 25.6.2
@@ -77,7 +89,34 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/security:
+    dependencies:
+      '@crai/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/storage-fs:
+    dependencies:
+      '@crai/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/tools-fs:
+    dependencies:
+      '@crai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@crai/security':
+        specifier: workspace:*
+        version: link:../security
+
+  packages/tools-shell:
+    dependencies:
+      '@crai/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/tools-web:
     dependencies:
       '@crai/core':
         specifier: workspace:*

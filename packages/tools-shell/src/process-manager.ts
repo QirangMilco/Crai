@@ -105,14 +105,12 @@ export function execCommand(
       }
     }
 
-    const limitedAppend = (target: { value: string }, chunk: string) => {
-      if (target.value.length < maxBuffer) {
-        target.value += chunk
-      }
-    }
-
-    child.stdout?.on('data', (chunk: string) => limitedAppend({ value: stdout }, String(chunk)))
-    child.stderr?.on('data', (chunk: string) => limitedAppend({ value: stderr }, String(chunk)))
+    child.stdout?.on('data', (chunk: string) => {
+      if (stdout.length < maxBuffer) stdout += String(chunk)
+    })
+    child.stderr?.on('data', (chunk: string) => {
+      if (stderr.length < maxBuffer) stderr += String(chunk)
+    })
 
     child.on('error', (err) => {
       clearTimeout(timer)

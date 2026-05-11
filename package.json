@@ -24,12 +24,16 @@
     "deepseek:trace:console": "AI_TRACE=console tsx examples/deepseek-test/index.ts"
   },
   "devDependencies": {
+    "@crai/cli-repl": "workspace:*",
     "@crai/core": "workspace:*",
     "@crai/persistence": "workspace:*",
     "@crai/provider": "workspace:*",
-    "@crai/cli-repl": "workspace:*",
     "@crai/runtime": "workspace:*",
+    "@crai/security": "workspace:*",
     "@crai/storage-fs": "workspace:*",
+    "@crai/tools-fs": "workspace:*",
+    "@crai/tools-shell": "workspace:*",
+    "@crai/tools-web": "workspace:*",
     "@types/node": "^25.6.2",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"

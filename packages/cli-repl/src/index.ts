@@ -13,6 +13,7 @@
 import type { RuntimeHandle, Extension } from '@crai/core'
 import { EVENTS } from '@crai/core'
 import { createInterface } from 'node:readline/promises'
+import type { Interface } from 'node:readline'
 
 const BANNER = [
   '╔══════════════════════════════╗',
@@ -59,6 +60,12 @@ export interface CliReplOptions {
    * 设置为 false 可禁用持久化。
    */
   sessionFile?: string | false
+  /**
+   * 可复用的 readline 接口。传入时 cli-repl 使用此实例而非新建。
+   * 用于外部也需要使用 readline 的场景（如危险命令确认），
+   * 避免创建多个 readline 实例导致输入双回显。
+   */
+  readline?: Interface
 }
 
 /**
@@ -117,7 +124,8 @@ export async function createCliRepl(
 
   let currentModel = options.model
 
-  const rl = createInterface({
+  // 使用外部传入的 readline 实例（避免多个实例导致双回显）或新建一个
+  const rl = options.readline ?? createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: '> ',

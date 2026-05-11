@@ -21,7 +21,8 @@ import { createWorkspaceSecurity } from '@crai/security'
 import { createFsTools } from '@crai/tools-fs'
 import { createShellTools, processManager } from '@crai/tools-shell'
 import { createWebTools } from '@crai/tools-web'
-import { createInterface } from 'node:readline'
+import { createInterface } from 'node:readline/promises'
+import { resolve, dirname } from 'node:path'
 
 // ── 配置 ─────────────────────────────────────────────
 const API_KEY = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY
@@ -54,34 +55,39 @@ const provider = PROVIDER === 'deepseek'
   : createOpenAIProvider(providerOptions)
 
 // ── CLI 确认回调 ───────────────────────────────────
-const askRl = createInterface({ input: process.stdin, output: process.stdout })
+// 全局唯一的 readline 实例（传给 cli-repl 和 askHandler，避免双回显）
+const rl = createInterface({ input: process.stdin, output: process.stdout })
 const sessionApprovedTools = new Set<string>()
 
 function createCliAskHandler() {
-  return async (request: { toolName: string; args: Record<string, unknown>; reason: string }): Promise<boolean> => {
-    // 会话内已批准，跳过确认
-    if (sessionApprovedTools.has(request.toolName)) return true
+  return async (request: { toolName: string; args: Record<string, unknown>; reason: string; isSensitive?: boolean }): Promise<boolean> => {
+    // 会话内已批准 & 非敏感命令，跳过确认
+    if (sessionApprovedTools.has(request.toolName) && !request.isSensitive) return true
 
-    return new Promise((resolvePromise) => {
-      const argStr = JSON.stringify(request.args, null, 2)
-      console.log('\n\u26A0\uFE0F  权限请求: 工具 ' + request.toolName)
-      console.log('参数: ' + argStr)
-      console.log('原因: ' + request.reason)
-      askRl.question('是否允许? (y/N/a = 本次会话始终允许) ', (answer) => {
-        const lower = answer.toLowerCase()
-        if (lower === 'a' || lower === 'always') {
-          sessionApprovedTools.add(request.toolName)
-          console.log('已允许，本次会话不再询问。')
-          resolvePromise(true)
-        } else if (lower === 'y' || lower === 'yes') {
-          console.log('已允许。')
-          resolvePromise(true)
-        } else {
-          console.log('已拒绝。')
-          resolvePromise(false)
-        }
-      })
-    })
+    const argStr = JSON.stringify(request.args, null, 2)
+    console.log('\n\u26A0\uFE0F  权限请求: 工具 ' + request.toolName + (request.isSensitive ? ' (敏感命令)' : ''))
+    console.log('参数: ' + argStr)
+    console.log('原因: ' + request.reason)
+    const prompt = request.isSensitive
+      ? '这是敏感命令，即使已设为始终允许也需确认。是否允许? (y/N) '
+      : '是否允许? (y/N/a = 本次会话始终允许) '
+    const answer = await rl.question(prompt)
+    const lower = answer.toLowerCase()
+    if (lower === 'a' || lower === 'always') {
+      if (!request.isSensitive) {
+        sessionApprovedTools.add(request.toolName)
+        console.log('已允许，本次会话不再询问。')
+      } else {
+        console.log('已允许（敏感命令不可设为始终允许）。')
+      }
+      return true
+    } else if (lower === 'y' || lower === 'yes') {
+      console.log('已允许。')
+      return true
+    } else {
+      console.log('已拒绝。')
+      return false
+    }
   }
 }
 
@@ -99,7 +105,7 @@ async function main() {
       provider,
       createFileStorage({ baseDir: STORAGE_DIR }),
       createPersistenceExtension(),
-      createFsTools({ rootDir }),
+      createFsTools({ rootDir, backupDir: resolve(dirname(STORAGE_DIR), 'backups') }),
       createShellTools({ rootDir }),
       createWebTools(),
       security,
@@ -112,10 +118,11 @@ async function main() {
       model: MODEL,
       showBanner: true,
       sessionFile: SESSION_FILE,
+      readline: rl,
     })
   } finally {
     processManager.killAll()
-    askRl.close()
+    rl.close()
     await runtime.dispose()
   }
 }

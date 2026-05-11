@@ -38,7 +38,7 @@ export async function editBySearch(
 
     if (found === occurrence) {
       // 备份
-      await backupFile(filePath, 'editBySearch', backupDir)
+      const backupPath = await backupFile(filePath, 'editBySearch', backupDir)
 
       // 替换
       const newContent =
@@ -55,11 +55,12 @@ export async function editBySearch(
       const matchInfo = match.score < 1
         ? `（模糊匹配，相似度 ${(match.score * 100).toFixed(0)}%）`
         : ''
+      const backupInfo = backupPath ? `备份: ${backupPath}` : ''
 
       return {
         success: true,
         linesChanged,
-        message: `已替换第 ${occurrence} 处匹配${matchInfo}，影响约 ${linesChanged} 行。`,
+        message: `已替换第 ${occurrence} 处匹配${matchInfo}，影响约 ${linesChanged} 行。${backupInfo}`,
       }
     }
 
@@ -110,7 +111,7 @@ export async function editByHashline(
   }
 
   // 备份
-  await backupFile(filePath, 'editByHashline', backupDir)
+  const backupPath = await backupFile(filePath, 'editByHashline', backupDir)
 
   // 替换
   const beforeLines = lines.slice(0, startLine)
@@ -124,11 +125,12 @@ export async function editByHashline(
   await fs.writeFile(filePath, newContent, 'utf-8')
 
   const linesChanged = (endLine - startLine + 1)
+  const backupInfo = backupPath ? `备份: ${backupPath}` : '（备份失败）'
 
   return {
     success: true,
     linesChanged,
-    message: `已按锚点替换行 ${startLine + 1}-${endLine + 1}，影响约 ${linesChanged} 行。`,
+    message: `已按锚点替换行 ${startLine + 1}-${endLine + 1}，影响约 ${linesChanged} 行。${backupInfo}`,
   }
 }
 

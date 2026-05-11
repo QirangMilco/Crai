@@ -234,7 +234,11 @@ export function createHookBus(trace?: TraceFn): HookBus<HookMap> {
       for (const item of list) {
         const result = await item.handler(current, ctx)
         if (!result) continue
-        if ('stop' in result && result.stop) break
+        if ('stop' in result && result.stop) {
+          // 把 stop/reason 合并到返回值中，让调用方能检查到阻断
+          current = { ...(current as object), stop: true as const, reason: (result as any).reason } as typeof current
+          break
+        }
         if ('replace' in result) current = result.replace
         if ('patch' in result) {
           current = { ...(current as object), ...(result.patch as object) } as typeof current
