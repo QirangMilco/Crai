@@ -16,7 +16,7 @@ import type {
 } from '@crai/core'
 import type { HookBus, HookMap, RuntimeHandle, Session, AdapterContext } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
-import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES } from '@crai/core'
+import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId } from '@crai/core'
 import { debugLog, DEBUG_SCOPES } from './debug'
 
 /** 单次 turn 中工具调用的最大轮次，防止无限循环。 */
@@ -53,13 +53,13 @@ export interface TurnRunnerDeps {
 /** 将 RuntimeInput 转换为 Message。 */
 function inputToMessage(input: RuntimeInput, sessionId: string): Message {
   if (input.type === RUNTIME_INPUT_TYPES.MESSAGE) {
-    return { ...input.message, id: `${sessionId}_msg_${Date.now()}` }
+    return { ...input.message, id: createId('msg') }
   }
   const text = input.type === RUNTIME_INPUT_TYPES.TEXT ? input.text
     : input.type === RUNTIME_INPUT_TYPES.COMMAND ? input.name
     : ''
   return {
-    id: `${sessionId}_input_${Date.now()}`,
+    id: createId('msg'),
     role: MESSAGE_ROLES.USER,
     createdAt: Date.now(),
     parts: [{ type: MESSAGE_PART_TYPES.TEXT, text }],
@@ -155,7 +155,7 @@ export async function runTurn(
   deps: TurnRunnerDeps,
   modelName?: string,
 ): Promise<TurnRunResult> {
-  const turnId = `turn_${Date.now()}`
+  const turnId = createId('turn')
 
   await deps.emitEvent(EVENTS.INPUT_RECEIVED, { session, input })
   await deps.emitEvent(EVENTS.TURN_STARTED, { session, turnId })

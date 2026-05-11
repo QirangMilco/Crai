@@ -14,7 +14,7 @@ import type {
   TextPart,
   ToolCallPart,
 } from '@crai/core'
-import { STREAM_EVENT_TYPES } from '@crai/core'
+import { STREAM_EVENT_TYPES, createId } from '@crai/core'
 import { isDebugScope, DEBUG_SCOPES } from '../core/debug'
 import { sseLines } from '../core/stream'
 import {
@@ -24,7 +24,6 @@ import {
   OPENAI_ROLES,
   PART_TYPES,
 } from './constants'
-import { ID_PREFIX } from '../constants'
 
 export interface OpenAIAdapterOptions {
   apiKey: string
@@ -59,12 +58,23 @@ interface OpenAIResponse {
   }
 }
 
+/** 流式 delta 中的 tool_calls 元素，带 index 字段用于增量合并。 */
+interface StreamToolCallDelta {
+  index?: number
+  id?: string
+  type?: 'function'
+  function?: {
+    name?: string
+    arguments?: string
+  }
+}
+
 interface OpenAIStreamChunk {
   id: string
   model: string
   choices: Array<{
     index: number
-    delta: Partial<OpenAIMessage>
+    delta: Partial<OpenAIMessage> & { tool_calls?: StreamToolCallDelta[] }
     finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null
   }>
   usage?: {
@@ -150,7 +160,7 @@ function fromOpenAIResponse(openAIResp: OpenAIResponse): ModelResponse {
 
   return {
     message: {
-      id: `${ID_PREFIX}${Date.now()}`,
+      id: createId('msg'),
       role: OPENAI_ROLES.ASSISTANT,
       createdAt: Date.now(),
       parts,
@@ -279,7 +289,7 @@ function buildDoneResponse(
     type: 'done',
     response: {
       message: {
-        id: `${ID_PREFIX}${Date.now()}`,
+        id: createId('msg'),
         role: OPENAI_ROLES.ASSISTANT,
         createdAt: Date.now(),
         parts,

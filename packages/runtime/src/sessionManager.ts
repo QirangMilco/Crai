@@ -1,4 +1,5 @@
 import type { Metadata, Session } from '@crai/core'
+import { createId } from '@crai/core'
 
 /**
  * 内存级 session 管理器，runtime 内部实现。
@@ -7,11 +8,10 @@ import type { Metadata, Session } from '@crai/core'
 export class SessionManager {
   private readonly sessions = new Map<string, Session>()
 
-  async create(input?: Metadata): Promise<Session> {
-    // session id 使用时间戳前缀，后续可替换为更健壮的生成策略
+  async create(input?: Metadata, sessionId?: string): Promise<Session> {
     const now = Date.now()
     const session: Session = {
-      id: `session_${now}`,
+      id: sessionId ?? createId('session'),
       createdAt: now,
       updatedAt: now,
       metadata: input,

@@ -11,7 +11,7 @@ import type {
   RuntimeRegistries,
   SettingsStore,
 } from '@crai/core'
-import { BUS_SKIP, BusNoHandlerError } from '@crai/core'
+import { BUS_SKIP, BusNoHandlerError, createId } from '@crai/core'
 
 // ── Trace 辅助 ────────────────────────────────────
 
@@ -157,7 +157,7 @@ export function createEventBus(trace?: TraceFn): EventBus<EventMap> {
 
   return {
     async emit(type, payload) {
-      const event = { id: `evt_${Date.now()}`, type, timestamp: Date.now(), payload }
+      const event = { id: createId('evt'), type, timestamp: Date.now(), payload }
       const list = listeners.get(type) ?? []
       trace?.execute({ kind: 'event', name: type, triggeredBy: triggerSource(), handlers: list.map(h => ({ source: h.source })) })
       for (const { listener } of list) {

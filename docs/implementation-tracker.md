@@ -73,6 +73,8 @@
 - [x] D-032 工具结果独立消息模型
 - [x] AI_DEBUG 调试系统（tools/api scope、流式响应日志）
 - [x] 独立测试示例（openai-test、deepseek-test）
+- [x] persistence extension（turn 后自动保存消息）
+- [x] transport-cli（交互式 REPL，含 read_file/grep/bash 内置工具）
 
 ## 5. 阻塞项
 

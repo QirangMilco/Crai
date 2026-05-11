@@ -195,3 +195,14 @@ export interface ContextBundle {
   memoryEntries: MemoryEntry[]
   totalTokensEstimate: number
 }
+
+/**
+ * 生成带时间戳和随机后缀的唯一 ID。
+ * 格式：{prefix}_{timestamp}_{random7}
+ * 例如：session_1747000000000_a1b2c3d
+ * 时间戳保证可排序，7 位随机后缀保证同一毫秒内不碰撞。
+ * 参考 snow-cli 的 ID 生成模式。
+ */
+export function createId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+}

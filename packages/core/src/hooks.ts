@@ -230,7 +230,7 @@ export interface PromptPipeline {
 
 /** 接管 Session 完整生命周期。注册后 createSession / stopSession 直接委托给 pipeline。 */
 export interface SessionPipeline {
-  createSession(input?: Metadata): Promise<Session>
+  createSession(input?: Metadata, sessionId?: ID): Promise<Session>
   stopSession(sessionId: string, messages?: Message[]): Promise<void>
   getSession(sessionId: string): Promise<Session | undefined>
 }
@@ -336,7 +336,7 @@ export interface Logger {
 export interface RuntimeHandle {
   id: ID
   prompt(input: RuntimeInput, options?: PromptOptions): Promise<PromptResult>
-  createSession(input?: Metadata): Promise<Session>
+  createSession(input?: Metadata, sessionId?: ID): Promise<Session>
   stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
   listMessages(sessionId: ID): Promise<Message[]>

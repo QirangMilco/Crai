@@ -19,7 +19,7 @@ import type {
   TextPart,
   ToolCallPart,
 } from '@crai/core'
-import { STREAM_EVENT_TYPES } from '@crai/core'
+import { STREAM_EVENT_TYPES, createId } from '@crai/core'
 import { sseLines } from '../core/stream'
 import { isDebugScope, DEBUG_SCOPES } from '../core/debug'
 import {
@@ -32,7 +32,6 @@ import {
   DEEPSEEK_HIGH_SAFE_MAX_TOKENS,
   DEEPSEEK_MAX_EFFORT_MAX_TOKENS,
 } from './constants'
-import { ID_PREFIX } from '../constants'
 
 // ============================================================
 // 类型
@@ -69,12 +68,23 @@ interface DeepSeekResponse {
   }
 }
 
+/** 流式 delta 中的 tool_calls 元素，带 index 字段用于增量合并。 */
+interface StreamToolCallDelta {
+  index?: number
+  id?: string
+  type?: 'function'
+  function?: {
+    name?: string
+    arguments?: string
+  }
+}
+
 interface DeepSeekStreamChunk {
   id: string
   model: string
   choices: Array<{
     index: number
-    delta: Partial<DeepSeekMessage> & { reasoning_content?: string }
+    delta: Partial<DeepSeekMessage> & { reasoning_content?: string; tool_calls?: StreamToolCallDelta[] }
     finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null
   }>
   usage?: {
@@ -189,7 +199,7 @@ function fromDeepSeekResponse(dsResp: DeepSeekResponse): ModelResponse {
 
   return {
     message: {
-      id: `${ID_PREFIX}${Date.now()}`,
+      id: createId('msg'),
       role: DEEPSEEK_ROLES.ASSISTANT,
       createdAt: Date.now(),
       parts,
@@ -356,7 +366,7 @@ function buildDoneResponse(text: string, finishReason: string | null): ModelStre
     type: 'done',
     response: {
       message: {
-        id: `${ID_PREFIX}${Date.now()}`,
+        id: createId('msg'),
         role: DEEPSEEK_ROLES.ASSISTANT,
         createdAt: Date.now(),
         parts,

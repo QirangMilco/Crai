@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@crai/cli-repl':
+        specifier: workspace:*
+        version: link:packages/cli-repl
       '@crai/core':
         specifier: workspace:*
         version: link:packages/core
@@ -32,6 +35,15 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+
+  packages/cli-repl:
+    dependencies:
+      '@crai/core':
+        specifier: workspace:*
+        version: link:../core
+      '@crai/runtime':
+        specifier: workspace:*
+        version: link:../runtime
 
   packages/core: {}
 

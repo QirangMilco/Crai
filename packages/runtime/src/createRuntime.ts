@@ -196,7 +196,8 @@ async function handlePrompt(
   let session: Session
   if (promptOptions?.sessionId) {
     const existing = deps.sessions.get(promptOptions.sessionId)
-    session = existing ?? await runtime.createSession(promptOptions.metadata)
+    // 内存中不存在时用原 ID 重建 session，保证 storage 中的历史可被加载
+    session = existing ?? await runtime.createSession(promptOptions.metadata, promptOptions.sessionId)
   } else {
     session = await runtime.createSession(promptOptions?.metadata)
   }
@@ -268,15 +269,16 @@ async function handleCreateSession(
   deps: RuntimeDeps,
   runtime: RuntimeHandle,
   input?: Metadata,
+  sessionId?: string,
 ): Promise<Session> {
   // 优先使用注册的 session pipeline
   const pipeline = deps.registries.sessionPipelines.get(DEFAULT_PIPELINE_NAME)
   if (pipeline) {
-    return pipeline.createSession(input)
+    return pipeline.createSession(input, sessionId as any)
   }
 
   await deps.hooks.run(HOOKS.SESSION_BEFORE_START, { session: { id: '', createdAt: 0, updatedAt: 0 }, input }, { runtime })
-  const session = await deps.sessions.create(input)
+  const session = await deps.sessions.create(input, sessionId)
   deps.traceCollector?.note(`createSession — ${session.id}`)
   await deps.events.emit(EVENTS.SESSION_CREATED, { session })
   return session
@@ -379,7 +381,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
   const runtime: RuntimeHandle = {
     id: runtimeId,
     prompt: (input, opts) => handlePrompt(deps, runtime, input, opts),
-    createSession: (input) => handleCreateSession(deps, runtime, input),
+    createSession: (input, sessionId) => handleCreateSession(deps, runtime, input, sessionId),
     stopSession: (sessionId, messages) => handleStopSession(deps, runtime, sessionId, messages),
     getSession: async (sessionId) => deps.sessions.get(sessionId) ?? undefined,
     listMessages: () => Promise.resolve([]),
