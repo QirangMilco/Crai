@@ -33,6 +33,40 @@ export const DEFAULT_SENSITIVE_COMMANDS: SensitiveCommandEntry[] = [
   { id: 'git-force-push', pattern: '\\bgit\\s+push\\b.*--force', description: '强制推送 git（破坏性）', enabled: true, isPreset: true, scope: 'global' },
   { id: 'curl-post', pattern: '\\bcurl\\s.*-X\\s+POST',    description: 'HTTP POST 请求',       enabled: false, isPreset: true, scope: 'global' },
   { id: 'wget',      pattern: '\\bwget\\s',      description: '从网络下载文件',                  enabled: false, isPreset: true, scope: 'global' },
+
+  // ── SQL / 数据库操作 ──
+  { id: 'mysql',     pattern: '\\bmysql\\s',      description: 'MySQL CLI（直接数据库访问）',        enabled: false, isPreset: true, scope: 'global' },
+  { id: 'psql',      pattern: '\\bpsql\\s',       description: 'PostgreSQL CLI（直接数据库访问）',    enabled: false, isPreset: true, scope: 'global' },
+  { id: 'sqlite3',   pattern: '\\bsqlite3\\s',    description: 'SQLite3 CLI（直接数据库访问）',      enabled: false, isPreset: true, scope: 'global' },
+  { id: 'mongosh',   pattern: '\\bmongosh\\s',    description: 'MongoDB Shell（直接数据库访问）',    enabled: false, isPreset: true, scope: 'global' },
+  { id: 'redis-cli', pattern: '\\bredis-cli\\s',  description: 'Redis CLI（直接缓存/数据库访问）',   enabled: false, isPreset: true, scope: 'global' },
+  { id: 'sqlcmd',    pattern: '\\bsqlcmd\\s',     description: 'SQL Server CLI（直接数据库访问）',    enabled: false, isPreset: true, scope: 'global' },
+
+  // ── SQL 破坏性操作 ──
+  { id: 'sql-drop-table',   pattern: 'DROP\\s+TABLE\\s',       description: 'SQL DROP TABLE（删除整张表和数据）',        enabled: true, isPreset: true, scope: 'global' },
+  { id: 'sql-drop-database', pattern: 'DROP\\s+DATABASE\\s',   description: 'SQL DROP DATABASE（删除整个数据库）',       enabled: true, isPreset: true, scope: 'global' },
+  { id: 'sql-truncate',     pattern: 'TRUNCATE\\s+',            description: 'SQL TRUNCATE（清空表所有行）',              enabled: true, isPreset: true, scope: 'global' },
+  { id: 'sql-delete',       pattern: 'DELETE\\s+FROM',          description: 'SQL DELETE（删除表的行）',                  enabled: false, isPreset: true, scope: 'global' },
+
+  // ── Git 操作 ──
+  { id: 'git-revert',  pattern: '\\bgit\\s+revert',     description: '撤销 git 提交',                enabled: false, isPreset: true, scope: 'global' },
+  { id: 'git-reset',   pattern: '\\bgit\\s+reset\\s',    description: '重置 git 仓库状态',            enabled: false, isPreset: true, scope: 'global' },
+
+  // ── Docker ──
+  { id: 'docker-rm',   pattern: '\\bdocker\\s+rm\\b',     description: '删除 Docker 容器',              enabled: false, isPreset: true, scope: 'global' },
+  { id: 'docker-rmi',  pattern: '\\bdocker\\s+rmi\\b',    description: '删除 Docker 镜像',              enabled: false, isPreset: true, scope: 'global' },
+
+  // ── PowerShell ──
+  { id: 'ps-remove-item',         pattern: 'Remove-Item\\s',              description: 'PowerShell 删除文件或目录',      enabled: true, isPreset: true, scope: 'global' },
+  { id: 'ps-remove-item-recurse', pattern: 'Remove-Item.*-Recurse',      description: 'PowerShell 递归删除（破坏性）',   enabled: true, isPreset: true, scope: 'global' },
+  { id: 'ps-format-volume',       pattern: 'Format-Volume',              description: 'PowerShell 格式化磁盘（破坏性）', enabled: true, isPreset: true, scope: 'global' },
+
+  // ── 远程代码执行 ──
+  { id: 'curl-pipe-bash', pattern: '\\bcurl\\s+.*\\|\\s*(?:ba?sh|sh)', description: 'curl | bash（远程代码执行）', enabled: true, isPreset: true, scope: 'global' },
+  { id: 'wget-pipe-sh',  pattern: '\\bwget\\s+.*\\|\\s*(?:ba?sh|sh)',  description: 'wget | sh（远程代码执行）',      enabled: true, isPreset: true, scope: 'global' },
+
+  // ── npm ──
+  { id: 'npm-publish', pattern: '\\bnpm\\s+publish',     description: '发布包到 npm 注册表',            enabled: false, isPreset: true, scope: 'global' },
 ]
 
 // ── 管道拆分 ────────────────────────────────────────

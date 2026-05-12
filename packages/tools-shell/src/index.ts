@@ -75,28 +75,61 @@ export function createShellTools(options: ShellToolsOptions): Extension {
 
           ctx?.emitProgress?.({ message: `执行: ${command.slice(0, 80)}`, progress: 0 })
 
-          // 执行（spawn 异步，snow-cli 模式）
-          const result = await execCommand(command, {
-            cwd: rootDir,
-            timeout,
-          })
+          // ── ESC 中断（CLI 模式） / 取消信号（GUI 模式） ──
+          const escController = new AbortController()
+          let escListener: ((data: Buffer) => void) | undefined
 
-          ctx?.emitProgress?.({ message: '执行完成', progress: 1, done: true })
+          if (process.stdin.isTTY && process.stdin.setRawMode) {
+            escListener = (data: Buffer) => {
+              // ESC 键 = \x1b
+              if (data[0] === 0x1b && !escController.signal.aborted) {
+                escController.abort()
+              }
+            }
+            process.stdin.setRawMode(true)
+            process.stdin.on('data', escListener)
+          }
 
-          // snow-cli 模式：非零退出码也保留输出，不视为 error
-          const output = truncateOutput(
-            (result.stdout + result.stderr).trim() || '',
-            maxOutput,
-          )
+          // 合并外部 signal（来自 Transport 层，如 GUI 取消按钮）和 ESC signal
+          const signals: AbortSignal[] = []
+          if (ctx?.signal) signals.push(ctx.signal)
+          signals.push(escController.signal)
+          const combinedSignal = signals.length > 1
+            ? AbortSignal.any(signals)
+            : signals[0]
 
-          const isError = result.exitCode !== 0 && !output
-          const exitInfo = result.exitCode !== 0 ? `\n[退出码: ${result.exitCode}]` : ''
+          try {
+            const result = await execCommand(command, {
+              cwd: rootDir,
+              timeout,
+              signal: combinedSignal,
+            })
 
-          return {
-            toolCallId: request.toolCall.toolCallId,
-            name: 'bash',
-            isError,
-            content: [{ type: 'text', text: (output || '(无输出)') + exitInfo }],
+            ctx?.emitProgress?.({ message: '执行完成', progress: 1, done: true })
+
+            // snow-cli 模式：非零退出码也保留输出，不视为 error
+            const output = truncateOutput(
+              (result.stdout + result.stderr).trim() || '',
+              maxOutput,
+            )
+
+            const isError = result.exitCode !== 0 && !output
+            const exitInfo = result.exitCode !== 0 ? `\n[退出码: ${result.exitCode}]` : ''
+
+            return {
+              toolCallId: request.toolCall.toolCallId,
+              name: 'bash',
+              isError,
+              content: [{ type: 'text', text: (output || '(无输出)') + exitInfo }],
+            }
+          } finally {
+            // 清理 ESC 监听
+            if (escListener) {
+              if (process.stdin.isTTY && process.stdin.setRawMode) {
+                process.stdin.setRawMode(false)
+              }
+              process.stdin.removeListener('data', escListener)
+            }
           }
         },
       })
