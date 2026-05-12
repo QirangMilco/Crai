@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import {
   createSensitiveCommandChecker,
   loadSensitiveCommandsFromFile,
-  DEFAULT_PRESETS,
+  DEFAULT_SENSITIVE_COMMANDS,
   splitCommand,
   type SensitiveCommandEntry,
 } from '../src/sensitive-commands'
@@ -15,22 +15,22 @@ import {
 // 默认预设
 // ============================================================
 
-describe('DEFAULT_PRESETS', () => {
+describe('DEFAULT_SENSITIVE_COMMANDS', () => {
   it('包含 rm 模式', () => {
-    const rm = DEFAULT_PRESETS.find(c => c.id === 'rm')
+    const rm = DEFAULT_SENSITIVE_COMMANDS.find(c => c.id === 'rm')
     assert.ok(rm)
     assert.equal(rm.enabled, true)
     assert.equal(rm.isPreset, true)
   })
 
   it('sudo 默认禁用', () => {
-    const sudo = DEFAULT_PRESETS.find(c => c.id === 'sudo')
+    const sudo = DEFAULT_SENSITIVE_COMMANDS.find(c => c.id === 'sudo')
     assert.ok(sudo)
     assert.equal(sudo.enabled, false)
   })
 
   it('每个 preset 有唯一 id', () => {
-    const ids = DEFAULT_PRESETS.map(c => c.id)
+    const ids = DEFAULT_SENSITIVE_COMMANDS.map(c => c.id)
     assert.equal(new Set(ids).size, ids.length)
   })
 })

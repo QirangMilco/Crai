@@ -1,6 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHookBus, createEventBus } from '../src/bus'
+import { EVENTS } from '@crai/core'
 import type { HookMap, HookBus, EventBus, EventMap } from '@crai/core'
 
 // ============================================================
@@ -111,9 +112,9 @@ describe('EventBus', () => {
     const bus = createEventBus()
     const events: any[] = []
 
-    bus.on('tool.requested', (e) => { events.push(e.payload) })
+    bus.on(EVENTS.TOOL_REQUESTED, (e) => { events.push(e.payload) })
 
-    await bus.emit('tool.requested', { session: { id: 's1' } as any, toolCall: { name: 'test' } as any })
+    await bus.emit(EVENTS.TOOL_REQUESTED, { session: { id: 's1' } as any, toolCall: { name: 'test' } as any })
 
     assert.equal(events.length, 1)
     assert.equal((events[0] as any).session.id, 's1')
@@ -123,16 +124,16 @@ describe('EventBus', () => {
     const bus = createEventBus()
     let count = 0
 
-    bus.on('tool.requested', () => { count++ })
-    bus.on('tool.requested', () => { count++ })
+    bus.on(EVENTS.TOOL_REQUESTED, () => { count++ })
+    bus.on(EVENTS.TOOL_REQUESTED, () => { count++ })
 
-    await bus.emit('tool.requested', { session: {} as any, toolCall: {} as any })
+    await bus.emit(EVENTS.TOOL_REQUESTED, { session: {} as any, toolCall: {} as any })
     assert.equal(count, 2)
   })
 
   it('没有 listener 时 emit 不报错', async () => {
     const bus = createEventBus()
-    await bus.emit('tool.requested', { session: {} as any, toolCall: {} as any })
+    await bus.emit(EVENTS.TOOL_REQUESTED, { session: {} as any, toolCall: {} as any })
     // should not throw
   })
 
@@ -140,9 +141,9 @@ describe('EventBus', () => {
     const bus = createEventBus()
     let received: any
 
-    bus.on('session.created', (e) => { received = e })
+    bus.on(EVENTS.SESSION_CREATED, (e) => { received = e })
 
-    await bus.emit('session.created', { session: { id: 'test-session-id' } as any })
+    await bus.emit(EVENTS.SESSION_CREATED, { session: { id: 'test-session-id' } as any })
 
     assert.ok(received)
     assert.equal(received.payload.session.id, 'test-session-id')
@@ -152,10 +153,10 @@ describe('EventBus', () => {
     const bus = createEventBus()
     const order: string[] = []
 
-    bus.on('tool.requested', (e) => { order.push((e.payload as any).toolCall.name) })
+    bus.on(EVENTS.TOOL_REQUESTED, (e) => { order.push((e.payload as any).toolCall.name) })
 
-    await bus.emit('tool.requested', { session: {} as any, toolCall: { name: 'a' } as any })
-    await bus.emit('tool.requested', { session: {} as any, toolCall: { name: 'b' } as any })
+    await bus.emit(EVENTS.TOOL_REQUESTED, { session: {} as any, toolCall: { name: 'a' } as any })
+    await bus.emit(EVENTS.TOOL_REQUESTED, { session: {} as any, toolCall: { name: 'b' } as any })
 
     assert.deepEqual(order, ['a', 'b'])
   })

@@ -11,5 +11,8 @@
   },
   "dependencies": {
     "@crai/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@crai/runtime": "workspace:*"
   }
 }

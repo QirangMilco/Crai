@@ -86,6 +86,10 @@ export class FileStorageAdapter implements StorageAdapter {
     await writeJson(sessionPath(this.baseDir, session.id), session)
   }
 
+  async getSession(sessionId: ID): Promise<Session | undefined> {
+    return readJson<Session>(sessionPath(this.baseDir, sessionId))
+  }
+
   async updateSession(session: Session): Promise<void> {
     await writeJson(sessionPath(this.baseDir, session.id), session)
   }

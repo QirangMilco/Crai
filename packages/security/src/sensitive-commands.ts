@@ -17,7 +17,7 @@ export interface SensitiveCommandsConfig {
 
 // ── 预设模式（全部 scope: 'global'，不会写死 project）───
 
-export const DEFAULT_PRESETS: SensitiveCommandEntry[] = [
+export const DEFAULT_SENSITIVE_COMMANDS: SensitiveCommandEntry[] = [
   { id: 'rm',        pattern: '\\brm\\s',        description: '删除文件或目录',                  enabled: true,  isPreset: true, scope: 'global' },
   { id: 'rmdir',     pattern: '\\brmdir\\s',     description: '删除目录',                        enabled: true,  isPreset: true, scope: 'global' },
   { id: 'unlink',    pattern: '\\bunlink\\s',    description: '删除文件 (unlink)',               enabled: true,  isPreset: true, scope: 'global' },
@@ -75,7 +75,7 @@ export interface SensitiveCommandChecker {
  * @param projectOverrides 项目覆盖（来自 .crai/sensitive-commands.json）
  *
  * 合并规则：
- *   1. 以 DEFAULT_PRESETS 为基准
+ *   1. 以 DEFAULT_SENSITIVE_COMMANDS 为基准
  *   2. globalOverrides 覆盖（适用于用户家目录配置）
  *   3. projectOverrides 覆盖（适用于项目本地配置）—— 优先级最高
  */
@@ -113,7 +113,7 @@ function mergeByScope(
   projectOverrides: SensitiveCommandEntry[],
 ): SensitiveCommandEntry[] {
   const base = new Map<string, SensitiveCommandEntry>()
-  for (const c of DEFAULT_PRESETS) base.set(c.id, { ...c })
+  for (const c of DEFAULT_SENSITIVE_COMMANDS) base.set(c.id, { ...c })
 
   applyOverrides(base, globalOverrides)
   applyOverrides(base, projectOverrides)
