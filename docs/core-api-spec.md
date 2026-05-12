@@ -316,6 +316,11 @@ export interface AdapterContext {
   turnId?: ID
   /** 工具执行进度回调，GUI/Web 可监听实现实时显示。 */
   emitProgress?(event: ProgressEvent): void
+  /**
+   * 工具在执行中向用户提问。CLI 用 readline，GUI 用弹窗。
+   * 由 Transport 层注入实现，不提供时工具应自行降级。
+   */
+  requestUserInput?(question: string, options?: string[]): Promise<string>
 }
 ```
 
