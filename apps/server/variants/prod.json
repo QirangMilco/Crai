@@ -1,0 +1,11 @@
+{
+  "configDirName": ".crai",
+  "workspaceDataDirName": ".crai",
+  "server": {
+    "defaultPort": 8080
+  },
+  "debug": {
+    "trace": false,
+    "verboseTools": false
+  }
+}

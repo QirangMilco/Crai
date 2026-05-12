@@ -15,7 +15,8 @@
     "example:trace:file": "AI_TRACE=file tsx examples/minimal-runtime/index.ts",
     "example:trace:console": "AI_TRACE=console tsx examples/minimal-runtime/index.ts",
     "cli": "tsx examples/cli/index.ts",
-    "dev:server": "tsx examples/server/index.ts",
+    "server:dev": "CRAI_VARIANT=dev pnpm --filter @crai/server start",
+    "server:prod": "CRAI_VARIANT=prod pnpm --filter @crai/server start",
     "web": "pnpm --filter @crai/web dev",
     "openai": "tsx examples/openai-test/index.ts",
     "openai:trace": "AI_TRACE=realtime tsx examples/openai-test/index.ts",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@crai/cli-repl": "workspace:*",
+    "@crai/config": "workspace:*",
     "@crai/core": "workspace:*",
     "@crai/persistence": "workspace:*",
     "@crai/provider": "workspace:*",

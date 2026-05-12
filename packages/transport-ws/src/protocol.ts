@@ -4,14 +4,14 @@
  * 所有消息均为 UTF-8 JSON 文本帧。
  */
 
+import type { GlobalConfig, ProviderConfig, WorkspaceConfig } from '@crai/config'
+
 // ── Client → Server ───────────────────────────────
 
 /** 客户端向 runtime 发送 prompt。 */
 export interface PromptMessage {
   type: 'prompt'
-  /** 目标 session，不传则使用上一个或创建新 session。 */
   sessionId?: string
-  /** 用户输入文本。 */
   text: string
 }
 
@@ -24,47 +24,131 @@ export interface SessionNewMessage {
 /** 客户端回复 runtime 的提问（权限确认 / 工具提问）。 */
 export interface ResolveInputMessage {
   type: 'resolve:input'
-  /** 对应 request:input 的 id。 */
   id: string
-  /** 用户输入的值。 */
   value: string
 }
 
-export type ClientMessage = PromptMessage | SessionNewMessage | ResolveInputMessage
+/** 客户端请求获取全局配置。 */
+export interface ConfigGetMessage {
+  type: 'config:get'
+}
+
+/** 客户端更新全局配置（覆盖整个 config 对象）。 */
+export interface ConfigSetMessage {
+  type: 'config:set'
+  config: GlobalConfig
+}
+
+/** 客户端添加/更新 provider。 */
+export interface ConfigSetProviderMessage {
+  type: 'config:set:provider'
+  name: string
+  config: ProviderConfig
+}
+
+/** 客户端删除 provider。 */
+export interface ConfigRemoveProviderMessage {
+  type: 'config:remove:provider'
+  name: string
+}
+
+/** 客户端请求工作区列表。 */
+export interface WorkspaceListMessage {
+  type: 'workspace:list'
+}
+
+/** 客户端切换工作区。 */
+export interface WorkspaceSwitchMessage {
+  type: 'workspace:switch'
+  /** 工作区根目录路径。 */
+  rootDir: string
+}
+
+/** 客户端获取当前工作区配置。 */
+export interface WorkspaceConfigGetMessage {
+  type: 'workspace:config:get'
+}
+
+/** 客户端更新当前工作区配置。 */
+export interface WorkspaceConfigSetMessage {
+  type: 'workspace:config:set'
+  config: WorkspaceConfig
+}
+
+export type ClientMessage =
+  | PromptMessage
+  | SessionNewMessage
+  | ResolveInputMessage
+  | ConfigGetMessage
+  | ConfigSetMessage
+  | ConfigSetProviderMessage
+  | ConfigRemoveProviderMessage
+  | WorkspaceListMessage
+  | WorkspaceSwitchMessage
+  | WorkspaceConfigGetMessage
+  | WorkspaceConfigSetMessage
 
 // ── Server → Client ───────────────────────────────
 
-/** runtime 事件的实时转发。 */
 export interface EventMessage {
   type: 'event'
-  /** 事件名（如 "model.delta"）。 */
   event: string
-  /** 事件负载。 */
   payload: unknown
 }
 
-/** runtime 向用户提问（权限确认 / 工具提问）。 */
 export interface RequestInputMessage {
   type: 'request:input'
-  /** 请求标识（客户端回复时原样返回）。 */
   id: string
-  /** 问题描述。 */
   question: string
-  /** 可选选项列表。为空时自由输入。 */
   options?: string[]
 }
 
-/** 当前 session ID 通知。 */
 export interface SessionIdMessage {
   type: 'session:id'
-  /** 当前 session ID。 */
   id: string
 }
 
-/** 服务端错误通知。 */
 export interface ErrorMessage {
   type: 'error'
   message: string
 }
 
-export type ServerMessage = EventMessage | RequestInputMessage | SessionIdMessage | ErrorMessage
+/** 全局配置响应。 */
+export interface ConfigDataMessage {
+  type: 'config:data'
+  config: GlobalConfig
+}
+
+/** 工作区列表响应。 */
+export interface WorkspaceListDataMessage {
+  type: 'workspace:list:data'
+  /** 当前工作区（路径或 null）。 */
+  current: string | null
+  /** 所有可用工作区列表。 */
+  workspaces: Array<{ rootDir: string; config: WorkspaceConfig }>
+}
+
+/** 工作区切换完成通知。 */
+export interface WorkspaceSwitchedMessage {
+  type: 'workspace:switched'
+  rootDir: string
+  /** 此工作区使用的模型信息。 */
+  model: string
+  provider: string
+}
+
+/** 当前工作区配置响应。 */
+export interface WorkspaceConfigDataMessage {
+  type: 'workspace:config:data'
+  config: WorkspaceConfig
+}
+
+export type ServerMessage =
+  | EventMessage
+  | RequestInputMessage
+  | SessionIdMessage
+  | ErrorMessage
+  | ConfigDataMessage
+  | WorkspaceListDataMessage
+  | WorkspaceSwitchedMessage
+  | WorkspaceConfigDataMessage

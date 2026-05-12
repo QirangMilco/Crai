@@ -3,23 +3,27 @@ import type { ServerMsg, ClientMsg } from '../types/messages'
 
 export interface UseWebSocketOptions {
   url: string
+  /** 收到任何消息时的通用回调（用于自定义处理）。 */
+  onMessage?: (raw: string) => void
+  /** 事件类型消息回调。 */
   onEvent?: (event: string, payload: unknown) => void
+  /** session:id 消息回调。 */
   onSessionId?: (id: string) => void
+  /** request:input 消息回调。 */
   onRequestInput?: (id: string, question: string, options?: string[]) => void
+  /** error 消息回调。 */
   onError?: (msg: string) => void
 }
 
 export interface UseWebSocketReturn {
-  /** 连接状态。 */
   status: 'connecting' | 'connected' | 'disconnected'
-  /** 发送消息给 runtime。 */
-  send: (msg: ClientMsg) => void
-  /** 连接引用（用于读取 readyState 等）。 */
+  send: (msg: any) => void
   wsRef: React.MutableRefObject<WebSocket | null>
 }
 
 export function useWebSocket({
   url,
+  onMessage,
   onEvent,
   onSessionId,
   onRequestInput,
@@ -33,20 +37,16 @@ export function useWebSocket({
     wsRef.current = ws
 
     ws.onopen = () => setStatus('connected')
-
     ws.onclose = () => setStatus('disconnected')
-
-    ws.onerror = () => {
-      // onclose 会随后触发，不清除状态
-    }
+    ws.onerror = () => {}
 
     ws.onmessage = (event) => {
+      const raw = String(event.data)
+      // 先调通用回调
+      onMessage?.(raw)
+
       let msg: ServerMsg
-      try {
-        msg = JSON.parse(event.data) as ServerMsg
-      } catch {
-        return
-      }
+      try { msg = JSON.parse(raw) as ServerMsg } catch { return }
 
       switch (msg.type) {
         case 'event':
@@ -70,7 +70,7 @@ export function useWebSocket({
     }
   }, [url])
 
-  const send = useCallback((msg: ClientMsg) => {
+  const send = useCallback((msg: any) => {
     const ws = wsRef.current
     if (ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg))

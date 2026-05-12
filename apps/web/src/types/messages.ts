@@ -25,7 +25,37 @@ export interface ErrorMsg {
   message: string
 }
 
-export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg
+export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg
+
+// ── 配置/工作区 响应 ──
+
+export interface ConfigDataMsg {
+  type: 'config:data'
+  config: {
+    providers: Record<string, { apiKey: string; baseURL?: string; models?: string[] }>
+    defaultProvider?: string
+    defaultModel?: string
+    recentWorkspaces: string[]
+  }
+}
+
+export interface WorkspaceListDataMsg {
+  type: 'workspace:list:data'
+  current: string | null
+  workspaces: Array<{ rootDir: string; config: { provider?: string; model?: string } }>
+}
+
+export interface WorkspaceSwitchedMsg {
+  type: 'workspace:switched'
+  rootDir: string
+  model: string
+  provider: string
+}
+
+export interface WorkspaceConfigDataMsg {
+  type: 'workspace:config:data'
+  config: { provider?: string; model?: string; security?: { mode?: string } }
+}
 
 // ── Client → Server ──
 
@@ -46,7 +76,20 @@ export interface ResolveInputMsg {
   value: string
 }
 
-export type ClientMsg = PromptMsg | SessionNewMsg | ResolveInputMsg
+export type ClientMsg = PromptMsg | SessionNewMsg | ResolveInputMsg |
+  ConfigGetMsg | ConfigSetMsg | ConfigSetProviderMsg | ConfigRemoveProviderMsg |
+  WorkspaceListMsg | WorkspaceSwitchMsg | WorkspaceConfigGetMsg | WorkspaceConfigSetMsg
+
+// ── 配置/工作区 消息 ──
+
+export interface ConfigGetMsg { type: 'config:get' }
+export interface ConfigSetMsg { type: 'config:set'; config: any }
+export interface ConfigSetProviderMsg { type: 'config:set:provider'; name: string; config: { apiKey: string; baseURL?: string; models?: string[] } }
+export interface ConfigRemoveProviderMsg { type: 'config:remove:provider'; name: string }
+export interface WorkspaceListMsg { type: 'workspace:list' }
+export interface WorkspaceSwitchMsg { type: 'workspace:switch'; rootDir: string }
+export interface WorkspaceConfigGetMsg { type: 'workspace:config:get' }
+export interface WorkspaceConfigSetMsg { type: 'workspace:config:set'; config: { provider?: string; model?: string; security?: { mode?: string } } }
 
 // ── 内部消息模型 ──
 

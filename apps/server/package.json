@@ -1,0 +1,25 @@
+{
+  "name": "@crai/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@crai/config": "workspace:*",
+    "@crai/core": "workspace:*",
+    "@crai/persistence": "workspace:*",
+    "@crai/provider": "workspace:*",
+    "@crai/runtime": "workspace:*",
+    "@crai/security": "workspace:*",
+    "@crai/storage-fs": "workspace:*",
+    "@crai/transport-ws": "workspace:*",
+    "@crai/tools-fs": "workspace:*",
+    "@crai/tools-shell": "workspace:*",
+    "@crai/tools-web": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3"
+  }
+}

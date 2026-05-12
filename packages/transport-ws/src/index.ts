@@ -1,57 +1,50 @@
 /**
  * @crai/transport-ws — WebSocket transport for Crai runtime.
- *
- * 将 runtime 事件实时推送到 WebSocket 客户端，
- * 同时将客户端指令路由到 runtime，并桥接用户交互
- * （权限确认 / requestUserInput）。
- *
- * 使用方式：
- *   const wsTransport = createWsTransport({ port: 8080 })
- *   const runtime = await createRuntime({
- *     extensions: [...otherExts, wsTransport.extension],
- *     requestUserInput: wsTransport.requestUserInput,
- *   })
- *   await wsTransport.start()
  */
-import type { Extension, RuntimeHandle, EventMap } from '@crai/core'
+import type { Extension, RuntimeHandle } from '@crai/core'
 import { EVENTS, createId } from '@crai/core'
 import http from 'node:http'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { ClientMessage, ServerMessage } from './protocol'
+import type { GlobalConfig, ProviderConfig, WorkspaceConfig } from '@crai/config'
 
 // ── 选项 ───────────────────────────────────────────
 
+export interface WsTransportHandlers {
+  onConfigGet?: () => GlobalConfig | Promise<GlobalConfig>
+  onConfigSet?: (config: GlobalConfig) => void | Promise<void>
+  onConfigSetProvider?: (name: string, config: ProviderConfig) => void | Promise<void>
+  onConfigRemoveProvider?: (name: string) => void | Promise<void>
+  onWorkspaceList?: () => Array<{ rootDir: string; config: WorkspaceConfig }> | Promise<Array<{ rootDir: string; config: WorkspaceConfig }>>
+  onWorkspaceSwitch?: (rootDir: string) => Promise<{ model: string; provider: string }>
+  onWorkspaceConfigGet?: () => WorkspaceConfig | Promise<WorkspaceConfig>
+  onWorkspaceConfigSet?: (config: WorkspaceConfig) => void | Promise<void>
+}
+
 export interface WsTransportOptions {
-  /** HTTP 监听端口（默认 0 = 随机端口）。 */
   port?: number
-  /** 监听主机（默认 '127.0.0.1'）。 */
   host?: string
-  /** 服务器就绪回调。 */
   onReady?: (info: { port: number; url: string }) => void
-  /** 连接数变化回调。 */
   onConnectionChange?: (count: number) => void
+  handlers?: WsTransportHandlers
 }
 
 // ── 返回接口 ───────────────────────────────────────
 
 export interface WsTransport {
-  /** 加载到 runtime 的 Extension。setup() 中订阅 runtime 事件。 */
   extension: Extension
-  /** 启动 WebSocket 服务。在 createRuntime() 之后调用。返回 { port, url }。 */
   start: () => Promise<{ port: number; url: string }>
-  /** 停止 WebSocket 服务并断开所有客户端。 */
   stop: () => Promise<void>
-  /**
-   * 注入 RuntimeOptions.requestUserInput 的回调。
-   * 将用户的提问广播给所有已连接客户端，取第一个回复。
-   */
   requestUserInput: (question: string, options?: string[]) => Promise<string>
+  /** 发布来自任意 workspace 的事件到所有客户端。事件消息中会带 workspaceId。 */
+  publishEvent: (workspaceId: string, event: string, payload: unknown) => void
+}
 }
 
 // ── Factory ────────────────────────────────────────
 
 export function createWsTransport(options: WsTransportOptions = {}): WsTransport {
-  const { host = '127.0.0.1', port: preferredPort = 0 } = options
+  const { host = '0.0.0.0', port: preferredPort = 0, handlers } = options
   const httpServer = http.createServer()
   const wss = new WebSocketServer({ server: httpServer })
   const clients = new Set<WebSocket>()
@@ -61,17 +54,13 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
   let runtime: RuntimeHandle | undefined
   let stopped = false
 
-  // ── 广播消息到所有已连接客户端 ──
   function broadcast(msg: ServerMessage): void {
     const json = JSON.stringify(msg)
     for (const ws of clients) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(json)
-      }
+      if (ws.readyState === WebSocket.OPEN) ws.send(json)
     }
   }
 
-  // ── 处理 WS 客户端发来的指令 ──
   async function handleClientMessage(ws: WebSocket, msg: ClientMessage): Promise<void> {
     if (!runtime) {
       ws.send(JSON.stringify({ type: 'error', message: 'runtime not ready' } satisfies ServerMessage))
@@ -80,44 +69,90 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
 
     switch (msg.type) {
       case 'prompt': {
-        const options: any = {}
-        if (msg.sessionId) options.sessionId = msg.sessionId
-        else if (currentSessionId) options.sessionId = currentSessionId
-
-        const result = await runtime.prompt({ type: 'text', text: msg.text }, options)
+        const opts: any = {}
+        if (msg.sessionId) opts.sessionId = msg.sessionId
+        else if (currentSessionId) opts.sessionId = currentSessionId
+        const result = await runtime.prompt({ type: 'text', text: msg.text }, opts)
         currentSessionId = result.session.id
         ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
         break
       }
 
       case 'session:new': {
-        const session = await runtime.createSession(
-          msg.system ? { system: msg.system } : undefined,
-        )
+        const session = await runtime.createSession(msg.system ? { system: msg.system } : undefined)
         currentSessionId = session.id
         ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
         break
       }
 
       case 'resolve:input': {
-        const pending = pendingInputs.get(msg.id)
-        if (pending) {
-          pending.resolve(msg.value)
-          pendingInputs.delete(msg.id)
-        }
+        const p = pendingInputs.get(msg.id)
+        if (p) { p.resolve(msg.value); pendingInputs.delete(msg.id) }
+        break
+      }
+
+      // ── 配置 / 工作区消息（委托给 handlers） ──
+
+      case 'config:get': {
+        if (!handlers?.onConfigGet) { ws.send(JSON.stringify({ type: 'error', message: 'config not available' } satisfies ServerMessage)); break }
+        const config = await handlers.onConfigGet()
+        ws.send(JSON.stringify({ type: 'config:data', config } satisfies ServerMessage))
+        break
+      }
+
+      case 'config:set': {
+        if (!handlers?.onConfigSet) { ws.send(JSON.stringify({ type: 'error', message: 'config not writable' } satisfies ServerMessage)); break }
+        await handlers.onConfigSet(msg.config)
+        break
+      }
+
+      case 'config:set:provider': {
+        if (!handlers?.onConfigSetProvider) { ws.send(JSON.stringify({ type: 'error', message: 'config not writable' } satisfies ServerMessage)); break }
+        await handlers.onConfigSetProvider(msg.name, msg.config)
+        break
+      }
+
+      case 'config:remove:provider': {
+        if (!handlers?.onConfigRemoveProvider) { ws.send(JSON.stringify({ type: 'error', message: 'config not writable' } satisfies ServerMessage)); break }
+        await handlers.onConfigRemoveProvider(msg.name)
+        break
+      }
+
+      case 'workspace:list': {
+        if (!handlers?.onWorkspaceList) { ws.send(JSON.stringify({ type: 'error', message: 'workspace not available' } satisfies ServerMessage)); break }
+        const workspaces = await handlers.onWorkspaceList()
+        ws.send(JSON.stringify({ type: 'workspace:list:data', current: null, workspaces } satisfies ServerMessage))
+        break
+      }
+
+      case 'workspace:switch': {
+        if (!handlers?.onWorkspaceSwitch) { ws.send(JSON.stringify({ type: 'error', message: 'workspace switching not supported' } satisfies ServerMessage)); break }
+        const info = await handlers.onWorkspaceSwitch(msg.rootDir)
+        currentSessionId = undefined
+        ws.send(JSON.stringify({ type: 'workspace:switched', rootDir: msg.rootDir, ...info } satisfies ServerMessage))
+        break
+      }
+
+      case 'workspace:config:get': {
+        if (!handlers?.onWorkspaceConfigGet) { ws.send(JSON.stringify({ type: 'error', message: 'workspace config not available' } satisfies ServerMessage)); break }
+        const wc = await handlers.onWorkspaceConfigGet()
+        ws.send(JSON.stringify({ type: 'workspace:config:data', config: wc } satisfies ServerMessage))
+        break
+      }
+
+      case 'workspace:config:set': {
+        if (!handlers?.onWorkspaceConfigSet) { ws.send(JSON.stringify({ type: 'error', message: 'workspace config not writable' } satisfies ServerMessage)); break }
+        await handlers.onWorkspaceConfigSet(msg.config)
         break
       }
     }
   }
 
-  // ── WSS 连接处理器 ──
   wss.on('connection', (ws) => {
     if (stopped) { ws.close(1001, 'Server shutting down'); return }
-
     clients.add(ws)
     options.onConnectionChange?.(clients.size)
 
-    // 新连接通知当前 session ID
     if (currentSessionId) {
       ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
     }
@@ -125,9 +160,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
     ws.on('message', (data) => {
       const raw = String(data)
       let msg: ClientMessage
-      try {
-        msg = JSON.parse(raw)
-      } catch {
+      try { msg = JSON.parse(raw) } catch {
         ws.send(JSON.stringify({ type: 'error', message: 'invalid JSON' } satisfies ServerMessage))
         return
       }
@@ -144,15 +177,12 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
     ws.on('error', () => ws.close())
   })
 
-  // ── 返回 ──
   const transport: WsTransport = {
     extension: {
       name: 'transport-ws',
       setup(ctx) {
         runtime = ctx.runtime
 
-        // 订阅所有 EVENTS 常量中的事件，广播到 WS
-        const disposables: Array<() => void> = []
         for (const key of Object.keys(EVENTS) as Array<keyof typeof EVENTS>) {
           const eventName = EVENTS[key]
           const handler = (event: any) => {
@@ -163,14 +193,12 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         }
 
         ctx.register({
-          dispose: () => {
-            for (const d of disposables) d()
-          },
+          dispose: () => { /* cleanup handled by stop() */ },
         })
       },
     },
 
-    async start(): Promise<{ port: number; url: string }> {
+    async start() {
       return new Promise<{ port: number; url: string }>((resolve) => {
         httpServer.listen(preferredPort, host, () => {
           const addr = httpServer.address()
@@ -182,7 +210,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       })
     },
 
-    async stop(): Promise<void> {
+    async stop() {
       stopped = true
       for (const ws of clients) ws.close(1001, 'Server shutting down')
       clients.clear()
@@ -192,12 +220,16 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       })
     },
 
-    requestUserInput: async (question: string, options?: string[]): Promise<string> => {
+    requestUserInput: async (question: string, options?: string[]) => {
       const id = createId('req')
       return new Promise<string>((resolve) => {
         pendingInputs.set(id, { resolve })
         broadcast({ type: 'request:input', id, question, options })
       })
+    },
+
+    publishEvent: (workspaceId: string, event: string, payload: unknown) => {
+      broadcast({ type: 'event', event, payload: { workspaceId, ...(typeof payload === 'object' && payload !== null ? payload : {}) } })
     },
   }
 

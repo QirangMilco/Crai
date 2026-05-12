@@ -1,0 +1,16 @@
+{
+  "name": "@crai/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Configuration system for Crai — global settings + per-workspace project config",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@crai/core": "workspace:*"
+  }
+}
