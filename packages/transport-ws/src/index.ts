@@ -39,7 +39,6 @@ export interface WsTransport {
   /** 发布来自任意 workspace 的事件到所有客户端。事件消息中会带 workspaceId。 */
   publishEvent: (workspaceId: string, event: string, payload: unknown) => void
 }
-}
 
 // ── Factory ────────────────────────────────────────
 

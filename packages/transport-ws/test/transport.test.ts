@@ -247,6 +247,41 @@ describe('transport-ws', () => {
     ws.close()
   })
 
+  // ── publishEvent：向所有客户端广播 workspace 事件 ──
+  it('publishEvent 广播带 workspaceId 的事件', async () => {
+    const ws = new WebSocket(serverUrl)
+    // 先注册监听，再等 open，确保不会漏消息
+    const msgPromise = waitForMessage(ws)
+    await new Promise<void>((r) => ws.on('open', () => r()))
+
+    transport.publishEvent('/home/user/proj', 'turn.started', { turnId: 'turn-123' })
+
+    const raw = await msgPromise
+    const msg = JSON.parse(raw)
+    assert.equal(msg.type, 'event')
+    assert.equal(msg.event, 'turn.started')
+    assert.equal(msg.payload.workspaceId, '/home/user/proj')
+    assert.equal(msg.payload.turnId, 'turn-123')
+
+    ws.close()
+  })
+
+  // ── publishEvent：事件 payload 可以是非对象 ──
+  it('publishEvent 支持非对象 payload', async () => {
+    const ws = new WebSocket(serverUrl)
+    const msgPromise = waitForMessage(ws)
+    await new Promise<void>((r) => ws.on('open', () => r()))
+
+    transport.publishEvent('ws-1', 'custom.event', 'just a string')
+
+    const raw = await msgPromise
+    const msg = JSON.parse(raw)
+    assert.equal(msg.type, 'event')
+    assert.equal(msg.payload.workspaceId, 'ws-1')
+
+    ws.close()
+  })
+
   // ── 问题 7：start/stop 生命周期 ──
   it('stop 后新连接被拒绝', async () => {
     await transport.stop()

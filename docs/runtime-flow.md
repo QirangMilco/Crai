@@ -150,3 +150,53 @@ UI 和传输层应当消费事件，而不是依赖于运行时内部实现。
 - 保持钩子顺序显式化
 - 使重新加载和销毁过程安全
 - 优先选择支持此流程的最小内核表面
+
+---
+
+## 10. 多 WorkSpace 服务级流程 (Server-Level Multi-Workspace Flow)
+
+生产级 server (`apps/server`) 在上层编排多个独立 runtime。每个 workspace 有自己完整的 runtime 实例，各自独立执行第 3-8 节的流程。
+
+### 10.1 服务启动
+
+```txt
+server 启动
+  ├── 加载变体配置 → 确定数据目录名
+  ├── 加载全局配置（~/.crai-dev/config.json）
+  ├── 启动 WebSocket 服务（transport-ws，始终可用）
+  ├── WorkspaceManager 根据 recentWorkspaces 逐个启动 runtime
+  │    └── 每个 workspace 有自己的 RuntimeHandle、EventBus、SessionManager、storage、tools
+  └── 每个 workspace runtime 加载 event-forwarder extension
+       └── runtime 事件 → onEvent(workspaceId, event, payload) → transport.publishEvent()
+```
+
+### 10.2 配置变更触发运行时同步
+
+```txt
+用户通过 Web UI 添加 provider
+  → onConfigSetProvider → config.saveGlobal() → WorkspaceManager.sync()
+       ├── 检查每个已有 workspace 的配置：有 key → 保留，无 key → 停止
+       └── 遍历 recentWorkspaces：有 key 但未启动 → ensure()
+```
+
+### 10.3 工作区切换（客户端视角）
+
+```txt
+用户选择另一工作区
+  → onWorkspaceSwitch(dir) → WorkspaceManager.ensure(dir)
+       ├── 已启动 → 直接返回
+       └── 未启动 → 创建并启动 runtime，加载 forwarder
+  → 返回 { provider, model }
+  → 客户端切换活跃 workspaceId
+  → 后续事件自动对应新 workspace（无需等待）
+```
+
+### 10.4 事件路由
+
+```txt
+workspace-A runtime 触发 turn.started
+  → forwarder 调用 onEvent('workspace-A', 'turn.started', payload)
+  → transport.publishEvent('workspace-A', 'turn.started', payload)
+  → WebSocket broadcast({ type: 'event', event: 'turn.started', payload: { workspaceId: 'workspace-A', ... } })
+  → 客户端当前 workspaceId 匹配 → 渲染；不匹配 → 静默过滤
+```

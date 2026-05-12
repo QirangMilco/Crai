@@ -525,3 +525,69 @@ function toOpenAIMessages(contextMessages: Message[], system?: string): OpenAIMe
 - 函数签名变化时更新 JSDoc
 - 逻辑变化时更新关联的行注释
 - 节注释与文件结构调整同步
+
+---
+
+## 6. 测试沙箱规范 (Test Sandbox Standards)
+
+所有测试**必须**遵守以下规则：
+
+### 6.1 零真实系统影响
+
+测试不得修改真实文件系统、执行真实命令、或访问真实网络。具体约束：
+
+| 操作 | 规则 |
+|------|------|
+| 文件读写 | 只允许在 `mkdtempSync()` 创建的临时目录内操作 |
+| 命令执行 | 禁止真实 shell 执行。依赖 shell 的测试（如 tools-shell）必须 mock spawn |
+| 网络请求 | 禁止真实 HTTP 请求。依赖网络的测试必须 mock fetch/ws |
+| 环境变量 | 测试不应依赖或修改环境变量。需要配置的场景用 mock 注入 |
+
+### 6.2 临时目录的使用
+
+```typescript
+import { mkdtempSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+
+// 每个测试用例创建独立的临时目录
+const testDir = mkdtempSync(join(tmpdir(), 'crai-test-'))
+
+// 所有文件操作限制在此目录内
+writeFileSync(join(testDir, 'test.txt'), 'hello')
+```
+
+### 6.3 清理
+
+临时目录应在 `afterEach` 或 `after` 中递归删除：
+
+```typescript
+import { rmSync } from 'node:fs'
+
+afterEach(() => {
+  if (testDir && existsSync(testDir)) {
+    rmSync(testDir, { recursive: true, force: true })
+  }
+})
+```
+
+### 6.4 Mock 优先
+
+测试应尽可能 mock 外部依赖：
+
+```typescript
+// ✅ 正确：mock spawnSync，不执行真实命令
+const mockSpawnSync = (cmd: string, args: string[]) => {
+  assert.strictEqual(cmd, 'grep')
+  return { stdout: 'result', stderr: '', status: 0, pid: 1 }
+}
+```
+
+### 6.5 检查清单
+
+每个测试提交前应确认：
+- [ ] 没有文件写入到项目目录（使用 `mkdtempSync`）
+- [ ] 没有真实命令执行（mock spawn/spawnSync）
+- [ ] 没有真实网络请求（mock fetch/ws）
+- [ ] 没有环境变量泄漏
+- [ ] 临时资源在 `afterEach`/`after` 中清理
