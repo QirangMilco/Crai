@@ -28,6 +28,11 @@ export interface ResolveInputMessage {
   value: string
 }
 
+/** 客户端请求列出当前工作区的所有 session。 */
+export interface SessionListMessage {
+  type: 'session:list'
+}
+
 /** 客户端请求获取全局配置。 */
 export interface ConfigGetMessage {
   type: 'config:get'
@@ -87,6 +92,7 @@ export type ClientMessage =
   | WorkspaceSwitchMessage
   | WorkspaceConfigGetMessage
   | WorkspaceConfigSetMessage
+  | SessionListMessage
 
 // ── Server → Client ───────────────────────────────
 
@@ -143,6 +149,12 @@ export interface WorkspaceConfigDataMessage {
   config: WorkspaceConfig
 }
 
+/** session 列表响应。 */
+export interface SessionListDataMessage {
+  type: 'session:list:data'
+  sessions: Array<{ id: string; title?: string; createdAt: number; updatedAt: number }>
+}
+
 export type ServerMessage =
   | EventMessage
   | RequestInputMessage
@@ -152,3 +164,4 @@ export type ServerMessage =
   | WorkspaceListDataMessage
   | WorkspaceSwitchedMessage
   | WorkspaceConfigDataMessage
+  | SessionListDataMessage

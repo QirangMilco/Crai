@@ -364,6 +364,7 @@ export interface RuntimeHandle {
   createSession(input?: Metadata, sessionId?: ID): Promise<Session>
   stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
+  listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>>
   listMessages(sessionId: ID): Promise<Message[]>
   loadExtension(ext: Extension): Promise<void>
   unloadExtension(name: string): Promise<void>

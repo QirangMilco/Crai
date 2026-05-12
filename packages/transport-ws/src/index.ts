@@ -27,6 +27,8 @@ export interface WsTransportOptions {
   onReady?: (info: { port: number; url: string }) => void
   onConnectionChange?: (count: number) => void
   handlers?: WsTransportHandlers
+  /** 根据工作区路径获取对应的 runtime。没有 API key 时可能为 undefined。 */
+  getRuntime?: (rootDir: string) => RuntimeHandle | undefined
 }
 
 // ── 返回接口 ───────────────────────────────────────
@@ -43,15 +45,23 @@ export interface WsTransport {
 // ── Factory ────────────────────────────────────────
 
 export function createWsTransport(options: WsTransportOptions = {}): WsTransport {
-  const { host = '0.0.0.0', port: preferredPort = 0, handlers } = options
+  const { host = '0.0.0.0', port: preferredPort = 0, handlers, getRuntime } = options
   const httpServer = http.createServer()
   const wss = new WebSocketServer({ server: httpServer })
   const clients = new Set<WebSocket>()
   const pendingInputs = new Map<string, { resolve: (value: string) => void }>()
 
   let currentSessionId: string | undefined
-  let runtime: RuntimeHandle | undefined
-  let stopped = false
+  let currentWorkspace: string | undefined
+
+  function resolveRuntime(): RuntimeHandle | undefined {
+    if (getRuntime) {
+      if (currentWorkspace) return getRuntime(currentWorkspace)
+      // 没有设置当前工作区时尝试任意 runtime
+      return getRuntime('')
+    }
+    return undefined
+  }
 
   function broadcast(msg: ServerMessage): void {
     const json = JSON.stringify(msg)
@@ -61,24 +71,41 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
   }
 
   async function handleClientMessage(ws: WebSocket, msg: ClientMessage): Promise<void> {
-    if (!runtime) {
-      ws.send(JSON.stringify({ type: 'error', message: 'runtime not ready' } satisfies ServerMessage))
-      return
+    // ── 不需要 runtime 的消息（配置、工作区，放行通过） ──
+    switch (msg.type) {
+      case 'config:get':
+      case 'config:set':
+      case 'config:set:provider':
+      case 'config:remove:provider':
+      case 'workspace:list':
+      case 'workspace:switch':
+      case 'workspace:config:get':
+      case 'workspace:config:set':
+        break
+      default: {
+        const rt = resolveRuntime()
+        if (!rt) {
+          ws.send(JSON.stringify({ type: 'error', message: 'runtime not ready' } satisfies ServerMessage))
+          return
+        }
+      }
     }
 
     switch (msg.type) {
       case 'prompt': {
+        const rt = resolveRuntime()!
         const opts: any = {}
         if (msg.sessionId) opts.sessionId = msg.sessionId
         else if (currentSessionId) opts.sessionId = currentSessionId
-        const result = await runtime.prompt({ type: 'text', text: msg.text }, opts)
+        const result = await rt.prompt({ type: 'text', text: msg.text }, opts)
         currentSessionId = result.session.id
         ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
         break
       }
 
       case 'session:new': {
-        const session = await runtime.createSession(msg.system ? { system: msg.system } : undefined)
+        const rt = resolveRuntime()!
+        const session = await rt.createSession(msg.system ? { system: msg.system } : undefined)
         currentSessionId = session.id
         ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
         break
@@ -90,12 +117,19 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         break
       }
 
+      case 'session:list': {
+        const rt = resolveRuntime()!
+        const sessions = await rt.listSessions()
+        ws.send(JSON.stringify({ type: 'session:list:data', sessions } satisfies ServerMessage))
+        break
+      }
+
       // ── 配置 / 工作区消息（委托给 handlers） ──
 
       case 'config:get': {
         if (!handlers?.onConfigGet) { ws.send(JSON.stringify({ type: 'error', message: 'config not available' } satisfies ServerMessage)); break }
-        const config = await handlers.onConfigGet()
-        ws.send(JSON.stringify({ type: 'config:data', config } satisfies ServerMessage))
+        const cfg = await handlers.onConfigGet()
+        ws.send(JSON.stringify({ type: 'config:data', config: cfg } satisfies ServerMessage))
         break
       }
 
@@ -120,7 +154,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'workspace:list': {
         if (!handlers?.onWorkspaceList) { ws.send(JSON.stringify({ type: 'error', message: 'workspace not available' } satisfies ServerMessage)); break }
         const workspaces = await handlers.onWorkspaceList()
-        ws.send(JSON.stringify({ type: 'workspace:list:data', current: null, workspaces } satisfies ServerMessage))
+        ws.send(JSON.stringify({ type: 'workspace:list:data', current: currentWorkspace ?? null, workspaces } satisfies ServerMessage))
         break
       }
 
@@ -128,6 +162,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         if (!handlers?.onWorkspaceSwitch) { ws.send(JSON.stringify({ type: 'error', message: 'workspace switching not supported' } satisfies ServerMessage)); break }
         const info = await handlers.onWorkspaceSwitch(msg.rootDir)
         currentSessionId = undefined
+        currentWorkspace = msg.rootDir
         ws.send(JSON.stringify({ type: 'workspace:switched', rootDir: msg.rootDir, ...info } satisfies ServerMessage))
         break
       }
@@ -176,12 +211,13 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
     ws.on('error', () => ws.close())
   })
 
+  let stopped = false
+
   const transport: WsTransport = {
     extension: {
       name: 'transport-ws',
       setup(ctx) {
-        runtime = ctx.runtime
-
+        // 不再设置 runtime——改由 getRuntime 回调按当前工作区查询
         for (const key of Object.keys(EVENTS) as Array<keyof typeof EVENTS>) {
           const eventName = EVENTS[key]
           const handler = (event: any) => {
@@ -190,7 +226,6 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           }
           ctx.events.on(eventName, handler)
         }
-
         ctx.register({
           dispose: () => { /* cleanup handled by stop() */ },
         })

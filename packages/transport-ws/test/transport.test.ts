@@ -44,6 +44,7 @@ function mockRuntime(): RuntimeHandle {
     async listMessages() { return [] },
     async loadExtension() {},
     async unloadExtension() {},
+    async listSessions() { return [] },
     async dispose() {},
   }
 
@@ -111,7 +112,11 @@ describe('transport-ws', () => {
   beforeEach(async () => {
     runtime = mockRuntime()
     ctx = mockCtx(runtime)
-    transport = createWsTransport({ port: 0, host: '127.0.0.1' })
+    transport = createWsTransport({
+      port: 0,
+      host: '127.0.0.1',
+      getRuntime: (_dir) => runtime,
+    })
 
     // 模拟 runtime 加载 extension
     transport.extension.setup(ctx)

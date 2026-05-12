@@ -58,7 +58,12 @@ class WorkspaceManager {
   async ensure(rootDir: string): Promise<void> {
     if (this.runtimes.has(rootDir)) return
     const eff = this.config.getEffectiveConfig(this.config.getGlobal(), await this.config.loadWorkspace(rootDir))
-    if (!eff.apiKey) return
+    if (!eff.apiKey) {
+      // 没有 API key 时也会记录到 recentWorkspaces
+      await this.config.addRecentWorkspace(rootDir)
+      console.log(`[server] workspace 已记录: ${rootDir}（无 API key，尚未启动 runtime）`)
+      return
+    }
     const dataDir = this.config.workspaceDataDir(rootDir)
     const provider = eff.provider === 'deepseek'
       ? createDeepSeekProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined })
@@ -78,6 +83,11 @@ class WorkspaceManager {
     this.runtimes.set(rootDir, runtime)
     await this.config.addRecentWorkspace(rootDir)
     console.log(`[server] workspace 已启动: ${rootDir} (${eff.provider}/${eff.model})`)
+  }
+
+  /** 获取已启动的 runtime，不存在时返回 undefined。 */
+  getRuntime(rootDir: string): RuntimeHandle | undefined {
+    return this.runtimes.get(rootDir)
   }
 
   async stop(rootDir: string): Promise<void> {
@@ -120,7 +130,11 @@ async function main() {
       onConfigSet: (cfg) => { Object.assign(config.getGlobal(), cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigSetProvider: (name, cfg) => { config.setProvider(name, cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigRemoveProvider: (name) => { config.removeProvider(name); config.saveGlobal(); gWorkspaces?.sync() },
-      onWorkspaceList: async () => gWorkspaces?.list().map(r => ({ rootDir: r, config: {} as any })) ?? [],
+      onWorkspaceList: async () => {
+        const active = new Set(gWorkspaces?.list() ?? [])
+        const all = [...new Set([...active, ...(config.getGlobal().recentWorkspaces ?? [])])]
+        return all.map(r => ({ rootDir: r, config: {} as any }))
+      },
       onWorkspaceSwitch: async (dir) => {
         await gWorkspaces?.ensure(dir)
         const eff = config.getEffectiveConfig(config.getGlobal(), await config.loadWorkspace(dir))
@@ -129,6 +143,7 @@ async function main() {
       onWorkspaceConfigGet: async () => config.loadWorkspace(process.cwd()),
       onWorkspaceConfigSet: async (cfg) => { await config.saveWorkspace(process.cwd(), cfg); gWorkspaces?.sync() },
     },
+    getRuntime: (rootDir) => gWorkspaces?.getRuntime(rootDir),
   })
 
   gWorkspaces = new WorkspaceManager(config, (wsId, evt, payload) => {

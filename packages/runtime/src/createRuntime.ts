@@ -391,6 +391,11 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     createSession: (input, sessionId) => handleCreateSession(deps, runtime, input, sessionId),
     stopSession: (sessionId, messages) => handleStopSession(deps, runtime, sessionId, messages),
     getSession: async (sessionId) => deps.sessions.get(sessionId) ?? undefined,
+    listSessions: async () => {
+      const storages = deps.registries.storages.list()
+      const storage = storages[0]?.value
+      return storage ? storage.listSessions() : []
+    },
     listMessages: () => Promise.resolve([]),
     loadExtension: (ext) => handleLoadExtension(deps, runtime, loadedExtensions, options, ext),
     unloadExtension: (name) => handleUnloadExtension(deps, loadedExtensions, name),

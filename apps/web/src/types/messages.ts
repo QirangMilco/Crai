@@ -25,7 +25,7 @@ export interface ErrorMsg {
   message: string
 }
 
-export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg
+export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg | SessionListDataMsg
 
 // ── 配置/工作区 响应 ──
 
@@ -57,6 +57,11 @@ export interface WorkspaceConfigDataMsg {
   config: { provider?: string; model?: string; security?: { mode?: string } }
 }
 
+export interface SessionListDataMsg {
+  type: 'session:list:data'
+  sessions: Array<{ id: string; title?: string; createdAt: number; updatedAt: number }>
+}
+
 // ── Client → Server ──
 
 export interface PromptMsg {
@@ -70,13 +75,17 @@ export interface SessionNewMsg {
   system?: string
 }
 
+export interface SessionListMsg {
+  type: 'session:list'
+}
+
 export interface ResolveInputMsg {
   type: 'resolve:input'
   id: string
   value: string
 }
 
-export type ClientMsg = PromptMsg | SessionNewMsg | ResolveInputMsg |
+export type ClientMsg = PromptMsg | SessionNewMsg | ResolveInputMsg | SessionListMsg |
   ConfigGetMsg | ConfigSetMsg | ConfigSetProviderMsg | ConfigRemoveProviderMsg |
   WorkspaceListMsg | WorkspaceSwitchMsg | WorkspaceConfigGetMsg | WorkspaceConfigSetMsg
 
