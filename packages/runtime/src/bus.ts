@@ -236,7 +236,7 @@ export function createHookBus(trace?: TraceFn): HookBus<HookMap> {
         if (!result) continue
         if ('stop' in result && result.stop) {
           // 把 stop/reason 合并到返回值中，让调用方能检查到阻断
-          current = { ...(current as object), stop: true as const, reason: (result as any).reason } as typeof current
+          current = { ...(current as object), stop: true as const, reason: (result as any).reason } as unknown as typeof current
           break
         }
         if ('replace' in result) current = result.replace
