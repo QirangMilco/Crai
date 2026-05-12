@@ -15,7 +15,7 @@
 ### 交付物
 - `@crai/core`
 - `@crai/runtime`
-- `@crai/extension-sdk`
+- `@crai/core`（含 defineExtension）
 - 基础本地 TS 加载器
 - 一个最小的运行时入口点
 - 扩展权限声明支持

@@ -20,7 +20,7 @@ import { findPackages, parseTaskList } from '@crai/devtools'
 
 // 查找 packages/ 下所有子包
 const pkgs = findPackages('./packages')
-console.log(pkgs) // ['core', 'runtime', 'extension-sdk', ...]
+console.log(pkgs) // ['core', 'runtime', 'security', ...]
 
 // 解析实现跟踪器的任务列表
 import { readFileSync } from 'node:fs'

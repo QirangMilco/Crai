@@ -1,9 +1,10 @@
 /**
  * Crai core 的统一出口。
- * 只暴露稳定契约，不在这里塞入运行时实现。
  */
 export * from './types'
 export * from './events'
 export * from './hooks'
 export * from './constants'
 export * from './i18n'
+export { defineExtension } from './define-extension'
+export type { DefineExtensionConfig } from './define-extension'

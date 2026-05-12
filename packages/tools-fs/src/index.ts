@@ -6,25 +6,27 @@ import { spawnSync } from 'node:child_process'
 import { resolveAllowedPath, getPathArg } from './path-utils'
 import { lineHash } from './line-hash'
 import { editBySearch, editByHashline } from './edit'
+import { SnapshotManager } from './snapshot-manager'
 
 // ── 配置 ─────────────────────────────────────────────
 
 export interface FsToolsOptions {
   /** 工作区根目录，所有文件操作不得逃逸此目录。 */
   rootDir: string
-  /** 备份目录（默认 {rootDir}/.crai/backups）。 */
-  backupDir?: string
+  /** 快照目录（默认 {rootDir}/.crai/snapshots）。 */
+  snapshotsDir?: string
 }
 
 // ── Extension 工厂 ──────────────────────────────────
 
 export function createFsTools(options: FsToolsOptions): Extension {
   const rootDir = options.rootDir
-  const backupDir = options.backupDir ?? resolve(rootDir, '.crai', 'backups')
+  const snapshotsDir = options.snapshotsDir ?? resolve(rootDir, '.crai', 'snapshots')
 
   return {
     name: 'tools-fs',
     setup(ctx) {
+      const snapshots = new SnapshotManager(snapshotsDir)
       // ── fs_read ──
       ctx.registerTool({
         name: 'fs_read',
@@ -108,9 +110,7 @@ export function createFsTools(options: FsToolsOptions): Extension {
             }
 
             if (exists && args.overwrite) {
-              const dest = resolve(backupDir, `${Date.now().toString(36)}_write_${allowedPath.replace(/[/\\]/g, '_')}.bak`)
-              await fs.mkdir(backupDir, { recursive: true })
-              await fs.copyFile(allowedPath, dest).catch(() => {})
+              await snapshots.snapshot(request.session.id, rootDir, [allowedPath])
             }
 
             const parentDir = dirname(allowedPath)
@@ -228,7 +228,7 @@ export function createFsTools(options: FsToolsOptions): Extension {
           '2. 锚点模式：提供 startAnchor + replaceContent（可选 endAnchor）。' +
           ' 用于精确编辑——锚点格式 "行号:hash"（源自 fs_read 的输出，如 "42:a3c7"）。' +
           ' hash 校验确保编辑发生在正确位置。endAnchor 不传时编辑单行，传了表示替换 start-end 范围。\n' +
-          '修改前自动备份到 .crai/backups/。',
+          '修改前自动创建快照（.crai/snapshots/），支持回滚。',
         inputSchema: {
           type: 'object',
           properties: {
@@ -273,7 +273,8 @@ export function createFsTools(options: FsToolsOptions): Extension {
               const startAnchor = String(args.startAnchor ?? '')
               const endAnchor = args.endAnchor ? String(args.endAnchor) : startAnchor
               const replaceContent = String(args.replaceContent ?? '')
-              const result = await editByHashline(allowedPath, startAnchor, endAnchor, replaceContent, backupDir)
+              const sessionId = request.session.id
+              const result = await editByHashline(allowedPath, startAnchor, endAnchor, replaceContent, snapshots, rootDir, sessionId)
               return {
                 toolCallId: request.toolCall.toolCallId,
                 name: 'fs_edit',
@@ -286,7 +287,8 @@ export function createFsTools(options: FsToolsOptions): Extension {
             const searchContent = String(args.searchContent ?? '')
             const replaceContent = String(args.replaceContent ?? '')
             const occurrence = args.occurrence ? Number(args.occurrence) : 1
-            const result = await editBySearch(allowedPath, searchContent, replaceContent, occurrence, backupDir)
+            const sessionId = request.session.id
+            const result = await editBySearch(allowedPath, searchContent, replaceContent, occurrence, snapshots, rootDir, sessionId)
             return {
               toolCallId: request.toolCall.toolCallId,
               name: 'fs_edit',

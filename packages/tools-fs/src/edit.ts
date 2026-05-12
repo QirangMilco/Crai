@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { lineHash } from './line-hash'
 import { findBestMatch } from './fuzzy-match'
+import { SnapshotManager } from './snapshot-manager'
 
 export interface EditResult {
   success: boolean
@@ -19,12 +20,13 @@ export async function editBySearch(
   searchContent: string,
   replaceContent: string,
   occurrence: number,
-  backupDir: string,
+  snapshots: SnapshotManager,
+  rootDir: string,
+  sessionId: string,
 ): Promise<EditResult> {
   const content = await normalizedRead(filePath)
   const normSearch = searchContent.replace(/\r\n/g, '\n')
 
-  // 定位第 occ 处匹配
   let lastEnd = 0
   let found = 0
 
@@ -37,8 +39,8 @@ export async function editBySearch(
     const globalIdx = lastEnd + match.index
 
     if (found === occurrence) {
-      // 备份
-      const backupPath = await backupFile(filePath, 'editBySearch', backupDir)
+      // 快照备份
+      const opIndex = await snapshots.snapshot(sessionId, rootDir, [filePath])
 
       // 替换
       const newContent =
@@ -55,12 +57,11 @@ export async function editBySearch(
       const matchInfo = match.score < 1
         ? `（模糊匹配，相似度 ${(match.score * 100).toFixed(0)}%）`
         : ''
-      const backupInfo = backupPath ? `备份: ${backupPath}` : ''
 
       return {
         success: true,
         linesChanged,
-        message: `已替换第 ${occurrence} 处匹配${matchInfo}，影响约 ${linesChanged} 行。${backupInfo}`,
+        message: `已替换第 ${occurrence} 处匹配${matchInfo}，影响约 ${linesChanged} 行。快照序号: ${opIndex}`,
       }
     }
 
@@ -86,12 +87,13 @@ export async function editByHashline(
   startAnchor: string,
   endAnchor: string,
   replaceContent: string,
-  backupDir: string,
+  snapshots: SnapshotManager,
+  rootDir: string,
+  sessionId: string,
 ): Promise<EditResult> {
   const content = await normalizedRead(filePath)
   const lines = content.split('\n')
 
-  // 解析锚点
   const startLine = resolveAnchor(startAnchor, lines)
   if (startLine === -1) {
     return { success: false, linesChanged: 0, message: `锚点 ${startAnchor} 不匹配——文件内容可能已变化。` }
@@ -99,7 +101,7 @@ export async function editByHashline(
 
   let endLine: number
   if (endAnchor === startAnchor) {
-    endLine = startLine // 单行编辑
+    endLine = startLine
   } else {
     endLine = resolveAnchor(endAnchor, lines)
     if (endLine === -1) {
@@ -110,8 +112,8 @@ export async function editByHashline(
     }
   }
 
-  // 备份
-  const backupPath = await backupFile(filePath, 'editByHashline', backupDir)
+  // 快照备份
+  const opIndex = await snapshots.snapshot(sessionId, rootDir, [filePath])
 
   // 替换
   const beforeLines = lines.slice(0, startLine)
@@ -125,12 +127,11 @@ export async function editByHashline(
   await fs.writeFile(filePath, newContent, 'utf-8')
 
   const linesChanged = (endLine - startLine + 1)
-  const backupInfo = backupPath ? `备份: ${backupPath}` : '（备份失败）'
 
   return {
     success: true,
     linesChanged,
-    message: `已按锚点替换行 ${startLine + 1}-${endLine + 1}，影响约 ${linesChanged} 行。${backupInfo}`,
+    message: `已按锚点替换行 ${startLine + 1}-${endLine + 1}，影响约 ${linesChanged} 行。快照序号: ${opIndex}`,
   }
 }
 
@@ -155,18 +156,4 @@ function resolveAnchor(anchor: string, lines: string[]): number {
   return actualHash === expectedHash ? lineNum : -1
 }
 
-/** 备份文件到 `.crai/backups/{timestamp}_{originName}`。 */
-async function backupFile(filePath: string, origin: string, backupDir: string): Promise<string | null> {
-  try {
-    const { resolve, dirname } = await import('node:path')
-    const timestamp = Date.now().toString(36)
-    const name = filePath.replace(/[/\\]/g, '_')
-    const dest = resolve(backupDir, `${timestamp}_${origin}_${name}.bak`)
 
-    await fs.mkdir(backupDir, { recursive: true })
-    await fs.copyFile(filePath, dest)
-    return dest
-  } catch {
-    return null
-  }
-}

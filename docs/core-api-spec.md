@@ -303,11 +303,19 @@ export const BUS_SKIP: unique symbol
 ### 7.1 AdapterContext
 
 ```ts
+export interface ProgressEvent {
+  message: string
+  progress?: number
+  done?: boolean
+}
+
 export interface AdapterContext {
   signal?: AbortSignal
   logger: Logger
   session: Session
   turnId?: ID
+  /** 工具执行进度回调，GUI/Web 可监听实现实时显示。 */
+  emitProgress?(event: ProgressEvent): void
 }
 ```
 

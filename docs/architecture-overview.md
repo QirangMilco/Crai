@@ -155,7 +155,6 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 ```txt
 @crai/core
 @crai/runtime
-@crai/extension-sdk
 @crai/loader-ts
 ```
 
@@ -187,14 +186,8 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **工具执行前的安全检查拦截**
 - **文件路径沙箱校验**
 
-### 4.3 `@crai/extension-sdk`
-包含：
-- `defineExtension()`
-- `defineExtension()`
-- 辅助工具类 (Helper utilities)
-- `ExtensionManifest` 类型
-- 来自核心的类型化重导出
-- 扩展编写助手
+### 4.3 `@crai/core` (defineExtension)
+`defineExtension()` 辅助函数已合入 `@crai/core`，扩展作者只需 import 此包。
 - 类型化的钩子辅助方法 (typed hook helpers)
 - 重导出的核心类型 (re-exported core types)
 - `register()` 资源管理辅助
@@ -216,9 +209,9 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **Eino**: 借鉴其中间件 (Middleware) 管道设计和检查点 (Checkpoint) 机制，增强执行流的可控性。
 
 ### 5.2 扩展层 (Extensions) - 吸收自 OpenHanako / reasonix / snow-cli
-- **OpenHanako**: 借鉴其两级权限模型（restricted / full-access）、EventBus SKIP 链设计、register() 资源管理、错误隔离和前向兼容原则，直接作用于 `@crai/extension-sdk` 的设计。
+- **OpenHanako**: 借鉴其两级权限模型（restricted / full-access）、EventBus SKIP 链设计、register() 资源管理、错误隔离和前向兼容原则，直接作用于 `@crai/core` 的扩展契约设计。
 - **reasonix**: 吸收其语义缓存 (Semantic Cache) 逻辑和状态持久化策略，作为 `CacheAdapter` 的参考实现落位到 `packages/cache-default`。
-- **snow-cli**: 吸收其 MCP (Model Context Protocol) 客户端实现和工具确认工作流，落位到 `@crai/extension-sdk` 或独立的 `packages/extension-mcp`。
+- **snow-cli**: 吸收其 MCP (Model Context Protocol) 客户端实现和工具确认工作流，落位到独立 extension 包。
 
 ### 5.3 应用与 UI 层 (App / Shell) - 吸收自 crystalagents / snow-cli
 - **crystalagents**: 吸收其现代化的前端 UI 风格、主题系统以及基于 Markdown 的产物渲染逻辑，落位到 `apps/web` 或 `packages/ui-kit`。

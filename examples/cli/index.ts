@@ -100,12 +100,12 @@ async function main() {
     askHandler: createCliAskHandler(),
   })
 
-  const runtime = await createRuntime({
+  runtime = await createRuntime({
     extensions: [
       provider,
       createFileStorage({ baseDir: STORAGE_DIR }),
       createPersistenceExtension(),
-      createFsTools({ rootDir, backupDir: resolve(dirname(STORAGE_DIR), 'backups') }),
+      createFsTools({ rootDir, snapshotsDir: resolve(dirname(STORAGE_DIR), 'snapshots') }),
       createShellTools({ rootDir }),
       createWebTools(),
       security,
@@ -121,15 +121,20 @@ async function main() {
       readline: rl,
     })
   } finally {
+    // 清理子进程，关闭 readline
     processManager.killAll()
     rl.close()
-    await runtime.dispose()
+    // runtime.dispose 会触发 extension dispose
+    if (runtime) await runtime.dispose()
   }
 }
 
-// 进程退出时清理子进程
+// SIGINT / SIGTERM：先清理再退出
 process.on('SIGINT', () => { processManager.killAll(); process.exit(0) })
 process.on('SIGTERM', () => { processManager.killAll(); process.exit(0) })
+
+// 保存当前 runtime 引用
+let runtime: Awaited<ReturnType<typeof createRuntime>>
 
 main().catch((err) => {
   console.error('Fatal:', err)

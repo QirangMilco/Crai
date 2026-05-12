@@ -20,31 +20,16 @@ Crai 应当围绕五个层级进行组织：
 packages/
   core/
   runtime/
-  extension-sdk/
-  loader-ts/
-  devtools/
-  provider/
-  storage-fs/
-  tools-fs/               文件系统工具：读写搜索编辑
-  tools-shell/            shell 执行工具（含危险命令检测）
-  tools-web/              网络工具：搜索与抓取
-  security/               安全层：路径校验、权限确认
-  extension-memory/       完整记忆策略：压缩/检索/注入/整理
-  storage-vector/          (可选) 向量存储适配器（LanceDB/FAISS 等）
-  cache-default/
-  transport-websocket/
-  transport-cli/
-  transport-feishu/
-  ui-web/
-  shell-electron/
-apps/
-  dev-server/
-  web/
-  bootstrap-console/
-examples/
-  minimal-runtime/
-  web-chat/
-  feishu-bot/
+  cli-repl/               交互式 CLI REPL
+  devtools/               开发辅助工具
+  loader-ts/              TS 扩展加载器
+  persistence/            会话持久化
+  provider/               LLM provider
+  security/               安全层：路径校验、危险命令检测、权限确认
+  storage-fs/             文件系统存储
+  tools-fs/               文件系统工具
+  tools-shell/            shell 执行工具
+  tools-web/              网络工具
 docs/
 ```
 
@@ -56,7 +41,6 @@ docs/
 packages/
   core/
   runtime/
-  extension-sdk/
   loader-ts/
 ```
 
@@ -90,13 +74,9 @@ packages/
 - 适配器分发
 - 最小工具解析
 
-### 4.3 `packages/extension-sdk`
-- `defineExtension()`
-- `ExtensionManifest` 类型
-- 辅助工具类
-- 来自核心的类型化重导出
+### 4.3 `@crai/core` (defineExtension)
+`defineExtension()` 辅助函数已合入 `@crai/core`。
 - 扩展编写助手
-- `register()` 资源管理辅助
 
 ### 4.4 `packages/loader-ts`
 - 加载本地 `.ts` 扩展文件
@@ -119,9 +99,41 @@ packages/
 ### 4.7 `packages/storage-fs`
 - 文件系统存储适配器
 - session/message/artifact 以 JSON 文件持久化到磁盘
-- 通过 Extension 注册到 registry.storages，支持热替换
 
-### 4.8 `packages/extension-memory` (新增，Phase 2)
+### 4.8 `packages/cli-repl`
+- 交互式 CLI REPL
+- 流式输出模型回复
+- 内置危险命令确认（同一 readline 实例）
+
+### 4.9 `packages/persistence`
+- 会话持久化 extension
+- `turn:after` hook 保存消息
+- `session:afterStop` hook 更新 session 元数据
+
+### 4.10 `packages/security`
+- 路径校验（resolveAllowedPath）
+- 敏感命令检测（可配置 JSON，scope/disable）
+- `createWorkspaceSecurity` extension（tool:safetyCheck hook）
+- YOLO 模式支持
+
+### 4.11 `packages/tools-fs`
+- fs_read（hashline 锚点行号）
+- fs_write（自动建父目录、覆盖保护）
+- fs_grep（spawnSync 无 shell 注入）
+- fs_list
+- fs_edit（搜索替换 + 锚点两种模式）
+- 结构化快照（SnapshotManager）
+
+### 4.12 `packages/tools-shell`
+- bash（spawn 异步执行）
+- isDangerousCommand + isSelfDestructiveCommand
+- 进程管理（processManager）
+
+### 4.13 `packages/tools-web`
+- web_search（DuckDuckGo + Bing API 可插拔）
+- web_fetch
+
+### 4.14 `packages/extension-memory` (Phase 2)
 - 完整的记忆策略实现（借鉴 SimpleMem）
 - 语义结构化压缩：MemoryBuilder — 滑窗分割 + LLM 提取 → 多视图索引
 - 混合检索：HybridRetriever — 语义/关键词/结构化三路并行检索 + 反思轮次
@@ -175,10 +187,10 @@ packages/
 - `packages/core/src/hooks.ts`
 - `packages/runtime/src/createRuntime.ts`
 - `packages/runtime/src/turnRunner.ts`
-- `packages/extension-sdk/src/index.ts`
 - `packages/loader-ts/src/index.ts`
 - `packages/storage-fs/src/adapter.ts`
-- `packages/provider/src/openai/adapter.ts`
+- `packages/provider/src/index.ts`
+- `packages/security/src/workspace-security.ts`
 - `packages/devtools/src/index.ts`
 
 ### 记忆首批文件 (Memory First Files)

@@ -59,12 +59,6 @@ importers:
 
   packages/core: {}
 
-  packages/extension-sdk:
-    dependencies:
-      '@crai/core':
-        specifier: workspace:*
-        version: link:../core
-
   packages/loader-ts:
     dependencies:
       '@crai/core':
@@ -106,9 +100,6 @@ importers:
       '@crai/core':
         specifier: workspace:*
         version: link:../core
-      '@crai/security':
-        specifier: workspace:*
-        version: link:../security
 
   packages/tools-shell:
     dependencies:

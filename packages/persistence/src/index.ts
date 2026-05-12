@@ -14,6 +14,7 @@ export function createPersistenceExtension(): Extension {
   return {
     name: 'persistence',
     setup(ctx) {
+      // 每个 turn 后保存消息
       ctx.hooks.on(HOOKS.TURN_AFTER, async (payload) => {
         const { session, messages } = payload as { session: any; messages: any[] }
         const storage = ctx.registry.storages.list()[0]?.value
@@ -23,6 +24,17 @@ export function createPersistenceExtension(): Extension {
         for (const msg of messages) {
           await storage.appendMessage(session.id, msg)
         }
+        return { continue: true }
+      })
+
+      // session 停止时更新 session 元数据
+      ctx.hooks.on(HOOKS.SESSION_AFTER_STOP, async (payload) => {
+        const { session } = payload as { session: any }
+        const storage = ctx.registry.storages.list()[0]?.value
+        if (!storage) return { continue: true }
+
+        session.updatedAt = Date.now()
+        await storage.updateSession(session)
         return { continue: true }
       })
     },

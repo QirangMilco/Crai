@@ -8,20 +8,12 @@
 
 ```txt
 接收到输入 (input received)
-  -> 规范化输入 (normalize input)
-  -> 触发输入事件 (emit input event)
-  -> 运行扩展钩子 (run extension hooks)
   -> 构建上下文 (build context)
-  -> 运行中间件/钩子: 模型请求前 (run Middleware: BeforeModel)
   -> 调用模型适配器 (call model adapter)
   -> 流式处理模型输出 (stream model output)
-  -> 运行中间件/钩子: 模型响应后 (run Middleware: AfterModel)
-  -> 保存检查点 (save Checkpoint: PostModel)
   -> 收集工具调用 (collect tool calls)
-  -> 运行中间件/钩子: 工具执行前 (run Middleware: BeforeTool)
-  -> 执行工具 (execute tools)
-  -> 运行中间件/钩子: 工具执行后 (run Middleware: AfterTool)
-  -> 持久化状态 (persist state/final Checkpoint)
+  -> 安全检查 + 执行工具 (safety check + execute tools)
+  -> 有工具调用？→ 回到构建上下文（最多 10 轮）
   -> 运行 Turn 后钩子 (run after-turn hooks)
 ```
 

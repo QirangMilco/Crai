@@ -88,8 +88,8 @@ Crai 的目标不是一开始就完全自给自足，而是先依赖外部 codin
 - 事件总线 / 中间件与钩子总线 (event bus / middleware & hook bus)
 - 适配器分发 (adapter dispatch)
 
-### 3.3 `@crai/extension-sdk`
-提供扩展开发所需的辅助 API。
+### 3.3 `@crai/core` (defineExtension)
+扩展开发所需的辅助 API（`defineExtension`）已合入 `@crai/core`。
 
 ### 3.4 `packages/devtools` 或 `apps/*`
 承载所有通用开发能力：
