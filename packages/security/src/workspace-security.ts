@@ -33,15 +33,20 @@ export interface WorkspaceSecurityOptions {
    */
   yoloMode?: boolean
   /**
-   * 敏感命令配置列表。覆盖默认预设的 enabled/scope。
-   * 可通过 sensitiveCommandsFile 从 JSON 文件加载。
+   * 敏感命令配置列表（全局）。适用于用户家目录级别配置。
+   * 覆盖默认预设的 enabled/scope。
    */
   sensitiveCommands?: SensitiveCommandEntry[]
   /**
-   * 从 JSON 文件加载敏感命令配置。
-   * 与 sensitiveCommands 同时存在时，文件中的配置优先。
+   * 从 JSON 文件加载全局敏感命令配置（如 ~/.snow/sensitive-commands.json）。
+   * 与 sensitiveCommands 合并，两者都属于 global 层。
    */
   sensitiveCommandsFile?: string
+  /**
+   * 从 JSON 文件加载项目级敏感命令配置（如 .crai/sensitive-commands.json）。
+   * 优先级最高，覆盖全局层和默认预设。
+   */
+  sensitiveCommandsProjectFile?: string
 }
 
 // ── 入口 ─────────────────────────────────────────────
@@ -61,12 +66,17 @@ export function createWorkspaceSecurity(options: WorkspaceSecurityOptions): Exte
       async function getChecker() {
         if (!checkerPromise) {
           checkerPromise = (async () => {
-            const overrides = [...(options.sensitiveCommands ?? [])]
+            const globalOverrides = [...(options.sensitiveCommands ?? [])]
             if (options.sensitiveCommandsFile) {
-              const fileCommands = await loadSensitiveCommandsFromFile(options.sensitiveCommandsFile)
-              overrides.push(...fileCommands)
+              const fileCmds = await loadSensitiveCommandsFromFile(options.sensitiveCommandsFile)
+              globalOverrides.push(...fileCmds)
             }
-            return createSensitiveCommandChecker(overrides)
+            const projectOverrides: SensitiveCommandEntry[] = []
+            if (options.sensitiveCommandsProjectFile) {
+              const fileCmds = await loadSensitiveCommandsFromFile(options.sensitiveCommandsProjectFile)
+              projectOverrides.push(...fileCmds)
+            }
+            return createSensitiveCommandChecker(globalOverrides, projectOverrides)
           })()
         }
         return checkerPromise

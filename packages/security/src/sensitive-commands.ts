@@ -1,30 +1,23 @@
 // ── 类型 ─────────────────────────────────────────────
 
-/** 敏感命令作用域。 */
 export type SensitiveCommandScope = 'global' | 'project'
 
-/** 单条敏感命令配置。 */
 export interface SensitiveCommandEntry {
   id: string
-  /** 匹配模式（RegExp 字符串，运行时 new RegExp）。 */
   pattern: string
   description: string
-  /** 是否启用。禁用的模式不参与检测。 */
   enabled: boolean
-  /** 是否为内建预设（用户可改 enabled，不可删除）。 */
   isPreset: boolean
-  /** 作用域：global 始终生效，project 仅当前工作区生效。 */
   scope: SensitiveCommandScope
 }
 
-/** 敏感命令配置集合。 */
 export interface SensitiveCommandsConfig {
   commands: SensitiveCommandEntry[]
 }
 
-// ── 预设模式 ─────────────────────────────────────────
+// ── 预设模式（全部 scope: 'global'，不会写死 project）───
 
-export const DEFAULT_SENSITIVE_COMMANDS: SensitiveCommandEntry[] = [
+export const DEFAULT_PRESETS: SensitiveCommandEntry[] = [
   { id: 'rm',        pattern: '\\brm\\s',        description: '删除文件或目录',                  enabled: true,  isPreset: true, scope: 'global' },
   { id: 'rmdir',     pattern: '\\brmdir\\s',     description: '删除目录',                        enabled: true,  isPreset: true, scope: 'global' },
   { id: 'unlink',    pattern: '\\bunlink\\s',    description: '删除文件 (unlink)',               enabled: true,  isPreset: true, scope: 'global' },
@@ -37,25 +30,60 @@ export const DEFAULT_SENSITIVE_COMMANDS: SensitiveCommandEntry[] = [
   { id: 'su',        pattern: '\\bsu\\s',        description: '切换用户',                        enabled: false, isPreset: true, scope: 'global' },
   { id: 'chmod-rec', pattern: '\\bchmod\\s+-R\\s+777\\b', description: '递归修改权限为 777',    enabled: true,  isPreset: true, scope: 'global' },
   { id: 'chown-rec', pattern: '\\bchown\\s+-R\\s',      description: '递归修改所有者',          enabled: true,  isPreset: true, scope: 'global' },
-  { id: 'git-force-push', pattern: '\\bgit\\s+push\\b.*--force', description: '强制推送 git（破坏性）', enabled: true, isPreset: true, scope: 'project' },
-  { id: 'curl-post', pattern: '\\bcurl\\s.*-X\\s+POST',    description: 'HTTP POST 请求（潜在数据传输）', enabled: false, isPreset: true, scope: 'project' },
-  { id: 'wget',      pattern: '\\bwget\\s',      description: '从网络下载文件',                  enabled: false, isPreset: true, scope: 'project' },
+  { id: 'git-force-push', pattern: '\\bgit\\s+push\\b.*--force', description: '强制推送 git（破坏性）', enabled: true, isPreset: true, scope: 'global' },
+  { id: 'curl-post', pattern: '\\bcurl\\s.*-X\\s+POST',    description: 'HTTP POST 请求',       enabled: false, isPreset: true, scope: 'global' },
+  { id: 'wget',      pattern: '\\bwget\\s',      description: '从网络下载文件',                  enabled: false, isPreset: true, scope: 'global' },
 ]
+
+// ── 管道拆分 ────────────────────────────────────────
+
+/**
+ * 将命令按管道/连接符拆分为独立段，逐段检测敏感命令。
+ * 摘自 snow-cli splitCommand。
+ */
+export function splitCommand(command: string): string[] {
+  if (!command) return []
+
+  const separators = /(?:&&|\|\||;|\|)/g
+  const parts: string[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = separators.exec(command)) !== null) {
+    const part = command.slice(lastIndex, match.index).trim()
+    if (part) parts.push(part)
+    lastIndex = match.index + match[0].length
+  }
+
+  const last = command.slice(lastIndex).trim()
+  if (last) parts.push(last)
+
+  return parts.length > 0 ? parts : [command]
+}
 
 // ── 检查器工厂 ──────────────────────────────────────
 
 export interface SensitiveCommandChecker {
-  /** 检测命令是否匹配已启用的敏感模式。 */
   check(command: string): { matched: boolean; id?: string; description?: string; scope?: SensitiveCommandScope }
-  /** 获取当前启用的全部配置。 */
   getConfig(): SensitiveCommandEntry[]
 }
 
-/** 从配置数组创建检查器。合并预设与用户自定义，以 id 去重（非预设优先）。 */
+/**
+ * 创建敏感命令检查器。
+ *
+ * @param globalOverrides 全局覆盖（来自 ~/.snow/sensitive-commands.json）
+ * @param projectOverrides 项目覆盖（来自 .crai/sensitive-commands.json）
+ *
+ * 合并规则：
+ *   1. 以 DEFAULT_PRESETS 为基准
+ *   2. globalOverrides 覆盖（适用于用户家目录配置）
+ *   3. projectOverrides 覆盖（适用于项目本地配置）—— 优先级最高
+ */
 export function createSensitiveCommandChecker(
-  commands?: SensitiveCommandEntry[],
+  globalOverrides?: SensitiveCommandEntry[],
+  projectOverrides?: SensitiveCommandEntry[],
 ): SensitiveCommandChecker {
-  const merged = mergeCommands(commands ?? [])
+  const merged = mergeByScope(globalOverrides ?? [], projectOverrides ?? [])
 
   const enabledPatterns = merged
     .filter(c => c.enabled)
@@ -63,9 +91,12 @@ export function createSensitiveCommandChecker(
 
   return {
     check(command: string) {
-      for (const p of enabledPatterns) {
-        if (p.regex.test(command)) {
-          return { matched: true, id: p.id, description: p.description, scope: p.scope }
+      const parts = splitCommand(command)
+      for (const part of parts) {
+        for (const p of enabledPatterns) {
+          if (p.regex.test(part)) {
+            return { matched: true, id: p.id, description: p.description, scope: p.scope }
+          }
         }
       }
       return { matched: false }
@@ -76,26 +107,36 @@ export function createSensitiveCommandChecker(
   }
 }
 
-/** 合并默认预设与用户配置，以 id 去重。用户配置覆盖预设的 enabled/scope。 */
-function mergeCommands(overrides: SensitiveCommandEntry[]): SensitiveCommandEntry[] {
-  const map = new Map<string, SensitiveCommandEntry>()
-  for (const c of DEFAULT_SENSITIVE_COMMANDS) map.set(c.id, { ...c })
+/** 三层合并：默认 → global 覆盖 → project 覆盖。每层按 id 覆盖 enabled/scope。 */
+function mergeByScope(
+  globalOverrides: SensitiveCommandEntry[],
+  projectOverrides: SensitiveCommandEntry[],
+): SensitiveCommandEntry[] {
+  const base = new Map<string, SensitiveCommandEntry>()
+  for (const c of DEFAULT_PRESETS) base.set(c.id, { ...c })
+
+  applyOverrides(base, globalOverrides)
+  applyOverrides(base, projectOverrides)
+
+  return Array.from(base.values())
+}
+
+function applyOverrides(
+  base: Map<string, SensitiveCommandEntry>,
+  overrides: SensitiveCommandEntry[],
+): void {
   for (const c of overrides) {
-    const existing = map.get(c.id)
+    const existing = base.get(c.id)
     if (existing && existing.isPreset) {
-      // 用户只能改 enabled 和 scope，不能改 pattern/description/isPreset
-      map.set(c.id, { ...existing, enabled: c.enabled, scope: c.scope })
+      base.set(c.id, { ...existing, enabled: c.enabled, scope: c.scope })
     } else {
-      // 用户自定义新增
-      map.set(c.id, { ...c, isPreset: false })
+      base.set(c.id, { ...c, isPreset: false })
     }
   }
-  return Array.from(map.values())
 }
 
 // ── JSON 文件持久化辅助 ─────────────────────────────
 
-/** 从 JSON 文件加载敏感命令配置（覆盖默认设置的 enabled/scope）。返回合并后的配置。 */
 export async function loadSensitiveCommandsFromFile(filePath: string): Promise<SensitiveCommandEntry[]> {
   try {
     const { readFile } = await import('node:fs/promises')
@@ -108,7 +149,6 @@ export async function loadSensitiveCommandsFromFile(filePath: string): Promise<S
   }
 }
 
-/** 将配置保存到 JSON 文件。只保存非预设项和与预设不同的 enabled/scope。 */
 export async function saveSensitiveCommandsToFile(
   filePath: string,
   commands: SensitiveCommandEntry[],
