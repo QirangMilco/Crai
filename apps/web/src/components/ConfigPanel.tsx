@@ -36,6 +36,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
   const [editKey, setEditKey] = useState('')                      // 编辑中的 API key
   const [editBaseURL, setEditBaseURL] = useState('')              // 编辑中的 base URL
   const [editModel, setEditModel] = useState('')                  // 编辑中的 default model
+  const [editModelsPath, setEditModelsPath] = useState('')        // 编辑中的 models 路径
   const [fetchedModels, setFetchedModels] = useState<string[]>([])
   const [fetching, setFetching] = useState(false)
 
@@ -61,6 +62,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
     setEditKey(p.apiKey)
     setEditBaseURL(p.baseURL ?? firstPartyDefault(name)?.defaultBaseURL ?? '')
     setEditModel(config?.defaultModel ?? p.models?.[0] ?? '')
+    setEditModelsPath((p as any).modelsPath ?? '')
     setFetchedModels(p.models ?? [])
   }
 
@@ -70,6 +72,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
       apiKey: editKey,
       baseURL: editBaseURL || undefined,
       models: fetchedModels.length > 0 ? fetchedModels : undefined,
+      modelsPath: editModelsPath || undefined,
     }})
     // 同时设置 defaultModel
     const gc = { ...config, defaultModel: editModel || undefined }
@@ -88,7 +91,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
   function fetchModelList() {
     if (!editing) return
     setFetching(true)
-    const base = editBaseURL.replace(//+$/, '')
+    const base = editBaseURL.replace(/\/+$/, '')
     if (!base) { setFetching(false); return }
     fetch(`${base}/models`, {
       headers: { Authorization: `Bearer ${editKey}` },
@@ -210,6 +213,16 @@ export function ConfigPanel({ config, send, onClose }: Props) {
                         className="w-full px-2.5 py-1.5 rounded text-xs outline-none"
                         style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
                     </div>
+                    {!entry.isPreset && (
+                      <div>
+                        <div className="text-[10px] mb-0.5" style={{ color: 'var(--crai-fg-tertiary)' }}>Models API 路径</div>
+                        <input value={editModelsPath} onChange={e => setEditModelsPath(e.target.value)}
+                          placeholder="/models"
+                          className="w-full px-2.5 py-1.5 rounded text-xs outline-none"
+                          style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+                      </div>
+                    )}
+                    {/* 模型选择和获取按钮 */}
                     <div>
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>默认模型</span>

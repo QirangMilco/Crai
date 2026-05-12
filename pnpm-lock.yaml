@@ -131,14 +131,13 @@ importers:
         specifier: ^0.21.1
         version: 0.21.2(vite@6.4.2(@types/node@25.6.2)(jiti@1.21.7)(terser@5.47.1)(tsx@4.21.0))(workbox-build@7.4.1(@types/babel__core@7.20.5))(workbox-window@7.4.1)
 
+  packages/base: {}
+
   packages/cli-repl:
     dependencies:
       '@crai/core':
         specifier: workspace:*
         version: link:../core
-      '@crai/runtime':
-        specifier: workspace:*
-        version: link:../runtime
 
   packages/config:
     dependencies:
@@ -147,6 +146,8 @@ importers:
         version: link:../core
 
   packages/core: {}
+
+  packages/devtools: {}
 
   packages/loader-ts:
     dependencies:
@@ -174,6 +175,9 @@ importers:
 
   packages/security:
     dependencies:
+      '@crai/base':
+        specifier: workspace:*
+        version: link:../base
       '@crai/core':
         specifier: workspace:*
         version: link:../core
@@ -190,6 +194,9 @@ importers:
 
   packages/tools-fs:
     dependencies:
+      '@crai/base':
+        specifier: workspace:*
+        version: link:../base
       '@crai/core':
         specifier: workspace:*
         version: link:../core
@@ -215,9 +222,6 @@ importers:
         specifier: ^8.18.1
         version: 8.20.0
     devDependencies:
-      '@crai/config':
-        specifier: workspace:*
-        version: link:../config
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1

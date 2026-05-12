@@ -100,7 +100,7 @@ export type ClientMsg = PromptMsg | SessionNewMsg | ResolveInputMsg | SessionLis
 
 export interface ConfigGetMsg { type: 'config:get' }
 export interface ConfigSetMsg { type: 'config:set'; config: any }
-export interface ConfigSetProviderMsg { type: 'config:set:provider'; name: string; config: { apiKey: string; baseURL?: string; models?: string[] } }
+export interface ConfigSetProviderMsg { type: 'config:set:provider'; name: string; config: { apiKey: string; baseURL?: string; models?: string[]; modelsPath?: string } }
 export interface ConfigRemoveProviderMsg { type: 'config:remove:provider'; name: string }
 export interface ConfigFetchModelsMsg { type: 'config:fetch:models'; providerName: string }
 export interface WorkspaceListMsg { type: 'workspace:list' }

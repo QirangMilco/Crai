@@ -135,9 +135,14 @@ async function main() {
         const global = config.getGlobal()
         const p = global.providers[providerName]
         if (!p) return { models: [], error: `Provider "${providerName}" 不存在` }
-        const models = await listModels(p.apiKey, p.baseURL)
-        if (models.length === 0) return { models: [], error: '无法获取模型列表，请检查 API key 或网络连接' }
-        return { models }
+        console.log(`[server] 正在获取 ${providerName} 的模型列表...`)
+        const result = await listModels(p.apiKey, p.baseURL, p.modelsPath)
+        if (result.error) {
+          console.log(`[server] 获取模型列表失败: ${result.error}`)
+        } else {
+          console.log(`[server] 获取到 ${result.models.length} 个模型`)
+        }
+        return result
       },
       onWorkspaceList: async () => {
         const active = new Set(gWorkspaces?.list() ?? [])

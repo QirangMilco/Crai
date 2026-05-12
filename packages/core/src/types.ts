@@ -228,6 +228,8 @@ export interface ProviderConfig {
   apiKey: string
   baseURL?: string
   models?: string[]
+  /** 获取模型列表的 API 路径。默认 /models。 */
+  modelsPath?: string
 }
 
 export interface GlobalConfig {

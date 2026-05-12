@@ -10,7 +10,6 @@
     }
   },
   "dependencies": {
-    "@crai/core": "workspace:*",
-    "@crai/runtime": "workspace:*"
+    "@crai/core": "workspace:*"
   }
 }

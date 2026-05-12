@@ -1,0 +1,18 @@
+{
+  "name": "@crai/base",
+  "version": "0.1.0",
+  "private": true,
+  "description": "底层共享工具函数 — 路径校验、resolve、join 等跨包公用逻辑",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./path": {
+      "types": "./src/path.ts",
+      "default": "./src/path.ts"
+    }
+  },
+  "dependencies": {}
+}

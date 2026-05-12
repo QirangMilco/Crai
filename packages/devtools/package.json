@@ -1,7 +1,8 @@
 {
-  "name": "@crai/tools-fs",
+  "name": "@crai/devtools",
   "version": "0.1.0",
   "private": true,
+  "description": "开发辅助工具包 — 任务追踪、仓库巡检、工作流助手",
   "type": "module",
   "exports": {
     ".": {
@@ -9,8 +10,5 @@
       "default": "./src/index.ts"
     }
   },
-  "dependencies": {
-    "@crai/core": "workspace:*",
-    "@crai/base": "workspace:*"
-  }
+  "dependencies": {}
 }

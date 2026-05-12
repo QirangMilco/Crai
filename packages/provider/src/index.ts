@@ -20,19 +20,23 @@ export { sseLines } from './core/stream'
  * 大部分 OpenAI 兼容提供商在 {baseURL}/models 返回标准格式。
  * 少数接口不同的提供商可通过 provider config 的 modelsPath 指定。
  */
-export async function listModels(apiKey: string, baseURL?: string, modelsPath?: string): Promise<string[]> {
+export async function listModels(apiKey: string, baseURL?: string, modelsPath?: string): Promise<{ models: string[]; error?: string }> {
   const base = (baseURL || '').replace(/\/+$/, '')
-  if (!base) return []
-  const url = `${base}${modelsPath || '/models'}?${Date.now()}`
+  if (!base) return { models: [], error: '未设置 Base URL' }
+  const url = `${base}${modelsPath || '/models'}`
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(5000),
     })
-    if (!res.ok) return []
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      return { models: [], error: `HTTP ${res.status}: ${text.slice(0, 200)}` }
+    }
     const body = (await res.json()) as { data?: Array<{ id: string }> }
-    return (body.data ?? []).map((m: { id: string }) => m.id).sort()
-  } catch {
-    return []
+    const models = (body.data ?? []).map((m: { id: string }) => m.id).sort()
+    return { models, error: models.length === 0 ? 'API 返回了空列表' : undefined }
+  } catch (err: any) {
+    return { models: [], error: err?.message ?? String(err) }
   }
 }
