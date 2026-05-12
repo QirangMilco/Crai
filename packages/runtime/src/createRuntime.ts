@@ -67,6 +67,11 @@ export interface RuntimeOptions {
    * - `'realtime'`     — 每步实时输出到 stderr
    */
   trace?: boolean | TraceMode
+  /**
+   * 工具在执行中向用户提问的回调。
+   * CLI 注入 readline question，GUI 注入弹窗。
+   */
+  requestUserInput?(question: string, options?: string[]): Promise<string>
 }
 
 // ── 内部类型 ──────────────────────────────────────
@@ -83,6 +88,7 @@ interface RuntimeDeps {
   middlewares: ModelMiddlewareStore
   configStore: ExtensionConfigStore
   traceCollector?: ReturnType<typeof createTraceCollector>
+  requestUserInput?: (question: string, options?: string[]) => Promise<string>
 }
 
 // ── 辅助函数 ───────────────────────────────────────
@@ -113,7 +119,7 @@ function createDeps(options?: RuntimeOptions): RuntimeDeps {
     get(_key) { return undefined },
     async set(_key, _value) {},
   }
-  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore, traceCollector }
+  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore, traceCollector, requestUserInput: options?.requestUserInput }
 }
 
 function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
@@ -249,6 +255,7 @@ async function handlePrompt(
     adapterContext: {
       logger: deps.logger,
       session: session,
+      requestUserInput: deps.requestUserInput,
     },
   }
 

@@ -55,9 +55,20 @@ const provider = PROVIDER === 'deepseek'
   : createOpenAIProvider(providerOptions)
 
 // ── CLI 确认回调 ───────────────────────────────────
-// 全局唯一的 readline 实例（传给 cli-repl 和 askHandler，避免双回显）
+// 全局唯一的 readline 实例（传给 cli-repl 和工具交互，避免双回显）
 const rl = createInterface({ input: process.stdin, output: process.stdout })
 const sessionApprovedTools = new Set<string>()
+
+// 工具执行中用户提问的回调（如 fs_write 询问是否覆盖）
+function createCliUserInput() {
+  return async (question: string, options?: string[]): Promise<string> => {
+    const prompt = options?.length
+      ? `\n${question}\n${options.map((o, i) => `  ${i + 1}. ${o}`).join('\n')}\n请选择 (1-${options.length}): `
+      : `\n${question}: `
+    const answer = await rl.question(prompt)
+    return answer.trim()
+  }
+}
 
 function createCliAskHandler() {
   return async (request: { toolName: string; args: Record<string, unknown>; reason: string; isSensitive?: boolean }): Promise<boolean> => {
@@ -111,6 +122,7 @@ async function main() {
       security,
     ],
     trace: TRACE_OPTION,
+    requestUserInput: createCliUserInput(),
   })
 
   try {

@@ -150,6 +150,14 @@ export interface AdapterContext {
    * 默认空实现，不发射任何事件。
    */
   emitProgress?(event: ProgressEvent): void
+  /**
+   * 工具在执行中向用户提问。CLI 用 readline，GUI 用弹窗。
+   * 如果没注入此回调，需要用户交互的工具应自行降级。
+   * @param question 问题描述
+   * @param options 可选选项列表（为空时自由输入）
+   * @returns 用户输入/选择的字符串
+   */
+  requestUserInput?(question: string, options?: string[]): Promise<string>
 }
 
 /** 存储适配器：session/message/artifact 的持久化。 */

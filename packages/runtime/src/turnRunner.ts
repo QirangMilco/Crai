@@ -192,6 +192,69 @@ export async function runTurn(
   let finalResponse: ModelResponse | undefined
   let allRoundMessages: Message[] = [inputAsMsg]
 
+  // ── 辅助：为工具调用分配资源 ID ──
+  function getResourceId(tc: ToolCallPart): string {
+    const args = tc.arguments as Record<string, unknown> | undefined
+    const path = typeof args?.path === 'string' ? args.path : ''
+    if (tc.name === 'bash') return 'res:terminal'
+    if (tc.name === 'fs_write' || tc.name === 'fs_edit') return `res:fs:${path || ''}`
+    if (tc.name === 'fs_read' || tc.name === 'fs_list' || tc.name === 'fs_grep') return `res:fs-read:${path}`
+    if (tc.name.startsWith('web_')) return `res:web:${tc.toolCallId}`
+    return `res:indep:${tc.toolCallId}`
+  }
+
+  // ── 辅助：执行单个工具 ──
+  async function runOneTool(
+    tc: ToolCallPart,
+    defMap: Map<string, ToolDefinition>,
+  ): Promise<{ execResult: ToolExecutionResult; tc: ToolCallPart }> {
+    const def = defMap.get(tc.name)
+    if (!def) {
+      await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 未注册` })
+      return { tc, execResult: makeErrResult(tc, `工具 "${tc.name}" 未注册`) }
+    }
+    const safetyResult: any = await deps.hooks.run(
+      HOOKS.TOOL_SAFETY_CHECK,
+      { session, toolCall: tc, definition: def, mode: PERMISSION_MODES.ASK },
+      { runtime },
+    )
+    if (safetyResult?.stop) {
+      await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: safetyResult.reason ?? '权限拒绝' })
+      return { tc, execResult: makeErrResult(tc, `权限拒绝: ${safetyResult.reason ?? '工具调用被安全策略阻止'}`) }
+    }
+    const handler = deps.resolveTool ? await deps.resolveTool(tc.name) : undefined
+    debugLog(DEBUG_SCOPES.TOOLS, `工具调用: ${tc.name}`, {
+      toolCallId: tc.toolCallId, name: tc.name, arguments: tc.arguments,
+    })
+    if (!handler) {
+      await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 无 handler` })
+      return { tc, execResult: makeErrResult(tc, `工具 "${tc.name}" 无 handler`) }
+    }
+    const execResult = await executeOneTool(handler, tc, session, deps, turnId)
+    debugLog(DEBUG_SCOPES.TOOLS, `工具结果: ${tc.name}`, {
+      toolCallId: execResult.toolCallId, name: execResult.name, isError: execResult.isError,
+    })
+    return { tc, execResult }
+  }
+
+  function makeErrResult(tc: ToolCallPart, msg: string): ToolExecutionResult {
+    return { toolCallId: tc.toolCallId, name: tc.name, isError: true, content: [{ type: MESSAGE_PART_TYPES.TEXT, text: msg }] }
+  }
+
+  function tcToMsg(tc: ToolCallPart, r: ToolExecutionResult): Message {
+    return {
+      id: `${session.id}_tool_${tc.toolCallId}`,
+      role: MESSAGE_ROLES.TOOL,
+      createdAt: Date.now(),
+      parts: r.content,
+      toolCallId: tc.toolCallId,
+      toolName: tc.name,
+      isError: r.isError ?? false,
+    }
+  }
+
+  // ── 工具执行循环 ──
+
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const request: ModelRequest = {
       sessionId: session.id,
@@ -258,88 +321,33 @@ export async function runTurn(
     // 每个工具调用独立执行，每条结果独立成一条 Message（参见 D-032）
     const toolDefs = deps.resolveTools ? await deps.resolveTools() : []
     const defMap = new Map(toolDefs.map(d => [d.name, d]))
-    const toolResultMessages: Message[] = []
 
+    // 分组并行执行：同资源串行，不同资源并行
+    const groups = new Map<string, ToolCallPart[]>()
     for (const tc of toolCalls) {
-      const def = defMap.get(tc.name)
-      if (!def) {
-        await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 未注册` })
-        toolResultMessages.push({
-          id: `${session.id}_tool_${tc.toolCallId}`,
-          role: MESSAGE_ROLES.TOOL,
-          createdAt: Date.now(),
-          parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 未注册` }],
-          toolCallId: tc.toolCallId,
-          toolName: tc.name,
-          isError: true,
-        })
-        continue
+      const rid = getResourceId(tc)
+      const g = groups.get(rid) ?? []
+      g.push(tc)
+      groups.set(rid, g)
+    }
+
+    const groupPromises = Array.from(groups.values()).map(async (group) => {
+      const results: Array<{ tc: ToolCallPart; execResult: ToolExecutionResult }> = []
+      for (const tc of group) {
+        results.push(await runOneTool(tc, defMap))
       }
+      return results
+    })
 
-      // 安全检查 —— hook handler 返回 { stop: true } 时拒绝执行
-      const safetyResult: any = await deps.hooks.run(
-        HOOKS.TOOL_SAFETY_CHECK,
-        { session, toolCall: tc, definition: def, mode: PERMISSION_MODES.ASK },
-        { runtime },
-      )
+    const groupedResults = await Promise.all(groupPromises)
+    const allResults = groupedResults.flat()
 
-      if (safetyResult?.stop) {
-        await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: safetyResult.reason ?? '权限拒绝' })
-        toolResultMessages.push({
-          id: createId('msg'),
-          role: MESSAGE_ROLES.TOOL,
-          createdAt: Date.now(),
-          parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: `权限拒绝: ${safetyResult.reason ?? '工具调用被安全策略阻止'}` }],
-          toolCallId: tc.toolCallId,
-          toolName: tc.name,
-          isError: true,
-        })
-        continue
-      }
-
-      // 查找 handler 并执行
-      const handler = deps.resolveTool ? await deps.resolveTool(tc.name) : undefined
-
-      // 调试：输出工具调用的原始 JSON
-      debugLog(DEBUG_SCOPES.TOOLS, `工具调用: ${tc.name}`, {
-        toolCallId: tc.toolCallId,
-        name: tc.name,
-        arguments: tc.arguments,
-      })
-
-      if (!handler) {
-        await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 无 handler` })
-        toolResultMessages.push({
-          id: `${session.id}_tool_${tc.toolCallId}`,
-          role: MESSAGE_ROLES.TOOL,
-          createdAt: Date.now(),
-          parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: `工具 "${tc.name}" 无 handler` }],
-          toolCallId: tc.toolCallId,
-          toolName: tc.name,
-          isError: true,
-        })
-        continue
-      }
-
-      const execResult = await executeOneTool(handler, tc, session, deps, turnId)
-
-      // 调试：输出工具执行结果
-      debugLog(DEBUG_SCOPES.TOOLS, `工具结果: ${tc.name}`, {
-        toolCallId: execResult.toolCallId,
-        name: execResult.name,
-        isError: execResult.isError,
-        content: execResult.content,
-      })
-
-      toolResultMessages.push({
-        id: `${session.id}_tool_${tc.toolCallId}`,
-        role: MESSAGE_ROLES.TOOL,
-        createdAt: Date.now(),
-        parts: execResult.content,
-        toolCallId: tc.toolCallId,
-        toolName: tc.name,
-        isError: execResult.isError ?? false,
-      })
+    // 按原始 toolCalls 顺序重建结果
+    const resultByCallId = new Map(allResults.map(r => [r.execResult.toolCallId, r]))
+    const toolResultMessages: Message[] = []
+    for (const tc of toolCalls) {
+      const r = resultByCallId.get(tc.toolCallId)
+      if (r) toolResultMessages.push(tcToMsg(r.tc, r.execResult))
     }
 
     // 每条 tool result 独立追加到上下文

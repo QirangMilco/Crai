@@ -235,4 +235,116 @@ describe('工具执行循环', () => {
 
     await runtime.dispose()
   })
+
+  it('多工具并行执行并保留顺序', async () => {
+    const execOrder: number[] = []
+
+    const parallelExt: Extension = {
+      name: 'test:parallel-ext',
+      setup(ctx) {
+        let callCount = 0
+        const model: ModelAdapter = {
+          name: 'test:parallel-model',
+          async request(): Promise<ModelResponse> {
+            callCount++
+            if (callCount === 1) {
+              return {
+                message: {
+                  id: `msg_${Date.now()}`,
+                  role: MESSAGE_ROLES.ASSISTANT,
+                  createdAt: Date.now(),
+                  parts: [
+                    { type: MESSAGE_PART_TYPES.TEXT, text: '开始并行执行' },
+                    { type: MESSAGE_PART_TYPES.TOOL_CALL, toolCallId: 'tc-a', name: 'test:slow', arguments: { delay: 50 } },
+                    { type: MESSAGE_PART_TYPES.TOOL_CALL, toolCallId: 'tc-b', name: 'test:fast', arguments: { msg: 'b' } },
+                    { type: MESSAGE_PART_TYPES.TOOL_CALL, toolCallId: 'tc-c', name: 'test:slow', arguments: { delay: 50 } },
+                  ],
+                },
+                stopReason: 'tool_calls',
+              }
+            }
+            return {
+              message: {
+                id: `msg_${Date.now()}`,
+                role: MESSAGE_ROLES.ASSISTANT,
+                createdAt: Date.now(),
+                parts: [{ type: MESSAGE_PART_TYPES.TEXT, text: '全部工具执行完毕' }],
+              },
+              stopReason: 'stop',
+            }
+          },
+          async *stream() {
+            yield { type: STREAM_EVENT_TYPES.DONE, response: await this.request({} as any) }
+          },
+        }
+        ctx.registry.models.register('test:parallel-model', model)
+
+        let slowCounter = 0
+        ctx.registerTool({
+          name: 'test:slow',
+          description: '模拟耗时操作',
+          inputSchema: { type: 'object', properties: { delay: { type: 'number' } } },
+          safetyLevel: 'safe' as any,
+          execute: async (request): Promise<ToolExecutionResult> => {
+            const delay = (request.toolCall.arguments as any)?.delay ?? 0
+            await new Promise(r => setTimeout(r, delay))
+            execOrder.push(slowCounter++)
+            return {
+              toolCallId: request.toolCall.toolCallId,
+              name: 'test:slow',
+              content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `slow-${delay}` }],
+            }
+          },
+        })
+
+        ctx.registerTool({
+          name: 'test:fast',
+          description: '立即返回',
+          inputSchema: { type: 'object', properties: { msg: { type: 'string' } } },
+          safetyLevel: 'safe' as any,
+          execute: async (request): Promise<ToolExecutionResult> => {
+            execOrder.push(100)
+            return {
+              toolCallId: request.toolCall.toolCallId,
+              name: 'test:fast',
+              content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `fast-${(request.toolCall.arguments as any)?.msg ?? ''}` }],
+            }
+          },
+        })
+      },
+    }
+
+    const runtime = await createRuntime({
+      extensions: [parallelExt],
+      logger: QUIET_LOGGER,
+    })
+
+    const start = Date.now()
+    const result = await runtime.prompt(
+      { type: RUNTIME_INPUT_TYPES.TEXT, text: '并行执行多个工具' },
+      { model: 'test:parallel-model' },
+    )
+    const elapsed = Date.now() - start
+
+    const toolCount = result.messages.filter(m => m.role === MESSAGE_ROLES.TOOL).length
+    assert.equal(toolCount, 3, '应产生 3 条 tool result 消息')
+    assert.equal(execOrder.length, 3, '所有工具都应执行')
+
+    // 快工具应早于两个慢工具完成（如果串行则排在最后）
+    const fastIndex = execOrder.indexOf(100)
+    // 并行：0ms 任务在 50ms 任务之前完成 → fastIndex 为 0
+    // 串行：先执行 50ms 再执行 0ms → fastIndex 为 1
+    // 断言 fastIndex 为 0 证明并行
+    assert.equal(fastIndex, 0, `快工具应为第一个完成（并行），实际顺序 ${JSON.stringify(execOrder)}`)
+
+    // 总时间应 < 两个 50ms 串行的 100ms
+    assert.ok(elapsed < 80, `并行执行时间 ${elapsed}ms 应 < 80ms（串行两个 50ms 工具应 > 100ms）`)
+
+    // 结果按原始顺序排列
+    assert.equal(result.messages[2].toolCallId, 'tc-a')
+    assert.equal(result.messages[3].toolCallId, 'tc-b')
+    assert.equal(result.messages[4].toolCallId, 'tc-c')
+
+    await runtime.dispose()
+  })
 })
