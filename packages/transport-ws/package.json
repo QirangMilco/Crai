@@ -1,0 +1,20 @@
+{
+  "name": "@crai/transport-ws",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WebSocket transport for Crai runtime — connects GUI/web clients to the runtime",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@crai/core": "workspace:*",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}
