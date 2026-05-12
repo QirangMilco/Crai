@@ -81,47 +81,11 @@ Runtime 内核不应拥有记忆策略实现。记忆策略由用户自行选择
 
 ### 3.5 安全是跨层关注点 (Safety is Cross-Layer)
 
-安全防护采用纵深防御策略，在四层同时生效：
-
-- **Core 层**：定义 `ToolSafetyLevel`（安全/受限/危险）、`PermissionMode`（探索/确认/执行）、`SandboxScope`（文件系统根路径、可写路径白名单、禁止路径黑名单）和 `PermissionAdapter` 契约
-- **Runtime 层**：在 turnRunner 的工具执行路径上强制执行安全检查；每个 `ToolDefinition` 必须有 safetyLevel 声明；路径沙箱在工具分发层校验
-- **Extension 层**：提供默认的危险命令列表、默认权限策略适配器、OS 级沙箱集成（可选）
-- **App/UI 层**：负责权限确认的交互呈现（确认对话框 / permission panel）
-
-> 详细的安全模型设计请参见 [security-model.md](security-model.md)。
+Crai 的安全防护采用纵深防御策略，在四层同时生效。详见 [security-model.md](security-model.md)。
 
 ### 3.7 Middleware 与 Hook 的语义区分
 
-**Middleware** — 洋葱圈包裹模型调用。注册多个 middleware 时会嵌套执行，每个 middleware 不调 `next()` 即可跳过原始调用。适合：缓存、重试、降级、日志、限流。
-
-```ts
-// 缓存中间件
-const cacheMw: ModelMiddleware = {
-  async wrap(input, next) {
-    const cached = cache.get(input)
-    if (cached) return cached
-    return next(input)
-  },
-}
-
-ctx.registerModelMiddleware(cacheMw)
-```
-
-**Hook** — 广播/管道模式。注册多个 handler 时全部执行，返回值可 `{replace}` 或 `{stop}` 影响后续 handler。适合：观察、注入副作用、转换数据。
-
-```ts
-// 持久化 hook
-ctx.hooks.on(HOOKS.TURN_AFTER, async (payload) => {
-  await storage.appendMessage(session.id, msg)
-  return { continue: true }
-})
-```
-
-| Middleware | Hook |
-|---|---|
-| 洋葱圈，一个包裹下一个 | 广播/管道，全部执行 |
-| 不调 `next()` 即可跳过原始调用 | 不能跳过原始流程 |
-| 只能包裹模型调用 | 覆盖 session、turn、消息等全生命周期 |
+Crai 提供两种生命周期拦截机制：Middleware（洋葱圈包裹）和 Hook（广播/管道）。详见 [core-api-spec.md → 5. Hooks & Middleware](core-api-spec.md#5-钩子与中间件-hooks--middleware)。
 
 ### 3.8 Adapter 与 Pipeline 的语义区分
 
@@ -140,7 +104,7 @@ Crai 中有两种可替换的能力单元，虽然底层都使用 `Registry<T>` 
 
 选择依据：如果你需要**引入一个外部系统**，用 Adapter；如果你需要**重写运行时的某个完整流程**，用 Pipeline。
 
-### 3.8 行业基准对齐 (Industry Alignment)
+### 3.9 行业基准对齐 (Industry Alignment)
 Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **[OpenHanako](file:///Users/qirang/Documents/Projects/Crai/refs/openhanako)**：借鉴其**两级权限模型（restricted / full-access）**、**EventBus SKIP 链多 handler 协作机制**、**register() 自动资源清理模式**、**错误隔离与前向兼容原则**。这些设计直接作用于 Crai 的 Extension SDK 设计，为 Crai 的运行时提供了一套经过实战验证的扩展管理方案。
 - **[CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)**：借鉴其组件抽象、中间件模式、检查点机制以及**中断/恢复（interrupt/resume）模式**，用于增强内核的治理能力和**人机确认流程**。

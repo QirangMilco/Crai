@@ -440,6 +440,8 @@ export interface ToolResolver {
 export interface StorageAdapter {
   name: string
   createSession(session: Session): Promise<void>
+  /** 按 ID 读取单个 session。不存在时返回 undefined。 */
+  getSession(sessionId: ID): Promise<Session | undefined>
   updateSession(session: Session): Promise<void>
   /** 追加写入一条消息。实现应保证追加语义（JSONL 等），避免全量覆盖写。 */
   appendMessage(sessionId: ID, message: Message): Promise<void>

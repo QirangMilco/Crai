@@ -4,15 +4,15 @@
 
 ## 1. 分层原则
 
-Crai 应当围绕五个层级进行组织：
-- **core**: 最小契约与类型（包括记忆类型定义与适配器契约）
-- **runtime**: 可执行内核与编排（包括记忆事件/钩子触发点）
+Crai 应当围绕五个层级进行组织:
+- **core**: 最小契约与类型(包括记忆类型定义与适配器契约)
+- **runtime**: 可执行内核与编排(包括记忆事件/钩子触发点)
 - **extension**: 可选行为与 SDK 助手
 - **extension**: 可选行为与 SDK 助手
 - **devtools**: 开发自动化、工作流助手和通用编码辅助
 - **app**: 产品表面、演示和开发工具
 
-目标是保持 `packages/core` 干净，保持 `packages/runtime` 精简，并防止自举或产品逻辑泄露到核心层。
+目标是保持 `packages/core` 干净,保持 `packages/runtime` 精简,并防止自举或产品逻辑泄露到核心层。
 
 ## 2. 顶级布局
 
@@ -25,7 +25,7 @@ packages/
   loader-ts/              TS 扩展加载器
   persistence/            会话持久化
   provider/               LLM provider
-  security/               安全层：路径校验、危险命令检测、权限确认
+  security/               安全层:路径校验、危险命令检测、权限确认
   storage-fs/             文件系统存储
   tools-fs/               文件系统工具
   tools-shell/            shell 执行工具
@@ -33,23 +33,25 @@ packages/
 docs/
 ```
 
-## 3. Phase 1 目标布局
+## 3. Phase 1 实际布局
 
-仅从证明架构所需的最小包开始：
+当前所有已实现的包：
 
 ```txt
 packages/
   core/
   runtime/
-  loader-ts/
+  cli-repl/               交互式 CLI REPL
+  devtools/               开发辅助工具
+  loader-ts/              TS 扩展加载器
+  persistence/            会话持久化
+  provider/               LLM provider
+  security/               安全层
+  storage-fs/             文件系统存储
+  tools-fs/               文件系统工具
+  tools-shell/            shell 执行工具
+  tools-web/              网络工具
 ```
-
-可选的 Phase 1 补充（如果需要）：
-- provider 包（统一管理所有 LLM provider）
-- 一个存储 (Storage) 包
-- 一个最小的传输层 (Transport) 包
-- 一个开发工具 (Developer-tools) 包（当且仅当它保持在核心之外时）
-- **记忆类型与适配器契约 (MemoryEntry/MemoryAdapter，仅 Core 层)**
 
 ## 4. 包职责
 
@@ -83,7 +85,7 @@ packages/
 - 支持重新加载和卸载
 - 监听模式 (Watch-mode) 工具
 
-### 4.5 ~~`packages/preset-default`~~（已删除，见 D-031）
+### 4.5 ~~`packages/preset-default`~~(已删除,见 D-031)
 运行时不再提供任何默认行为。用户根据需要自行组合 extension。
 - 需要模型 → 加载 `@crai/provider`
 - 需要存储 → 加载 `@crai/storage-fs`
@@ -91,10 +93,10 @@ packages/
 - 需要持久化 → 自行编写 `turn:after` hook
 
 ### 4.6 `packages/provider`
-- 所有 LLM provider 实现（OpenAI、Anthropic、DeepSeek 等）
-- 各 provider 以子模块形式组织（`src/openai/`、`src/anthropic/`）
+- 所有 LLM provider 实现(OpenAI、Anthropic、DeepSeek 等)
+- 各 provider 以子模块形式组织(`src/openai/`、`src/anthropic/`)
 - 共享核心 `src/core/` 复用 SSE 解析等公共逻辑
-- 每个 provider 通过 Extension 工厂注册到 runtime，支持 loader-ts 热更新
+- 每个 provider 通过 Extension 工厂注册到 runtime,支持 loader-ts 热更新
 
 ### 4.7 `packages/storage-fs`
 - 文件系统存储适配器
@@ -103,7 +105,7 @@ packages/
 ### 4.8 `packages/cli-repl`
 - 交互式 CLI REPL
 - 流式输出模型回复
-- 内置危险命令确认（同一 readline 实例）
+- 内置危险命令确认(同一 readline 实例)
 
 ### 4.9 `packages/persistence`
 - 会话持久化 extension
@@ -111,38 +113,32 @@ packages/
 - `session:afterStop` hook 更新 session 元数据
 
 ### 4.10 `packages/security`
-- 路径校验（resolveAllowedPath）
-- 敏感命令检测（可配置 JSON，scope/disable）
-- `createWorkspaceSecurity` extension（tool:safetyCheck hook）
+- 路径校验(resolveAllowedPath)
+- 敏感命令检测(可配置 JSON,scope/disable)
+- `createWorkspaceSecurity` extension(tool:safetyCheck hook)
 - YOLO 模式支持
 
 ### 4.11 `packages/tools-fs`
-- fs_read（hashline 锚点行号）
-- fs_write（自动建父目录、覆盖保护）
-- fs_grep（spawnSync 无 shell 注入）
+- fs_read(hashline 锚点行号)
+- fs_write(自动建父目录、覆盖保护)
+- fs_grep(spawnSync 无 shell 注入)
 - fs_list
-- fs_edit（搜索替换 + 锚点两种模式）
-- 结构化快照（SnapshotManager）
+- fs_edit(搜索替换 + 锚点两种模式)
+- 结构化快照(SnapshotManager)
 
 ### 4.12 `packages/tools-shell`
-- bash（spawn 异步执行）
+- bash(spawn 异步执行)
 - isDangerousCommand + isSelfDestructiveCommand
-- 进程管理（processManager）
+- 进程管理(processManager)
 
 ### 4.13 `packages/tools-web`
-- web_search（DuckDuckGo + Bing API 可插拔）
+- web_search(DuckDuckGo + Bing API 可插拔)
 - web_fetch
 
 ### 4.14 `packages/extension-memory` (Phase 2)
-- 完整的记忆策略实现（借鉴 SimpleMem）
-- 语义结构化压缩：MemoryBuilder — 滑窗分割 + LLM 提取 → 多视图索引
-- 混合检索：HybridRetriever — 语义/关键词/结构化三路并行检索 + 反思轮次
-- 分层上下文注入：ContextInjector — Token 预算优先级注入
-- 记忆整理：Consolidation — 衰减/合并/裁剪
-- 记忆生命周期编排：MemoryOrchestrator
-- 此包属于 Phase 2 范畴
+- 完整的记忆策略实现(借鉴 SimpleMem)。详见 [memory-design.md](memory-design.md)。
 
-### 4.9 `packages/devtools`
+### 4.15 `packages/devtools`
 - 任务追踪助手 (task tracking helpers)
 - 仓库巡检助手 (repo inspection helpers)
 - AI 辅助补丁协调 (AI-assisted patch coordination)
@@ -157,14 +153,14 @@ packages/
 它可以在开发启动期间加载一组默认 extension。
 
 ### `apps/web`
-一个 Web UI 壳层，它消费运行时事件并与传输适配器交互。
+一个 Web UI 壳层,它消费运行时事件并与传输适配器交互。
 
 ### `apps/bootstrap-console`
 一个用于开发工作流、任务追踪和助手辅助编码的产品表面。
 
 ## 6. 示例层 (Example Layer)
 
-示例应当保持小型且专注：
+示例应当保持小型且专注:
 - 最小运行时自举
 - Web 聊天演示
 - 飞书机器人演示
@@ -177,25 +173,31 @@ packages/
 - 避免在 `packages/core` 中放置特定于产品的逻辑
 - 将开发工具助手保持在 `packages/core` 之外
 - 将默认行为保持在 `packages/runtime` 之外
-- 如果一个功能主要帮助开发工作，优先考虑 `packages/devtools` 或 `apps/bootstrap-console`
+- 如果一个功能主要帮助开发工作,优先考虑 `packages/devtools` 或 `apps/bootstrap-console`
 
-## 8. 推荐的首批文件 (Recommended First Files)
+## 8. 源码切入路径 (Suggested Starting Points)
 
-当开始实现时，从以下文件开始：
+### 核心层
 - `packages/core/src/types.ts`
 - `packages/core/src/events.ts`
 - `packages/core/src/hooks.ts`
+- `packages/core/src/constants.ts`
+
+### 运行时
 - `packages/runtime/src/createRuntime.ts`
 - `packages/runtime/src/turnRunner.ts`
-- `packages/loader-ts/src/index.ts`
-- `packages/storage-fs/src/adapter.ts`
-- `packages/provider/src/index.ts`
-- `packages/security/src/workspace-security.ts`
-- `packages/devtools/src/index.ts`
+- `packages/runtime/src/bus.ts`
+- `packages/runtime/src/sessionManager.ts`
 
-### 记忆首批文件 (Memory First Files)
+### 安全、工具、持久化等扩展
+- `packages/security/src/workspace-security.ts` — 安全检查钩子
+- `packages/tools-fs/src/index.ts` — 文件系统工具
+- `packages/tools-shell/src/index.ts` — shell 工具（含危险命令检测）
+- `packages/tools-web/src/index.ts` — 网络工具
+- `packages/persistence/src/index.ts` — 持久化扩展
+- `packages/storage-fs/src/adapter.ts` — 文件存储适配器
+- `packages/provider/src/openai/adapter.ts` — OpenAI provider
+- `packages/provider/src/deepseek/adapter.ts` — DeepSeek provider
 
-当开始实现记忆策略时，从以下文件开始：
-- `packages/core/src/types.ts`（追加 MemoryEntry/MemoryScope 类型）
-- `packages/core/src/hooks.ts`（追加 memoryEvents 相关钩子定义）
-- `packages/extension-memory/src/memory-builder.ts`（摘要生成与注入，Phase 2）
+### 记忆系统（Phase 2）
+详见 [memory-design.md](memory-design.md)。

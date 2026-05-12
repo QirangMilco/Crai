@@ -149,7 +149,7 @@ Phase 1 应当聚焦于运行时外壳、扩展加载、事件/钩子流水线�
 ## D-012 — 默认行为优先落到 extensions，runtime 尽量保持纯调度器
 
 ### 状态
-已接受 (Accepted) — 被 D-031 替代
+已替代 (Superseded) — D-031 移除了 `packages/preset-default`，但该决策的核心原则（runtime 是纯调度器、行为由 extension 提供）仍然有效。
 
 ### 决策
 运行时（Runtime）的职责仅限于调度和协调执行循环（Session/Turn/事件/钩子/适配器分发）。所有默认行为都应当由 extension 提供，不再设 `packages/preset-default` 包。
@@ -165,7 +165,7 @@ D-031 移除了 `packages/preset-default`，用户自行组合所需的 extensio
 ## D-013 — extension 的行为应保持在 runtime 之外的独立包中
 
 ### 状态
-已接受 (Accepted) — 被 D-031 替代
+已替代 (Superseded) — D-031 使该决策自动生效（所有 extension 都在独立包中），但其原则（extension 不合并进 runtime）仍然有效。
 
 ### 决策
 Extension 的代码应长期保持在独立包中，不合并进 `packages/runtime`。
@@ -308,7 +308,7 @@ Crai 的记忆策略设计将参考 SimpleMem 的核心设计：
 ## D-023 — 默认 Summary 记忆策略由用户自行实现
 
 ### 状态
-已接受 (Accepted) — 被 D-031 替代
+已替代 (Superseded) — D-031 移除了预设扩展，记忆策略不再作为默认行为提供。完整的记忆策略将在 Phase 2 作为独立 extension 实现。
 
 ### 决策
 不再提供默认的记忆策略。用户根据需要自行编写 `context:build` 和 `turn:after` hook 实现摘要生成与注入。完整的记忆策略（混合检索、向量存储、记忆整理等）将在 Phase 2 作为独立 extension 提供。

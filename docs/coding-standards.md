@@ -133,6 +133,8 @@ ctx.registry.permissions.register('my-extension:permission', adapter)
 
 ## 2. 国际化 (i18n) 规范
 
+> **Phase 2 目标。** 当前代码库中尚无 i18n adapter 实现。以下规范作为设计方向保留，待 Phase 2 实现时激活。
+
 ### 2.1 基本原则
 
 所有面向用户的字符串（错误消息、日志消息、UI 文本等）必须通过 i18n 适配器获取，不得直接硬编码。

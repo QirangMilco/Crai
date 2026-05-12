@@ -28,19 +28,16 @@ session.created
 input.received
 turn.started
 context.built
-middleware.before (Model)
 model.requested
 model.completed
-middleware.after (Model)
-checkpoint.saved (PostModel)
-middleware.before (Tool)
 tool.requested
 tool.completed
-middleware.after (Tool)
 message.appended
 turn.completed
 runtime.stopped
 ```
+
+> 注：Middleware 包裹模型/工具调用，不产生独立事件。Middleware 的 wrap/before/after 行为通过 `model.requested/model.completed` 等事件对外可见。
 
 ## 4. 示例输出预期
 
