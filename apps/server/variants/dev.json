@@ -6,6 +6,10 @@
   },
   "debug": {
     "trace": false,
-    "verboseTools": false
+    "verboseTools": false,
+    "logLevel": "info",
+    "logDir": "logs",
+    "maxFileSize": 10485760,
+    "maxBackups": 3
   }
 }

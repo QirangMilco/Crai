@@ -14,5 +14,7 @@
       "default": "./src/path.ts"
     }
   },
-  "dependencies": {}
+  "dependencies": {
+    "@crai/core": "workspace:*"
+  }
 }

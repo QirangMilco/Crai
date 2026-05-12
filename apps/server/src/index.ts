@@ -7,6 +7,7 @@
  */
 import { createRuntime, type RuntimeHandle } from '@crai/runtime'
 import { createOpenAIProvider, createDeepSeekProvider, listModels } from '@crai/provider'
+import { ConsoleLogger } from '@crai/base'
 import { createFileStorage } from '@crai/storage-fs'
 import { createPersistenceExtension } from '@crai/persistence'
 import { createWorkspaceSecurity } from '@crai/security'
@@ -18,7 +19,8 @@ import type { AppVariant } from '@crai/core'
 import { ConfigManager } from '@crai/config'
 import { EVENTS } from '@crai/core'
 import type { Extension } from '@crai/core'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
+import { homedir } from 'node:os'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
@@ -50,10 +52,12 @@ class WorkspaceManager {
   private runtimes = new Map<string, RuntimeHandle>()
   private config: ConfigManager
   private onEvent: (wsId: string, evt: string, payload: unknown) => void
+  private log: ConsoleLogger
 
-  constructor(config: ConfigManager, onEvent: (wsId: string, evt: string, payload: unknown) => void) {
+  constructor(config: ConfigManager, onEvent: (wsId: string, evt: string, payload: unknown) => void, log: ConsoleLogger) {
     this.config = config
     this.onEvent = onEvent
+    this.log = log
   }
 
   async ensure(rootDir: string): Promise<void> {
@@ -62,7 +66,7 @@ class WorkspaceManager {
     if (!eff.apiKey) {
       // 没有 API key 时也会记录到 recentWorkspaces
       await this.config.addRecentWorkspace(rootDir)
-      console.log(`[server] workspace 已记录: ${rootDir}（无 API key，尚未启动 runtime）`)
+      this.log.info(`workspace 已记录: ${rootDir}（无 API key）`)
       return
     }
     const dataDir = this.config.workspaceDataDir(rootDir)
@@ -70,6 +74,7 @@ class WorkspaceManager {
       ? createDeepSeekProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined })
       : createOpenAIProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined })
     const runtime = await createRuntime({
+      logger: this.log,
       extensions: [
         provider,
         createFileStorage({ baseDir: dataDir }),
@@ -83,7 +88,7 @@ class WorkspaceManager {
     })
     this.runtimes.set(rootDir, runtime)
     await this.config.addRecentWorkspace(rootDir)
-    console.log(`[server] workspace 已启动: ${rootDir} (${eff.provider}/${eff.model})`)
+    this.log.info(`workspace 已启动: ${rootDir} (${eff.provider}/${eff.model})`)
   }
 
   /** 获取已启动的 runtime，不存在时返回 undefined。 */
@@ -93,7 +98,7 @@ class WorkspaceManager {
 
   async stop(rootDir: string): Promise<void> {
     const rt = this.runtimes.get(rootDir)
-    if (rt) { await rt.dispose(); this.runtimes.delete(rootDir); console.log(`[server] workspace 已停止: ${rootDir}`) }
+    if (rt) { await rt.dispose(); this.runtimes.delete(rootDir); this.log.info(`workspace 已停止: ${rootDir}`) }
   }
 
   async stopAll(): Promise<void> {
@@ -124,6 +129,15 @@ async function main() {
   const config = new ConfigManager(variant)
   await config.loadGlobal()
 
+  const logDir = join(homedir(), variant.configDirName, variant.debug.logDir ?? 'logs')
+  const log = new ConsoleLogger({
+    tag: 'server',
+    level: variant.debug.logLevel ?? 'info',
+    logDir,
+    maxFileSize: variant.debug.maxFileSize,
+    maxBackups: variant.debug.maxBackups,
+  })
+
   const transport = createWsTransport({
     port: variant.server.defaultPort,
     handlers: {
@@ -135,12 +149,12 @@ async function main() {
         const global = config.getGlobal()
         const p = global.providers[providerName]
         if (!p) return { models: [], error: `Provider "${providerName}" 不存在` }
-        console.log(`[server] 正在获取 ${providerName} 的模型列表...`)
+        log.info(`正在获取 ${providerName} 的模型列表...`)
         const result = await listModels(p.apiKey, p.baseURL, p.modelsPath)
         if (result.error) {
-          console.log(`[server] 获取模型列表失败: ${result.error}`)
+          log.warn(`获取模型列表失败: ${result.error}`)
         } else {
-          console.log(`[server] 获取到 ${result.models.length} 个模型`)
+          log.info(`获取到 ${result.models.length} 个模型`)
         }
         return result
       },
@@ -167,7 +181,7 @@ async function main() {
 
   gWorkspaces = new WorkspaceManager(config, (wsId, evt, payload) => {
     transport.publishEvent(wsId, evt, payload)
-  })
+  }, log)
   await gWorkspaces.sync()
 
   const { url } = await transport.start()

@@ -351,6 +351,8 @@ export interface SettingsStore {
   list(): Promise<Array<{ key: string }>>
 }
 
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+
 export interface Logger {
   debug(message: string, metadata?: Metadata): void
   info(message: string, metadata?: Metadata): void

@@ -28,6 +28,7 @@
     "deepseek:trace:console": "AI_TRACE=console tsx examples/deepseek-test/index.ts"
   },
   "devDependencies": {
+    "@crai/base": "workspace:*",
     "@crai/cli-repl": "workspace:*",
     "@crai/config": "workspace:*",
     "@crai/core": "workspace:*",

@@ -116,7 +116,13 @@ export function ChatView({ wsUrl }: Props) {
         case 'workspace:list:data': {
           const list = msg.workspaces?.map((w: any) => ({ rootDir: w.rootDir })) ?? []
           setWorkspaces(list)
-          if (msg.current) setCurrentWorkspace(msg.current)
+          if (msg.current) {
+            setCurrentWorkspace(msg.current)
+          } else if (list.length > 0 && !currentWorkspace) {
+            // 没有当前工作区时自动切到第一个
+            send({ type: 'workspace:switch', rootDir: list[0].rootDir })
+            return
+          }
           send({ type: 'session:list' })
           break
         }

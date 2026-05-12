@@ -221,6 +221,14 @@ export interface AppVariant {
   debug: {
     trace: boolean
     verboseTools: boolean
+    /** 日志级别：debug | info | warn | error */
+    logLevel?: string
+    /** 日志文件输出目录。设置后日志以追加模式写入文件。 */
+    logDir?: string
+    /** 单个日志文件最大字节数（默认 10MB）。 */
+    maxFileSize?: number
+    /** 保留的旧日志文件数量（默认 3）。 */
+    maxBackups?: number
   }
 }
 

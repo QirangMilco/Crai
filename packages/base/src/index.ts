@@ -9,3 +9,4 @@ export {
   resolve, join, relative, dirname, basename, extname, sep, normalize,
   resolveAllowedPath, getPathArg, validateToolPaths,
 } from './path'
+export { ConsoleLogger } from './logger'

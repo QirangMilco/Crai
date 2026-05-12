@@ -1,4 +1,5 @@
 import type { Extension } from '@crai/core'
+import type { Logger } from '@crai/core'
 import { TOOL_SAFETY_LEVELS } from '@crai/core'
 import { promises as fs } from 'node:fs'
 import { dirname } from 'node:path'
@@ -15,6 +16,8 @@ export interface FsToolsOptions {
   rootDir: string
   /** 快照目录（默认 {rootDir}/.crai/snapshots）。 */
   snapshotsDir?: string
+  /** 日志记录器。不传时使用默认 console 输出。 */
+  logger?: Logger
 }
 
 // ── Extension 工厂 ──────────────────────────────────
@@ -26,6 +29,7 @@ export function createFsTools(options: FsToolsOptions): Extension {
   return {
     name: 'tools-fs',
     setup(ctx) {
+      const log = options.logger ?? ctx.logger
       const snapshots = new SnapshotManager(snapshotsDir)
       // ── fs_read ──
       ctx.registerTool({

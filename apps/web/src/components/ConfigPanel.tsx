@@ -44,6 +44,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
   const [customName, setCustomName] = useState('')
   const [customKey, setCustomKey] = useState('')
   const [customBaseURL, setCustomBaseURL] = useState('')
+  const [customModelsPath, setCustomModelsPath] = useState('')
 
   const providers = config?.providers ?? {}
 
@@ -60,7 +61,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
     const p = providers[name] ?? { apiKey: '', baseURL: '' }
     setEditing(name)
     setEditKey(p.apiKey)
-    setEditBaseURL(p.baseURL ?? firstPartyDefault(name)?.defaultBaseURL ?? '')
+    setEditBaseURL(p.baseURL || firstPartyDefault(name)?.defaultBaseURL || '')
     setEditModel(config?.defaultModel ?? p.models?.[0] ?? '')
     setEditModelsPath((p as any).modelsPath ?? '')
     setFetchedModels(p.models ?? [])
@@ -74,9 +75,10 @@ export function ConfigPanel({ config, send, onClose }: Props) {
       models: fetchedModels.length > 0 ? fetchedModels : undefined,
       modelsPath: editModelsPath || undefined,
     }})
-    // 同时设置 defaultModel
-    const gc = { ...config, defaultModel: editModel || undefined }
-    send({ type: 'config:set', config: gc })
+    // 设置 defaultModel
+    if (editModel) send({ type: 'config:set', config: { defaultModel: editModel } })
+    // 刷新配置 UI
+    send({ type: 'config:get' })
     setEditing(null)
   }
 
@@ -121,10 +123,12 @@ export function ConfigPanel({ config, send, onClose }: Props) {
     send({ type: 'config:set:provider', name: customName, config: {
       apiKey: customKey,
       baseURL: customBaseURL || undefined,
+      modelsPath: customModelsPath || undefined,
     }})
     setCustomName('')
     setCustomKey('')
     setCustomBaseURL('')
+    setCustomModelsPath('')
   }
 
   // 合并预设 + 自定义 provider 列表
@@ -290,6 +294,10 @@ export function ConfigPanel({ config, send, onClose }: Props) {
               style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
             <input value={customBaseURL} onChange={e => setCustomBaseURL(e.target.value)}
               placeholder="Base URL (必填，如 https://api.xxx.com/v1)"
+              className="w-full px-3 py-2 rounded text-xs outline-none"
+              style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+            <input value={customModelsPath} onChange={e => setCustomModelsPath(e.target.value)}
+              placeholder="Models API 路径 (可选，默认 /models)"
               className="w-full px-3 py-2 rounded text-xs outline-none"
               style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
             <button onClick={addCustomProvider}
