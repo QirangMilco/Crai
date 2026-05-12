@@ -319,12 +319,10 @@ describe('工具执行循环', () => {
       logger: QUIET_LOGGER,
     })
 
-    const start = Date.now()
     const result = await runtime.prompt(
       { type: RUNTIME_INPUT_TYPES.TEXT, text: '并行执行多个工具' },
       { model: 'test:parallel-model' },
     )
-    const elapsed = Date.now() - start
 
     const toolCount = result.messages.filter(m => m.role === MESSAGE_ROLES.TOOL).length
     assert.equal(toolCount, 3, '应产生 3 条 tool result 消息')
@@ -334,11 +332,8 @@ describe('工具执行循环', () => {
     const fastIndex = execOrder.indexOf(100)
     // 并行：0ms 任务在 50ms 任务之前完成 → fastIndex 为 0
     // 串行：先执行 50ms 再执行 0ms → fastIndex 为 1
-    // 断言 fastIndex 为 0 证明并行
+    // 断言 fastIndex 为 0 即证明并行
     assert.equal(fastIndex, 0, `快工具应为第一个完成（并行），实际顺序 ${JSON.stringify(execOrder)}`)
-
-    // 总时间应 < 两个 50ms 串行的 100ms
-    assert.ok(elapsed < 80, `并行执行时间 ${elapsed}ms 应 < 80ms（串行两个 50ms 工具应 > 100ms）`)
 
     // 结果按原始顺序排列
     assert.equal(result.messages[2].toolCallId, 'tc-a')

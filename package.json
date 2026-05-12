@@ -2,7 +2,8 @@
   "name": "crai",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "type": "module",
   "packageManager": "pnpm@10.8.1",
@@ -14,6 +15,8 @@
     "example:trace:file": "AI_TRACE=file tsx examples/minimal-runtime/index.ts",
     "example:trace:console": "AI_TRACE=console tsx examples/minimal-runtime/index.ts",
     "cli": "tsx examples/cli/index.ts",
+    "dev:server": "tsx examples/server/index.ts",
+    "web": "pnpm --filter @crai/web dev",
     "openai": "tsx examples/openai-test/index.ts",
     "openai:trace": "AI_TRACE=realtime tsx examples/openai-test/index.ts",
     "openai:trace:file": "AI_TRACE=file tsx examples/openai-test/index.ts",
@@ -34,6 +37,7 @@
     "@crai/tools-fs": "workspace:*",
     "@crai/tools-shell": "workspace:*",
     "@crai/tools-web": "workspace:*",
+    "@crai/transport-ws": "workspace:*",
     "@types/node": "^25.6.2",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
