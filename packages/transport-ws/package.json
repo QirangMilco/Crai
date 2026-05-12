@@ -15,7 +15,6 @@
     "ws": "^8.18.1"
   },
   "devDependencies": {
-    "@crai/config": "workspace:*",
     "@types/ws": "^8.18.1"
   }
 }

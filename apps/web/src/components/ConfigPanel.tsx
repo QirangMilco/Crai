@@ -1,124 +1,296 @@
-/** 配置面板组件。 */
-import { useState, useEffect } from 'react'
+/**
+ * 配置面板。
+ *
+ * 两栏设计：
+ *  - 提供商列表：预设 DeepSeek/OpenAI + 自定义 provider
+ *  - 点击展开配置 API key、base URL（预设自带默认值）、模型列表
+ *  - "获取模型"按钮调用 Models API 自动填充
+ */
+import { useState, useCallback } from 'react'
 
-interface ProviderEntry {
-  name: string
-  apiKey: string
-  baseURL?: string
-  models?: string[]
-}
+// ── 预设 first-party 提供商 ──
+
+const FIRST_PARTY = [
+  { name: 'deepseek', label: 'DeepSeek', defaultBaseURL: 'https://api.deepseek.com' },
+  { name: 'openai', label: 'OpenAI', defaultBaseURL: 'https://api.openai.com/v1' },
+] as const
 
 interface Props {
-  /** 当前全局配置。 */
   config: {
     providers: Record<string, { apiKey: string; baseURL?: string; models?: string[] }>
     defaultProvider?: string
     defaultModel?: string
     recentWorkspaces: string[]
   } | null
-  /** 发送配置相关消息到 server。 */
   send: (msg: any) => void
   onClose: () => void
 }
 
+function maskKey(key: string): string {
+  if (!key || key.length <= 8) return '********'
+  return key.slice(0, 4) + '…' + key.slice(-4)
+}
+
 export function ConfigPanel({ config, send, onClose }: Props) {
-  const [providers, setProviders] = useState<ProviderEntry[]>([])
-  const [newProviderName, setNewProviderName] = useState('')
-  const [newProviderKey, setNewProviderKey] = useState('')
-  const [newProviderBaseURL, setNewProviderBaseURL] = useState('')
+  const [editing, setEditing] = useState<string | null>(null)     // 展开编辑的 provider name
+  const [editKey, setEditKey] = useState('')                      // 编辑中的 API key
+  const [editBaseURL, setEditBaseURL] = useState('')              // 编辑中的 base URL
+  const [editModel, setEditModel] = useState('')                  // 编辑中的 default model
+  const [fetchedModels, setFetchedModels] = useState<string[]>([])
+  const [fetching, setFetching] = useState(false)
 
-  useEffect(() => {
-    if (config) {
-      setProviders(
-        Object.entries(config.providers).map(([name, p]) => ({
-          name,
-          apiKey: maskKey(p.apiKey),
-          baseURL: p.baseURL,
-          models: p.models,
-        })),
-      )
-    }
-  }, [config])
+  // 自定义提供商表单
+  const [customName, setCustomName] = useState('')
+  const [customKey, setCustomKey] = useState('')
+  const [customBaseURL, setCustomBaseURL] = useState('')
 
-  function addProvider() {
-    if (!newProviderName || !newProviderKey) return
-    send({ type: 'config:set:provider', name: newProviderName, config: { apiKey: newProviderKey, baseURL: newProviderBaseURL || undefined } })
-    setNewProviderName('')
-    setNewProviderKey('')
-    setNewProviderBaseURL('')
+  const providers = config?.providers ?? {}
+
+  // 判断是否是预设提供商
+  const isFirstParty = useCallback((name: string) => {
+    return FIRST_PARTY.some((fp) => fp.name === name)
+  }, [])
+
+  const firstPartyDefault = useCallback((name: string) => {
+    return FIRST_PARTY.find((fp) => fp.name === name)
+  }, [])
+
+  function startEdit(name: string) {
+    const p = providers[name] ?? { apiKey: '', baseURL: '' }
+    setEditing(name)
+    setEditKey(p.apiKey)
+    setEditBaseURL(p.baseURL ?? firstPartyDefault(name)?.defaultBaseURL ?? '')
+    setEditModel(config?.defaultModel ?? p.models?.[0] ?? '')
+    setFetchedModels(p.models ?? [])
+  }
+
+  function saveEdit() {
+    if (!editing) return
+    send({ type: 'config:set:provider', name: editing, config: {
+      apiKey: editKey,
+      baseURL: editBaseURL || undefined,
+      models: fetchedModels.length > 0 ? fetchedModels : undefined,
+    }})
+    // 同时设置 defaultModel
+    const gc = { ...config, defaultModel: editModel || undefined }
+    send({ type: 'config:set', config: gc })
+    setEditing(null)
+  }
+
+  function cancelEdit() {
+    setEditing(null)
+    setEditKey('')
+    setEditBaseURL('')
+    setEditModel('')
+    setFetchedModels([])
+  }
+
+  function fetchModelList() {
+    if (!editing) return
+    setFetching(true)
+    const base = editBaseURL.replace(//+$/, '')
+    if (!base) { setFetching(false); return }
+    fetch(`${base}/models`, {
+      headers: { Authorization: `Bearer ${editKey}` },
+      signal: AbortSignal.timeout(5000),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((body) => {
+        const models = (body.data ?? []).map((m: any) => m.id).sort()
+        setFetchedModels(models)
+      })
+      .catch(() => {
+        alert('无法获取模型列表，请检查 API key 和 base URL')
+      })
+      .finally(() => setFetching(false))
   }
 
   function removeProvider(name: string) {
     send({ type: 'config:remove:provider', name })
+    if (editing === name) cancelEdit()
   }
 
+  function addCustomProvider() {
+    if (!customName || !customKey) return
+    send({ type: 'config:set:provider', name: customName, config: {
+      apiKey: customKey,
+      baseURL: customBaseURL || undefined,
+    }})
+    setCustomName('')
+    setCustomKey('')
+    setCustomBaseURL('')
+  }
+
+  // 合并预设 + 自定义 provider 列表
+  const providerEntries = [
+    ...FIRST_PARTY.map((fp) => ({
+      name: fp.name,
+      label: fp.label,
+      configured: !!providers[fp.name],
+      isPreset: true,
+      apiKey: providers[fp.name]?.apiKey ?? '',
+      baseURL: providers[fp.name]?.baseURL ?? fp.defaultBaseURL,
+      models: providers[fp.name]?.models ?? [],
+    })),
+    ...Object.keys(providers)
+      .filter((name) => !isFirstParty(name))
+      .map((name) => ({
+        name,
+        label: name,
+        configured: true,
+        isPreset: false,
+        apiKey: providers[name]?.apiKey ?? '',
+        baseURL: providers[name]?.baseURL ?? '',
+        models: providers[name]?.models ?? [],
+      })),
+  ]
+
   return (
-    <div
-      className="fixed top-0 right-0 h-full w-80 z-50 shadow-2xl flex flex-col text-sm overflow-hidden"
+    <div className="fixed top-0 right-0 h-full w-80 z-50 shadow-2xl flex flex-col text-sm overflow-hidden"
       style={{
         backgroundColor: 'var(--crai-bg)',
         color: 'var(--crai-fg)',
         borderLeft: '1px solid var(--crai-border)',
-      }}
-    >
-      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--crai-border)' }}>
+      }}>
+
+      {/* 标题 */}
+      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+        style={{ borderColor: 'var(--crai-border)' }}>
         <span className="font-semibold text-base">配置</span>
         <button onClick={onClose} className="text-lg leading-none opacity-50 hover:opacity-100">✕</button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-5">
 
-        {/* 已有 provider */}
+        {/* ── Provider 列表 ── */}
         <div>
           <div className="text-xs font-medium mb-2" style={{ color: 'var(--crai-fg-secondary)' }}>Provider</div>
-          {providers.length === 0 && (
-            <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>暂无 provider。请添加。 </div>
+          {providerEntries.length === 0 && (
+            <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>暂无 provider。</div>
           )}
-          {providers.map((p) => (
-            <div key={p.name} className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'var(--crai-border)' }}>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">{p.name}</div>
-                <div className="text-xs truncate" style={{ color: 'var(--crai-fg-tertiary)' }}>{p.apiKey}</div>
+          <div className="space-y-1.5">
+            {providerEntries.map((entry) => (
+              <div key={entry.name}>
+                {/* 列表项 */}
+                <button
+                  onClick={() => startEdit(entry.name)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left"
+                  style={{
+                    backgroundColor: editing === entry.name ? 'var(--crai-bg-tertiary)' : 'transparent',
+                    border: '1px solid var(--crai-border)',
+                  }}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{entry.label}</div>
+                    <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>
+                      {entry.configured ? maskKey(entry.apiKey) : '未配置'}
+                      {entry.models.length > 0 && ` · ${entry.models.length} 个模型`}
+                    </div>
+                  </div>
+                  <span className="text-xs ml-2" style={{ color: 'var(--crai-fg-tertiary)' }}>▶</span>
+                </button>
+
+                {/* 展开编辑区 */}
+                {editing === entry.name && (
+                  <div className="mt-1.5 ml-2 pl-3 border-l-2 space-y-2 py-2"
+                    style={{ borderColor: 'var(--crai-accent)' }}>
+                    <div>
+                      <div className="text-[10px] mb-0.5" style={{ color: 'var(--crai-fg-tertiary)' }}>API Key</div>
+                      <input value={editKey} onChange={e => setEditKey(e.target.value)}
+                        type="password" placeholder="sk-..."
+                        className="w-full px-2.5 py-1.5 rounded text-xs outline-none"
+                        style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+                    </div>
+                    <div>
+                      <div className="text-[10px] mb-0.5" style={{ color: 'var(--crai-fg-tertiary)' }}>Base URL</div>
+                      <input value={editBaseURL} onChange={e => setEditBaseURL(e.target.value)}
+                        placeholder={entry.isPreset ? `默认: ${entry.baseURL}` : 'https://...'}
+                        className="w-full px-2.5 py-1.5 rounded text-xs outline-none"
+                        style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>默认模型</span>
+                        <button onClick={fetchModelList}
+                          disabled={fetching}
+                          className="text-[10px] px-2 py-0.5 rounded"
+                          style={{ color: 'var(--crai-accent)', border: '1px solid var(--crai-accent)' }}>
+                          {fetching ? '获取中…' : '获取模型列表'}
+                        </button>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {fetchedModels.length > 0 ? fetchedModels.map((m) => (
+                          <button key={m} onClick={() => setEditModel(m)}
+                            className="text-[10px] px-2 py-0.5 rounded transition-colors"
+                            style={{
+                              backgroundColor: editModel === m ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
+                              color: editModel === m ? '#fff' : 'var(--crai-fg)',
+                            }}>
+                            {m}
+                          </button>
+                        )) : entry.configured ? (
+                          <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>
+                            {entry.models.length > 0 ? '点击模型选择' : '点击"获取模型列表"'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>
+                            请先保存 API key
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 操作按钮 */}
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={saveEdit}
+                        className="flex-1 py-1.5 rounded text-xs font-medium text-white"
+                        style={{ backgroundColor: 'var(--crai-accent)' }}>保存</button>
+                      <button onClick={cancelEdit}
+                        className="px-3 py-1.5 rounded text-xs"
+                        style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>取消</button>
+                      {!entry.isPreset && (
+                        <button onClick={() => removeProvider(entry.name)}
+                          className="px-3 py-1.5 rounded text-xs"
+                          style={{ color: 'var(--crai-destructive)', border: '1px solid var(--crai-destructive)' }}>删除</button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <button onClick={() => removeProvider(p.name)} className="text-xs px-2 py-1 rounded shrink-0 ml-2"
-                style={{ color: 'var(--crai-destructive)' }}>删除</button>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        {/* 添加新 provider */}
+        {/* ── 添加自定义 provider ── */}
         <div>
-          <div className="text-xs font-medium mb-2" style={{ color: 'var(--crai-fg-secondary)' }}>添加 Provider</div>
+          <div className="text-xs font-medium mb-2" style={{ color: 'var(--crai-fg-secondary)' }}>添加自定义 Provider</div>
           <div className="space-y-2">
-            <input value={newProviderName} onChange={e => setNewProviderName(e.target.value)}
-              placeholder="名称 (openai / deepseek)"
+            <input value={customName} onChange={e => setCustomName(e.target.value)}
+              placeholder="名称 (如：my-llm)"
               className="w-full px-3 py-2 rounded text-xs outline-none"
               style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
-            <input value={newProviderKey} onChange={e => setNewProviderKey(e.target.value)}
-              placeholder="API Key"
-              type="password"
+            <input value={customKey} onChange={e => setCustomKey(e.target.value)}
+              placeholder="API Key" type="password"
               className="w-full px-3 py-2 rounded text-xs outline-none"
               style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
-            <input value={newProviderBaseURL} onChange={e => setNewProviderBaseURL(e.target.value)}
-              placeholder="Base URL (可选，留空使用默认)"
+            <input value={customBaseURL} onChange={e => setCustomBaseURL(e.target.value)}
+              placeholder="Base URL (必填，如 https://api.xxx.com/v1)"
               className="w-full px-3 py-2 rounded text-xs outline-none"
               style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
-            <button onClick={addProvider}
-              disabled={!newProviderName || !newProviderKey}
+            <button onClick={addCustomProvider}
+              disabled={!customName || !customKey}
               className="w-full py-2 rounded text-xs font-medium text-white disabled:opacity-40"
               style={{ backgroundColor: 'var(--crai-accent)' }}>添加</button>
           </div>
         </div>
       </div>
 
-      <div className="px-4 py-2 border-t text-xs" style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}>
-        配置自动保存到 ~/.crai/config.json
+      <div className="px-4 py-2 border-t text-xs shrink-0"
+        style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}>
+        配置自动保存 · API key 已加密
       </div>
     </div>
   )
-}
-
-function maskKey(key: string): string {
-  if (key.length <= 8) return '****'
-  return key.slice(0, 4) + '****' + key.slice(-4)
 }

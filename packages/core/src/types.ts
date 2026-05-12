@@ -206,3 +206,51 @@ export interface ContextBundle {
 export function createId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 }
+
+// ════════════════════════════════════════════════════════
+// 配置类型
+// ════════════════════════════════════════════════════════
+
+/** 变体配置：由应用定义（dev/prod 目录隔离、端口等）。 */
+export interface AppVariant {
+  configDirName: string
+  workspaceDataDirName: string
+  server: {
+    defaultPort: number
+  }
+  debug: {
+    trace: boolean
+    verboseTools: boolean
+  }
+}
+
+export interface ProviderConfig {
+  apiKey: string
+  baseURL?: string
+  models?: string[]
+}
+
+export interface GlobalConfig {
+  providers: Record<string, ProviderConfig>
+  defaultProvider?: string
+  defaultModel?: string
+  recentWorkspaces: string[]
+}
+
+export interface WorkspaceSecurityConfig {
+  mode?: 'safe' | 'ask' | 'execute'
+}
+
+export interface WorkspaceConfig {
+  security?: WorkspaceSecurityConfig
+}
+
+/** 配置存储适配器：不同的格式（JSON、TOML、YAML）实现此接口。 */
+export interface ConfigStore {
+  load(): Promise<GlobalConfig>
+  save(config: GlobalConfig): Promise<void>
+  /** 可选：加载工作区配置。不实现时由调用方管理。 */
+  loadWorkspace?(rootDir: string): Promise<WorkspaceConfig>
+  /** 可选：保存工作区配置。 */
+  saveWorkspace?(rootDir: string, config: WorkspaceConfig): Promise<void>
+}

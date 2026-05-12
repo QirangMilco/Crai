@@ -25,7 +25,7 @@ export interface ErrorMsg {
   message: string
 }
 
-export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg | SessionListDataMsg
+export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | ConfigModelsDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg | SessionListDataMsg
 
 // ── 配置/工作区 响应 ──
 
@@ -37,6 +37,13 @@ export interface ConfigDataMsg {
     defaultModel?: string
     recentWorkspaces: string[]
   }
+}
+
+export interface ConfigModelsDataMsg {
+  type: 'config:models:data'
+  providerName: string
+  models: string[]
+  error?: string
 }
 
 export interface WorkspaceListDataMsg {
@@ -86,7 +93,7 @@ export interface ResolveInputMsg {
 }
 
 export type ClientMsg = PromptMsg | SessionNewMsg | ResolveInputMsg | SessionListMsg |
-  ConfigGetMsg | ConfigSetMsg | ConfigSetProviderMsg | ConfigRemoveProviderMsg |
+  ConfigGetMsg | ConfigSetMsg | ConfigSetProviderMsg | ConfigRemoveProviderMsg | ConfigFetchModelsMsg |
   WorkspaceListMsg | WorkspaceSwitchMsg | WorkspaceConfigGetMsg | WorkspaceConfigSetMsg
 
 // ── 配置/工作区 消息 ──
@@ -95,6 +102,7 @@ export interface ConfigGetMsg { type: 'config:get' }
 export interface ConfigSetMsg { type: 'config:set'; config: any }
 export interface ConfigSetProviderMsg { type: 'config:set:provider'; name: string; config: { apiKey: string; baseURL?: string; models?: string[] } }
 export interface ConfigRemoveProviderMsg { type: 'config:remove:provider'; name: string }
+export interface ConfigFetchModelsMsg { type: 'config:fetch:models'; providerName: string }
 export interface WorkspaceListMsg { type: 'workspace:list' }
 export interface WorkspaceSwitchMsg { type: 'workspace:switch'; rootDir: string }
 export interface WorkspaceConfigGetMsg { type: 'workspace:config:get' }

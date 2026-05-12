@@ -6,7 +6,7 @@ import { EVENTS, createId } from '@crai/core'
 import http from 'node:http'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { ClientMessage, ServerMessage } from './protocol'
-import type { GlobalConfig, ProviderConfig, WorkspaceConfig } from '@crai/config'
+import type { GlobalConfig, ProviderConfig, WorkspaceConfig } from '@crai/core'
 
 // ── 选项 ───────────────────────────────────────────
 
@@ -15,6 +15,7 @@ export interface WsTransportHandlers {
   onConfigSet?: (config: GlobalConfig) => void | Promise<void>
   onConfigSetProvider?: (name: string, config: ProviderConfig) => void | Promise<void>
   onConfigRemoveProvider?: (name: string) => void | Promise<void>
+  onConfigFetchModels?: (providerName: string) => Promise<{ models: string[]; error?: string }>
   onWorkspaceList?: () => Array<{ rootDir: string; config: WorkspaceConfig }> | Promise<Array<{ rootDir: string; config: WorkspaceConfig }>>
   onWorkspaceSwitch?: (rootDir: string) => Promise<{ model: string; provider: string }>
   onWorkspaceConfigGet?: () => WorkspaceConfig | Promise<WorkspaceConfig>
@@ -57,7 +58,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
   function resolveRuntime(): RuntimeHandle | undefined {
     if (getRuntime) {
       if (currentWorkspace) return getRuntime(currentWorkspace)
-      // 没有设置当前工作区时尝试任意 runtime
+      // 没有设置当前工作区时，让 getRuntime 自己处理（服务端可返回第一个 runtime）
       return getRuntime('')
     }
     return undefined
@@ -77,6 +78,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'config:set':
       case 'config:set:provider':
       case 'config:remove:provider':
+      case 'config:fetch:models':
       case 'workspace:list':
       case 'workspace:switch':
       case 'workspace:config:get':
@@ -148,6 +150,13 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'config:remove:provider': {
         if (!handlers?.onConfigRemoveProvider) { ws.send(JSON.stringify({ type: 'error', message: 'config not writable' } satisfies ServerMessage)); break }
         await handlers.onConfigRemoveProvider(msg.name)
+        break
+      }
+
+      case 'config:fetch:models': {
+        if (!handlers?.onConfigFetchModels) { ws.send(JSON.stringify({ type: 'error', message: 'model fetching not available' } satisfies ServerMessage)); break }
+        const result = await handlers.onConfigFetchModels(msg.providerName)
+        ws.send(JSON.stringify({ type: 'config:models:data', providerName: msg.providerName, ...result } satisfies ServerMessage))
         break
       }
 

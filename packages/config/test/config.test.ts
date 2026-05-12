@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir, homedir } from 'node:os'
-import { ConfigManager, type AppVariant, type GlobalConfig, type WorkspaceConfig } from '../src/index'
+import { ConfigManager } from '../src/index'
+import type { AppVariant, GlobalConfig, WorkspaceConfig } from '@crai/core'
 
 // ── 测试用变体 ──
 

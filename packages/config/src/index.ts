@@ -6,54 +6,20 @@
  *   - dev/prod 使用不同的数据目录，数据互不干扰
  *   - 变体配置不由用户编辑，属于构建/部署决定
  *   - 用户可编辑的配置（API keys 等）存放在变体指定的目录中
+ *
+ * 类型定义（GlobalConfig、ProviderConfig、ConfigStore 等）在 @crai/core 中，
+ * 方便 transport 等包引用类型而不产生跨扩展依赖。
+ * 此包提供的是 JSON 文件实现和 ConfigManager 管理类。
  */
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import type { AppVariant, GlobalConfig, ProviderConfig, WorkspaceConfig, ConfigStore } from '@crai/core'
+import { encrypt, decrypt } from './crypto'
 
 // ════════════════════════════════════════════════════════
-// 变体配置（App Variant）—— 由应用定义，用户不编辑
+// 默认值
 // ════════════════════════════════════════════════════════
-
-export interface AppVariant {
-  /** 配置目录名（~/.crai 或 ~/.crai-dev），dev/prod 用不同目录。 */
-  configDirName: string
-  /** 工作区内数据目录名（.crai 或 .crai-dev）。 */
-  workspaceDataDirName: string
-  server: {
-    defaultPort: number
-  }
-  debug: {
-    trace: boolean
-    verboseTools: boolean
-  }
-}
-
-// ════════════════════════════════════════════════════════
-// 用户配置（User Config）
-// ════════════════════════════════════════════════════════
-
-export interface ProviderConfig {
-  apiKey: string
-  baseURL?: string
-  models?: string[]
-}
-
-export interface GlobalConfig {
-  providers: Record<string, ProviderConfig>
-  defaultProvider?: string
-  defaultModel?: string
-  recentWorkspaces: string[]
-}
-
-export interface WorkspaceSecurityConfig {
-  mode?: 'safe' | 'ask' | 'execute'
-}
-
-export interface WorkspaceConfig {
-  /** 此工作区的安全模式。不设时使用 'ask'。 */
-  security?: WorkspaceSecurityConfig
-}
 
 export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
   providers: {},
@@ -63,17 +29,19 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
 export const DEFAULT_WORKSPACE_CONFIG: WorkspaceConfig = {}
 
 // ════════════════════════════════════════════════════════
-// ConfigManager
+// ConfigManager（JSON 文件实现）
 // ════════════════════════════════════════════════════════
 
-export class ConfigManager {
+export class ConfigManager implements ConfigStore {
   private variant: AppVariant
   private global: GlobalConfig
   private dirty = false
+  private _keyDir: string
 
   constructor(variant: AppVariant) {
     this.variant = variant
     this.global = { ...DEFAULT_GLOBAL_CONFIG }
+    this._keyDir = join(homedir(), variant.configDirName)
   }
 
   getVariant(): AppVariant {
@@ -96,6 +64,17 @@ export class ConfigManager {
     return this.workspaceDir(rootDir)
   }
 
+  // ── ConfigStore 接口 ──
+
+  async load(): Promise<GlobalConfig> {
+    return this.loadGlobal()
+  }
+
+  async save(config: GlobalConfig): Promise<void> {
+    this.global = { ...config }
+    await this.saveGlobal()
+  }
+
   // ── 全局配置 ──
 
   async loadGlobal(): Promise<GlobalConfig> {
@@ -106,14 +85,26 @@ export class ConfigManager {
       this.global = { ...DEFAULT_GLOBAL_CONFIG }
       await this.saveGlobal()
     }
+    // 解密所有已保存的 API keys
+    for (const name of Object.keys(this.global.providers)) {
+      const p = this.global.providers[name]
+      if (p.apiKey) p.apiKey = decrypt(p.apiKey, this._keyDir)
+    }
     this.dirty = false
     return this.global
   }
 
   async saveGlobal(): Promise<void> {
-    const dir = join(homedir(), this.variant.configDirName)
+    // 加密所有 API keys 后存盘
+    const toSave = { ...this.global, providers: { ...this.global.providers } }
+    for (const name of Object.keys(toSave.providers)) {
+      if (toSave.providers[name].apiKey) {
+        toSave.providers[name] = { ...toSave.providers[name], apiKey: encrypt(toSave.providers[name].apiKey, this._keyDir) }
+      }
+    }
+    const dir = this._keyDir
     await mkdir(dir, { recursive: true })
-    await writeFile(this.globalConfigPath, JSON.stringify(this.global, null, 2), 'utf-8')
+    await writeFile(this.globalConfigPath, JSON.stringify(toSave, null, 2), 'utf-8')
     this.dirty = false
   }
 
@@ -180,3 +171,9 @@ export class ConfigManager {
     }
   }
 }
+
+// ════════════════════════════════════════════════════════
+// 加密工具
+// ════════════════════════════════════════════════════════
+
+export { encrypt, decrypt } from './crypto'

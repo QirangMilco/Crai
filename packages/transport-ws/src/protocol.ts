@@ -4,7 +4,7 @@
  * 所有消息均为 UTF-8 JSON 文本帧。
  */
 
-import type { GlobalConfig, ProviderConfig, WorkspaceConfig } from '@crai/config'
+import type { GlobalConfig, ProviderConfig, WorkspaceConfig } from '@crai/core'
 
 // ── Client → Server ───────────────────────────────
 
@@ -69,6 +69,12 @@ export interface WorkspaceSwitchMessage {
   rootDir: string
 }
 
+/** 客户端请求获取指定 provider 的可用模型列表。 */
+export interface ConfigFetchModelsMessage {
+  type: 'config:fetch:models'
+  providerName: string
+}
+
 /** 客户端获取当前工作区配置。 */
 export interface WorkspaceConfigGetMessage {
   type: 'workspace:config:get'
@@ -88,6 +94,7 @@ export type ClientMessage =
   | ConfigSetMessage
   | ConfigSetProviderMessage
   | ConfigRemoveProviderMessage
+  | ConfigFetchModelsMessage
   | WorkspaceListMessage
   | WorkspaceSwitchMessage
   | WorkspaceConfigGetMessage
@@ -123,6 +130,14 @@ export interface ErrorMessage {
 export interface ConfigDataMessage {
   type: 'config:data'
   config: GlobalConfig
+}
+
+/** 模型列表响应。 */
+export interface ConfigModelsDataMessage {
+  type: 'config:models:data'
+  providerName: string
+  models: string[]
+  error?: string
 }
 
 /** 工作区列表响应。 */
@@ -161,6 +176,7 @@ export type ServerMessage =
   | SessionIdMessage
   | ErrorMessage
   | ConfigDataMessage
+  | ConfigModelsDataMessage
   | WorkspaceListDataMessage
   | WorkspaceSwitchedMessage
   | WorkspaceConfigDataMessage

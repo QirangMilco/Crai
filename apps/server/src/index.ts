@@ -6,7 +6,7 @@
  * - 从配置文件读取配，无需环境变量
  */
 import { createRuntime, type RuntimeHandle } from '@crai/runtime'
-import { createOpenAIProvider, createDeepSeekProvider } from '@crai/provider'
+import { createOpenAIProvider, createDeepSeekProvider, listModels } from '@crai/provider'
 import { createFileStorage } from '@crai/storage-fs'
 import { createPersistenceExtension } from '@crai/persistence'
 import { createWorkspaceSecurity } from '@crai/security'
@@ -14,7 +14,8 @@ import { createFsTools } from '@crai/tools-fs'
 import { createShellTools, processManager } from '@crai/tools-shell'
 import { createWebTools } from '@crai/tools-web'
 import { createWsTransport } from '@crai/transport-ws'
-import { ConfigManager, type AppVariant } from '@crai/config'
+import type { AppVariant } from '@crai/core'
+import { ConfigManager } from '@crai/config'
 import { EVENTS } from '@crai/core'
 import type { Extension } from '@crai/core'
 import { resolve } from 'node:path'
@@ -130,6 +131,14 @@ async function main() {
       onConfigSet: (cfg) => { Object.assign(config.getGlobal(), cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigSetProvider: (name, cfg) => { config.setProvider(name, cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigRemoveProvider: (name) => { config.removeProvider(name); config.saveGlobal(); gWorkspaces?.sync() },
+      onConfigFetchModels: async (providerName) => {
+        const global = config.getGlobal()
+        const p = global.providers[providerName]
+        if (!p) return { models: [], error: `Provider "${providerName}" 不存在` }
+        const models = await listModels(p.apiKey, p.baseURL)
+        if (models.length === 0) return { models: [], error: '无法获取模型列表，请检查 API key 或网络连接' }
+        return { models }
+      },
       onWorkspaceList: async () => {
         const active = new Set(gWorkspaces?.list() ?? [])
         const all = [...new Set([...active, ...(config.getGlobal().recentWorkspaces ?? [])])]
@@ -143,7 +152,12 @@ async function main() {
       onWorkspaceConfigGet: async () => config.loadWorkspace(process.cwd()),
       onWorkspaceConfigSet: async (cfg) => { await config.saveWorkspace(process.cwd(), cfg); gWorkspaces?.sync() },
     },
-    getRuntime: (rootDir) => gWorkspaces?.getRuntime(rootDir),
+    getRuntime: (rootDir) => {
+      if (rootDir) return gWorkspaces?.getRuntime(rootDir)
+      // 未指定工作区时返回第一个活跃 runtime
+      const first = gWorkspaces?.list()[0]
+      return first ? gWorkspaces?.getRuntime(first) : undefined
+    },
   })
 
   gWorkspaces = new WorkspaceManager(config, (wsId, evt, payload) => {
