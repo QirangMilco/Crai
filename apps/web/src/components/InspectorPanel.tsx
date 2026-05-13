@@ -6,7 +6,7 @@ import {
 } from '../theme/tokens'
 
 const GROUP_LABELS: Record<string, string> = {
-  base: '🎨 基础色', type: '🔤 字号 & 行高', radius: '⭕ 圆角', spacing: '↔️ 间距',
+  base: '🎨 基础色', 'font-size': '🔤 字号', 'line-height': '📏 行高', radius: '⭕ 圆角', spacing: '↔️ 间距',
   'user-msg': '💬 用户消息', 'ai-msg': '🤖 AI 消息',
   'code-block': '📄 代码块', table: '📊 表格', blockquote: '📝 引用 & 链接',
   heading: '📰 标题', input: '⌨️ 输入框', 'input-box': '📦 输入框容器', 'input-field': '🖊️ 文本区', 'input-bar': '🔧 工具栏',
@@ -17,7 +17,7 @@ interface Props { onClose: () => void }
 
 export function InspectorPanel({ onClose }: Props) {
   const groups = tokensByGroup()
-  const [expanded, setExpanded] = useState<Set<TokenGroup>>(new Set(['type', 'radius', 'spacing', 'base']))
+  const [expanded, setExpanded] = useState<Set<TokenGroup>>(new Set(['font-size', 'line-height', 'radius', 'spacing', 'base']))
   const [locateMode, setLocateMode] = useState(false)
   const [activeColor, setActiveColor] = useState<string>('Crai 默认（浅色）')
   const [activeStyle, setActiveStyle] = useState<string>('Crai 默认样式')

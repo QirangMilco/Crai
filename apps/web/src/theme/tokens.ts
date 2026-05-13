@@ -5,7 +5,7 @@
  * ref 字段记录父 token 名，Inspector 据此展示继承态 UI。
  */
 export type TokenType = 'color' | 'size' | 'number' | 'select' | 'text'
-export type TokenGroup = 'base' | 'type' | 'radius' | 'spacing' | 'user-msg' | 'ai-msg' | 'code-block' | 'table' | 'blockquote' | 'heading' | 'input' | 'input-box' | 'input-field' | 'input-bar' | 'layout'
+export type TokenGroup = 'base' | 'font-size' | 'line-height' | 'radius' | 'spacing' | 'user-msg' | 'ai-msg' | 'code-block' | 'table' | 'blockquote' | 'heading' | 'input' | 'input-box' | 'input-field' | 'input-bar' | 'layout'
 
 export interface TokenDef {
   name: string; label: string; group: TokenGroup; type: TokenType
@@ -39,19 +39,19 @@ export const TOKENS: TokenDef[] = [
   // ============================================================
   // 🔤 字号（基础字号 + 继承链）
   // ============================================================
-  { name: '--crai-font-size', label: '基础字号', group: 'type', type: 'size', defaultValue: '14px', max: 32, description: '修改后所有继承它的字号自动跟随' },
-  { name: '--crai-msg-user-font-size', label: '用户消息字号', group: 'type', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
-  { name: '--crai-msg-ai-font-size', label: 'AI 消息字号', group: 'type', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
-  { name: '--crai-input-font-size', label: '文本区字号', group: 'type', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
-  { name: '--crai-md-paragraph-font-size', label: '正文字号', group: 'type', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32, description: 'Markdown 段落文字大小' },
+  { name: '--crai-font-size', label: '基础字号', group: 'font-size', type: 'size', defaultValue: '16px', max: 32, description: '修改后所有继承它的字号自动跟随' },
+  { name: '--crai-msg-user-font-size', label: '用户消息字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
+  { name: '--crai-msg-ai-font-size', label: 'AI 消息字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
+  { name: '--crai-input-font-size', label: '文本区字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
+  { name: '--crai-md-paragraph-font-size', label: '正文字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32, description: 'Markdown 段落文字大小' },
 
   // ============================================================
   // 📏 行高（基础行高 + 继承链）
   // ============================================================
-  { name: '--crai-line-height', label: '基础行高', group: 'type', type: 'number', defaultValue: '1.6', description: '修改后所有继承它的行高自动跟随' },
-  { name: '--crai-msg-user-line-height', label: '用户消息行高', group: 'type', type: 'number', defaultValue: 'var(--crai-line-height)', ref: '--crai-line-height' },
-  { name: '--crai-msg-ai-line-height', label: 'AI 消息行高', group: 'type', type: 'number', defaultValue: 'var(--crai-line-height)', ref: '--crai-line-height' },
-  { name: '--crai-input-line-height', label: '文本区行高', group: 'type', type: 'number', defaultValue: 'var(--crai-line-height)', ref: '--crai-line-height' },
+  { name: '--crai-line-height', label: '基础行高', group: 'line-height', type: 'number', defaultValue: '1.6', description: '修改后所有继承它的行高自动跟随' },
+  { name: '--crai-msg-user-line-height', label: '用户消息行高', group: 'line-height', type: 'number', defaultValue: 'var(--crai-line-height)', ref: '--crai-line-height' },
+  { name: '--crai-msg-ai-line-height', label: 'AI 消息行高', group: 'line-height', type: 'number', defaultValue: 'var(--crai-line-height)', ref: '--crai-line-height' },
+  { name: '--crai-input-line-height', label: '文本区行高', group: 'line-height', type: 'number', defaultValue: 'var(--crai-line-height)', ref: '--crai-line-height' },
 
   // ============================================================
   // ⭕ 圆角（基础圆角 + 继承链）
@@ -90,7 +90,7 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-md-code-bg', label: '背景', group: 'code-block', type: 'color', defaultValue: '#f8f9fa' },
   { name: '--crai-md-code-fg', label: '文字色', group: 'code-block', type: 'color', defaultValue: '#1a1a2e' },
   { name: '--crai-md-code-border', label: '边框', group: 'code-block', type: 'color', defaultValue: '#e9ecef' },
-  { name: '--crai-md-code-font-size', label: '字号', group: 'code-block', type: 'size', defaultValue: '13px', max: 24 },
+  { name: '--crai-md-code-font-size', label: '代码字号', group: 'font-size', type: 'size', defaultValue: '13px', max: 24 },
 
   // ============================================================
   // 📊 表格
@@ -116,10 +116,10 @@ export const TOKENS: TokenDef[] = [
   // ============================================================
   { name: '--crai-md-heading-color', label: '颜色', group: 'heading', type: 'color', defaultValue: '#1a1a2e' },
   { name: '--crai-md-heading-weight', label: '字重', group: 'heading', type: 'select', defaultValue: '600', options: ['400', '500', '600', '700', '800'] },
-  { name: '--crai-md-h1-font-size', label: 'H1 字号', group: 'heading', type: 'size', defaultValue: '16px', max: 40 },
-  { name: '--crai-md-h2-font-size', label: 'H2 字号', group: 'heading', type: 'size', defaultValue: '16px', max: 36 },
-  { name: '--crai-md-h3-font-size', label: 'H3 字号', group: 'heading', type: 'size', defaultValue: '14px', max: 32 },
-  { name: '--crai-md-h4-font-size', label: 'H4 字号', group: 'heading', type: 'size', defaultValue: '14px', max: 28 },
+  { name: '--crai-md-h1-font-size', label: 'H1 字号', group: 'font-size', type: 'size', defaultValue: '24px', max: 48 },
+  { name: '--crai-md-h2-font-size', label: 'H2 字号', group: 'font-size', type: 'size', defaultValue: '20px', max: 44 },
+  { name: '--crai-md-h3-font-size', label: 'H3 字号', group: 'font-size', type: 'size', defaultValue: '18px', max: 40 },
+  { name: '--crai-md-h4-font-size', label: 'H4 字号', group: 'font-size', type: 'size', defaultValue: '16px', max: 36 },
 
   // ============================================================
   // 📦 输入框容器
@@ -138,7 +138,7 @@ export const TOKENS: TokenDef[] = [
   // ============================================================
   { name: '--crai-btn-radius', label: '按钮圆角', group: 'input-bar', type: 'size', defaultValue: '8px' },
   { name: '--crai-btn-height', label: '按钮高度', group: 'input-bar', type: 'size', defaultValue: '32px', max: 80, description: '发送按钮和工具栏的高度' },
-  { name: '--crai-btn-font-size', label: '按钮字号', group: 'input-bar', type: 'size', defaultValue: '13px', max: 24 },
+  { name: '--crai-btn-font-size', label: '按钮字号', group: 'font-size', type: 'size', defaultValue: '13px', max: 24 },
   { name: '--crai-btn-color', label: '按钮文字色', group: 'input-bar', type: 'color', defaultValue: '#ffffff' },
   { name: '--crai-btn-hover-bg', label: '悬停背景色', group: 'input-bar', type: 'color', defaultValue: '#4338ca' },
 
