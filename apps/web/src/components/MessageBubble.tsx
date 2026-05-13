@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../types/messages'
+import { MarkdownRenderer } from './markdown/MarkdownRenderer'
 
 interface Props {
   msg: ChatMessage
@@ -9,7 +10,7 @@ export function MessageBubble({ msg }: Props) {
 
   return (
     <div
-      class={`msg-enter flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}
+      className={`msg-enter flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}
       style={{ maxWidth: 'var(--crai-msg-max-width)' }}
     >
       <div
@@ -20,9 +21,13 @@ export function MessageBubble({ msg }: Props) {
           fontSize: 'var(--crai-msg-font-size)',
           lineHeight: 'var(--crai-msg-line-height)',
         }}
-        class="px-4 py-3 max-w-[85%] whitespace-pre-wrap break-words shadow-sm"
+        className="px-4 py-3 max-w-[85%] shadow-sm"
       >
-        {msg.text}
+        {isUser ? (
+          <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+        ) : (
+          <MarkdownRenderer content={msg.text} />
+        )}
       </div>
     </div>
   )
