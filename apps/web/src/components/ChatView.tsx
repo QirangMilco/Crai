@@ -191,7 +191,8 @@ export function ChatView({ wsUrl }: Props) {
 
   return (
     <div className="flex h-dvh flex-col" style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg)' }}>
-      <header className="flex items-center justify-between px-4 py-2 shrink-0 border-b" style={{ borderColor: 'var(--crai-border)' }}>
+      <header className="flex items-center justify-between px-4 shrink-0 border-b"
+        style={{ borderColor: 'var(--crai-border)', height: 'var(--crai-header-height, 48px)' }}>
         <div className="flex items-center gap-2">
           <span className="font-semibold">Crai</span>
           <span className="inline-block w-2 h-2 rounded-full"

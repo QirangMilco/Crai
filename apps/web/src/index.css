@@ -83,11 +83,16 @@ body {
   background-color: var(--crai-accent) !important;
   color: #fff !important;
 }
+/* ── KaTeX 公式居中 ── */
 .katex-display {
-  text-align: center;
+  display: flex;
+  justify-content: center;
   margin: 0.8em 0;
   overflow-x: auto;
   overflow-y: hidden;
+}
+.katex-display > .katex {
+  text-align: center;
 }
 .inspector-slider {
   -webkit-appearance: none;

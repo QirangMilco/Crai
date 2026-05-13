@@ -39,7 +39,8 @@ const components = {
   pre: ({ children }: any) => <>{children}</>,
 
   // 段落
-  p: ({ children }: any) => <p className="my-2 leading-relaxed text-sm">{children}</p>,
+  p: ({ children }: any) => <p className="my-2 leading-relaxed"
+    style={{ fontSize: 'var(--crai-md-paragraph-font-size, 14px)' }}>{children}</p>,
 
   // 列表
   ul: ({ children, className }: any) => (
@@ -56,25 +57,30 @@ const components = {
   li: ({ children }: any) => <li className="leading-relaxed">{children}</li>,
 
   // 标题
-  h1: ({ children }: any) => <h1 data-token-group="heading" className="text-base font-bold mt-5 mb-3" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)' }}>{children}</h1>,
-  h2: ({ children }: any) => <h2 data-token-group="heading" className="text-base font-semibold mt-4 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)' }}>{children}</h2>,
-  h3: ({ children }: any) => <h3 data-token-group="heading" className="text-sm font-semibold mt-4 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)' }}>{children}</h3>,
+  h1: ({ children }: any) => <h1 data-token-group="heading" className="font-bold mt-5 mb-3" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h1-font-size, 16px)' }}>{children}</h1>,
+  h2: ({ children }: any) => <h2 data-token-group="heading" className="font-semibold mt-4 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h2-font-size, 16px)' }}>{children}</h2>,
+  h3: ({ children }: any) => <h3 data-token-group="heading" className="font-semibold mt-4 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h3-font-size, 14px)' }}>{children}</h3>,
+  h4: ({ children }: any) => <h4 data-token-group="heading" className="font-semibold mt-3 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h4-font-size, 14px)' }}>{children}</h4>,
+  h5: ({ children }: any) => <h5 data-token-group="heading" className="font-semibold mt-3 mb-1" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-paragraph-font-size, 14px)' }}>{children}</h5>,
+  h6: ({ children }: any) => <h6 data-token-group="heading" className="font-semibold mt-3 mb-1" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-paragraph-font-size, 14px)' }}>{children}</h6>,
 
   // 表格
   table: ({ children }: any) => (
-    <div data-token-group="table" className="my-3 overflow-x-auto rounded" style={{ border: '1px solid var(--crai-md-table-border)' }}>
-      <table className="min-w-full text-sm divide-y"
-        style={{ borderColor: 'var(--crai-md-table-border)', color: 'var(--crai-md-table-fg)' }}>
+    <div data-token-group="table" className="my-3 overflow-x-auto" style={{ border: '1px solid var(--crai-md-table-border)', borderRadius: 'var(--crai-md-code-radius, 8px)' }}>
+      <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse', color: 'var(--crai-md-table-fg)' }}>
         {children}
       </table>
     </div>
   ),
   thead: ({ children }: any) => <thead style={{ backgroundColor: 'var(--crai-md-table-header-bg)' }}>{children}</thead>,
   th: ({ children }: any) => <th className="text-left font-semibold text-xs"
-    style={{ padding: 'var(--crai-md-table-cell-padding, 8px 12px)' }}>{children}</th>,
-  td: ({ children }: any) => <td className="text-xs border-t"
     style={{
-      borderColor: 'var(--crai-border)',
+      padding: 'var(--crai-md-table-cell-padding, 8px 12px)',
+      border: '1px solid var(--crai-md-table-border)',
+    }}>{children}</th>,
+  td: ({ children }: any) => <td className="text-xs"
+    style={{
+      border: '1px solid var(--crai-md-table-border)',
       backgroundColor: 'var(--crai-md-table-body-bg)',
       padding: 'var(--crai-md-table-cell-padding, 8px 12px)',
     }}>{children}</td>,
