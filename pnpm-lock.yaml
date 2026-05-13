@@ -172,8 +172,6 @@ importers:
 
   packages/core: {}
 
-  packages/devtools: {}
-
   packages/loader-ts:
     dependencies:
       '@crai/core':
