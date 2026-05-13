@@ -44,7 +44,7 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--crai-fg-tertiary);
+  background: var(--crai-scrollbar-color);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -60,7 +60,16 @@ body {
   animation: msg-enter 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── KaTeX 显示公式居中 ── */
+/* ── Inspector 定位模式高亮 ── */
+.crai-locate-highlight {
+  outline: 2px solid var(--crai-accent) !important;
+  outline-offset: 2px !important;
+  border-radius: inherit;
+}
+.crai-group-active {
+  background-color: var(--crai-accent) !important;
+  color: #fff !important;
+}
 .katex-display {
   text-align: center;
   margin: 0.8em 0;

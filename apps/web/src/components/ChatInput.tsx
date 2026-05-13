@@ -13,9 +13,17 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
   // 自动调整高度
   useEffect(() => {
     const el = textareaRef.current
-    if (el) {
-      el.style.height = 'auto'
-      el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+    if (!el) return
+    el.style.height = 'auto'
+    const maxH = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--crai-input-max-height').trim() || '120', 10,
+    )
+    if (el.scrollHeight > maxH) {
+      el.style.height = maxH + 'px'
+      el.style.overflowY = 'auto'
+    } else {
+      el.style.height = el.scrollHeight + 'px'
+      el.style.overflowY = 'hidden'
     }
   }, [text])
 
@@ -26,8 +34,7 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
     setText('')
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    // Enter 发送，Shift+Enter 换行
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()
@@ -35,36 +42,80 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
   }
 
   return (
-    <div className={`border-t px-[var(--crai-chat-padding)] py-3 ${className}`}
-      style={{ borderColor: 'var(--crai-border)' }}>
+    <div className={`mx-auto py-3 ${className}`}
+      data-token-group="layout"
+      style={{
+        maxWidth: 'var(--crai-chat-max-width)',
+        width: '100%',
+        paddingLeft: 'var(--crai-chat-padding)',
+        paddingRight: 'var(--crai-chat-padding)',
+      }}>
       <div
-        className="mx-auto flex items-end gap-2"
-        style={{ maxWidth: 'var(--crai-chat-max-width)' }}
-      >
+        data-token-group="input-box"
+        style={{
+          backgroundColor: 'var(--crai-input-bg)',
+          border: 'var(--crai-input-border-width, 1px) solid var(--crai-input-border)',
+          borderRadius: 'var(--crai-input-radius)',
+          minHeight: 'var(--crai-input-min-height, 44px)',
+          boxShadow: 'var(--crai-shadow-input)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--crai-input-gap, 4px)',
+        }}>
         <textarea
           ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="输入消息…"
-          disabled={disabled}
           rows={1}
-          className="flex-1 resize-none outline-none px-4 py-3 text-[length:var(--crai-msg-font-size)] leading-[var(--crai-msg-line-height)]"
+          data-token-group="input-field"
           style={{
-            backgroundColor: 'var(--crai-input-bg)',
+            display: 'block',
+            width: '100%',
+            backgroundColor: 'transparent',
             color: 'var(--crai-fg)',
-            borderRadius: 'var(--crai-input-radius)',
-            borderColor: 'var(--crai-border)',
+            fontSize: 'var(--crai-msg-font-size)',
+            lineHeight: 'var(--crai-msg-line-height)',
+            border: 'none',
+            borderRadius: 0,
+            outline: 'none',
+            resize: 'none',
+            boxSizing: 'border-box',
+            padding: '12px 16px 0',
+            maxHeight: 'calc(var(--crai-input-max-height, 120px))',
+            overflowY: 'hidden',
           }}
         />
-        <button
-          onClick={handleSubmit}
-          disabled={disabled || !text.trim()}
-          className="shrink-0 px-4 py-3 rounded-[var(--crai-input-radius)] font-medium text-white transition-opacity disabled:opacity-40"
-          style={{ backgroundColor: 'var(--crai-accent)' }}
-        >
-          发送
-        </button>
+        <div
+          data-token-group="input-bar"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            padding: '0 12px 8px',
+            height: 'var(--crai-btn-height, 32px)',
+          }}>
+          <button
+            onClick={handleSubmit}
+            disabled={disabled || !text.trim()}
+            style={{
+              backgroundColor: 'var(--crai-accent)',
+              borderRadius: 'var(--crai-btn-radius, 8px)',
+              height: 'var(--crai-btn-height, 32px)',
+              fontSize: 'var(--crai-btn-font-size, 13px)',
+              lineHeight: 'var(--crai-btn-height, 32px)',
+              padding: '0 20px',
+              fontWeight: 500,
+              color: '#fff',
+              opacity: disabled || !text.trim() ? 0.4 : 1,
+              border: 'none',
+              cursor: disabled || !text.trim() ? 'default' : 'pointer',
+            }}
+          >
+            发送
+          </button>
+        </div>
       </div>
     </div>
   )

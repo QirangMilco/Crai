@@ -156,11 +156,12 @@ export function ConfigPanel({ config, send, onClose }: Props) {
   ]
 
   return (
-    <div className="fixed top-0 right-0 h-full w-80 z-50 shadow-2xl flex flex-col text-sm overflow-hidden"
+    <div className="fixed top-0 right-0 h-full w-80 z-50 flex flex-col text-sm overflow-hidden"
       style={{
         backgroundColor: 'var(--crai-bg)',
         color: 'var(--crai-fg)',
-        borderLeft: '1px solid var(--crai-border)',
+        borderLeft: 'var(--crai-border-width, 1px) solid var(--crai-border)',
+        boxShadow: 'var(--crai-shadow-modal)',
       }}>
 
       {/* 标题 */}

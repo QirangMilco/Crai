@@ -15,11 +15,10 @@ export function MessageList({ messages, className = '' }: Props) {
   }, [messages.length])
 
   return (
-    <div className={`flex-1 overflow-y-auto px-[var(--crai-chat-padding)] ${className}`}>
-      <div
-        className="mx-auto"
-        style={{ maxWidth: 'var(--crai-chat-max-width)' }}
-      >
+    <div className={`flex-1 overflow-y-auto px-[var(--crai-chat-padding)] mx-auto ${className}`}
+      style={{ maxWidth: 'var(--crai-chat-max-width)', width: '100%' }}
+    >
+      <div className="w-full">
         {messages.map((msg) => (
           <MessageBubble key={msg.id} msg={msg} />
         ))}

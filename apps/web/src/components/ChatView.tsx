@@ -38,7 +38,7 @@ function Dropdown<T extends string>({ label, items, selected, onSelect, onAction
         <span className="text-[10px]">▼</span>
       </button>
       {open && (
-        <div className="absolute top-full right-0 mt-1 min-w-[160px] rounded-lg shadow-lg z-50 py-1"
+        <div className="absolute top-full right-0 mt-1 min-w-[160px] rounded-lg z-50 py-1"
           style={{ backgroundColor: 'var(--crai-bg)', border: '1px solid var(--crai-border)' }}>
           {items.map((item) => (
             <button key={item.id}
@@ -70,7 +70,6 @@ export function ChatView({ wsUrl }: Props) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [showInspector, setShowInspector] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
-  const [dark, setDark] = useState(false)
   const [globalConfig, setGlobalConfig] = useState<any>(null)
   const [workspaces, setWorkspaces] = useState<Array<{ rootDir: string }>>([])
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
@@ -172,14 +171,6 @@ export function ChatView({ wsUrl }: Props) {
     if (dir && dir.trim()) handleSwitchWorkspace(dir.trim())
   }, [handleSwitchWorkspace])
 
-  const toggleDark = useCallback(() => {
-    setDark((d) => {
-      const next = !d
-      document.documentElement.classList.toggle('dark', next)
-      return next
-    })
-  }, [])
-
   useEffect(() => {
     if (status === 'connected') {
       send({ type: 'workspace:list' })
@@ -241,7 +232,7 @@ export function ChatView({ wsUrl }: Props) {
       <MessageList messages={messages} />
       <ChatInput onSend={handleSend} disabled={status !== 'connected'} />
 
-      {showInspector && <InspectorPanel dark={dark} onToggleDark={toggleDark} onClose={() => setShowInspector(false)} />}
+      {showInspector && <InspectorPanel onClose={() => setShowInspector(false)} />}
       {showConfig && <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} />}
     </div>
   )

@@ -11,6 +11,7 @@ export function MessageBubble({ msg }: Props) {
   return (
     <div
       className={`msg-enter flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}
+      data-token-group={isUser ? 'user-msg' : 'ai-msg'}
     >
       <div
         style={{
@@ -19,8 +20,9 @@ export function MessageBubble({ msg }: Props) {
           borderRadius: isUser ? 'var(--crai-msg-user-radius)' : 'var(--crai-msg-assistant-radius)',
           fontSize: 'var(--crai-msg-font-size)',
           lineHeight: 'var(--crai-msg-line-height)',
+          boxShadow: 'var(--crai-shadow-bubble)',
         }}
-        className="px-4 py-3 max-w-[85%] shadow-sm"
+        className="px-4 py-3 max-w-[85%]"
       >
         {isUser ? (
           <div className="whitespace-pre-wrap break-words">{msg.text}</div>
