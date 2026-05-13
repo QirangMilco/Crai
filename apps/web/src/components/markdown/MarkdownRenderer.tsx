@@ -57,12 +57,12 @@ const components = {
   li: ({ children }: any) => <li className="leading-relaxed">{children}</li>,
 
   // 标题
-  h1: ({ children }: any) => <h1 data-token-group="heading" className="font-bold mt-5 mb-3" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h1-font-size, 16px)' }}>{children}</h1>,
-  h2: ({ children }: any) => <h2 data-token-group="heading" className="font-semibold mt-4 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h2-font-size, 16px)' }}>{children}</h2>,
-  h3: ({ children }: any) => <h3 data-token-group="heading" className="font-semibold mt-4 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h3-font-size, 14px)' }}>{children}</h3>,
-  h4: ({ children }: any) => <h4 data-token-group="heading" className="font-semibold mt-3 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h4-font-size, 14px)' }}>{children}</h4>,
-  h5: ({ children }: any) => <h5 data-token-group="heading" className="font-semibold mt-3 mb-1" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-paragraph-font-size, 14px)' }}>{children}</h5>,
-  h6: ({ children }: any) => <h6 data-token-group="heading" className="font-semibold mt-3 mb-1" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-paragraph-font-size, 14px)' }}>{children}</h6>,
+  h1: ({ children }: any) => <h1 data-token-group="heading" className="font-bold mt-2 mb-3" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h1-font-size, 16px)' }}>{children}</h1>,
+  h2: ({ children }: any) => <h2 data-token-group="heading" className="font-semibold mt-2 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h2-font-size, 16px)' }}>{children}</h2>,
+  h3: ({ children }: any) => <h3 data-token-group="heading" className="font-semibold mt-2 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h3-font-size, 14px)' }}>{children}</h3>,
+  h4: ({ children }: any) => <h4 data-token-group="heading" className="font-semibold mt-2 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-h4-font-size, 14px)' }}>{children}</h4>,
+  h5: ({ children }: any) => <h5 data-token-group="heading" className="font-semibold mt-2 mb-1" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-paragraph-font-size, 14px)' }}>{children}</h5>,
+  h6: ({ children }: any) => <h6 data-token-group="heading" className="font-semibold mt-2 mb-1" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)', fontSize: 'var(--crai-md-paragraph-font-size, 14px)' }}>{children}</h6>,
 
   // 表格
   table: ({ children }: any) => (
