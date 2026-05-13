@@ -74,6 +74,7 @@ export function ChatView({ wsUrl }: Props) {
   const [workspaces, setWorkspaces] = useState<Array<{ rootDir: string }>>([])
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
   const [sessions, setSessions] = useState<Array<{ id: string; title?: string; createdAt: number }>>([])
+  const debounceRef = useRef<{ text: string; timer: any } | null>(null)
 
   const { status, send } = useWebSocket({
     url: wsUrl,
@@ -84,12 +85,29 @@ export function ChatView({ wsUrl }: Props) {
       switch (msg.type) {
         case 'event': {
           if (msg.event === 'model.delta' && typeof msg.payload?.delta === 'string') {
-            setMessages((prev) => prev.map((m, i) =>
-              i === prev.length - 1 && m.role === 'assistant' ? { ...m, text: m.text + msg.payload.delta } : m,
-            ))
+            // 防抖：累积 delta 后批量更新，避免每次字符触发全量重渲染
+            if (!debounceRef.current) debounceRef.current = { text: '', timer: null }
+            const d = debounceRef.current
+            d.text += msg.payload.delta
+            if (d.timer) clearTimeout(d.timer)
+            d.timer = setTimeout(() => {
+              const batch = d.text
+              d.text = ''
+              d.timer = null
+              setMessages((prev) => prev.map((m, i) =>
+                i === prev.length - 1 && m.role === 'assistant' ? { ...m, text: m.text + batch } : m,
+              ))
+            }, 16) // ~60fps
           }
           if (msg.event === 'model.completed' && msg.payload?.response?.message?.parts) {
-            const textParts = msg.payload.response.message.parts
+            // 立即刷新防抖缓冲区
+            if (debounceRef.current?.timer) {
+              clearTimeout(debounceRef.current.timer)
+              debounceRef.current.timer = null
+            }
+            const pending = debounceRef.current?.text ?? ''
+            debounceRef.current = null
+            const textParts = pending + msg.payload.response.message.parts
               .filter((p: any) => p.type === 'text')
               .map((p: any) => p.text)
               .join('')

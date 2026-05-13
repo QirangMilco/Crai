@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { ChatMessage } from '../types/messages'
 import { MarkdownRenderer } from './markdown/MarkdownRenderer'
 
@@ -5,7 +6,7 @@ interface Props {
   msg: ChatMessage
 }
 
-export function MessageBubble({ msg }: Props) {
+function Bubble({ msg }: Props) {
   const isUser = msg.role === 'user'
 
   return (
@@ -35,3 +36,7 @@ export function MessageBubble({ msg }: Props) {
     </div>
   )
 }
+
+export const MessageBubble = memo(Bubble, (prev, next) => {
+  return prev.msg.id === next.msg.id && prev.msg.text === next.msg.text
+})

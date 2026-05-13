@@ -1,10 +1,12 @@
 /**
- * CodeBlock — Shiki 语法高亮 + 复制按钮。
+ * CodeBlock — Shiki 语法高亮 + 复制按钮 + Mermaid 图表。
  *
  * 在组件初始化时创建 Shiki highlighter，缓存高亮结果避免重复计算。
+ * language === 'mermaid' 时转用 MermaidBlock 渲染图表。
  */
 import { useCallback, useRef, useState, useEffect } from 'react'
 import { createHighlighter, type Highlighter } from 'shiki'
+import { MermaidBlock } from './MermaidBlock'
 
 const COMMON_LANGS = [
   'javascript', 'typescript', 'python', 'json', 'bash', 'shell',
@@ -56,12 +58,7 @@ export function CodeBlock({ code, language }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-
-  useEffect(() => {
-    getHighlighter()
-      .then(setHighlighter)
-      .catch(() => setError('highlighter failed'))
-  }, [])
+  const lang = language === '' ? 'text' : (language || 'text')
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code).then(() => {
@@ -70,7 +67,27 @@ export function CodeBlock({ code, language }: Props) {
     })
   }, [code])
 
-  const lang = language === '' ? 'text' : (language || 'text')
+  // Mermaid 图表走专用渲染
+  if (lang === 'mermaid') {
+    return (
+      <div className="relative group my-3 overflow-hidden"
+        style={{ border: '1px solid var(--crai-md-code-border)', borderRadius: 'var(--crai-md-code-radius, 8px)', backgroundColor: 'var(--crai-md-code-bg)' }}>
+        <MermaidBlock code={code} />
+        <button onClick={handleCopy}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-0.5 rounded text-[10px]"
+          style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
+          {copied ? '已复制' : '复制'}
+        </button>
+      </div>
+    )
+  }
+
+  useEffect(() => {
+    getHighlighter()
+      .then(setHighlighter)
+      .catch(() => setError('highlighter failed'))
+  }, [])
+
   let html: string | null = null
   if (highlighter) {
     try {
