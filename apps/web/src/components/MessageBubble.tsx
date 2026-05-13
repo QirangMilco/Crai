@@ -11,7 +11,6 @@ export function MessageBubble({ msg }: Props) {
   return (
     <div
       className={`msg-enter flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}
-      style={{ maxWidth: 'var(--crai-msg-max-width)' }}
     >
       <div
         style={{

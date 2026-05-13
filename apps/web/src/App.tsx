@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChatView } from './components/ChatView'
+import { applyTokens } from './theme/tokens'
 
 export default function App() {
+  useEffect(() => { applyTokens() }, [])
   const [wsUrl, setWsUrl] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     // URL 参数优先；没有参数时自动推断同机地址

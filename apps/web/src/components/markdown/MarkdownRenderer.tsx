@@ -28,9 +28,9 @@ const components = {
     return (
       <code className="px-1 py-0.5 rounded text-sm"
         style={{
-          backgroundColor: 'var(--crai-bg-tertiary)',
+          backgroundColor: 'var(--crai-md-inline-code-bg)',
           color: 'var(--crai-fg)',
-          border: '1px solid var(--crai-border)',
+          fontSize: 'var(--crai-md-code-font-size)',
         }}>
         {children}
       </code>
@@ -56,28 +56,29 @@ const components = {
   li: ({ children }: any) => <li className="leading-relaxed">{children}</li>,
 
   // 标题
-  h1: ({ children }: any) => <h1 className="text-base font-bold mt-5 mb-3">{children}</h1>,
-  h2: ({ children }: any) => <h2 className="text-base font-semibold mt-4 mb-2">{children}</h2>,
-  h3: ({ children }: any) => <h3 className="text-sm font-semibold mt-4 mb-2">{children}</h3>,
+  h1: ({ children }: any) => <h1 className="text-base font-bold mt-5 mb-3" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)' }}>{children}</h1>,
+  h2: ({ children }: any) => <h2 className="text-base font-semibold mt-4 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)' }}>{children}</h2>,
+  h3: ({ children }: any) => <h3 className="text-sm font-semibold mt-4 mb-2" style={{ color: 'var(--crai-md-heading-color)', fontWeight: 'var(--crai-md-heading-weight)' }}>{children}</h3>,
 
   // 表格
   table: ({ children }: any) => (
-    <div className="my-3 overflow-x-auto rounded border" style={{ borderColor: 'var(--crai-border)' }}>
-      <table className="min-w-full text-sm divide-y" style={{ borderColor: 'var(--crai-border)' }}>
+    <div className="my-3 overflow-x-auto rounded border" style={{ borderColor: 'var(--crai-md-table-border)' }}>
+      <table className="min-w-full text-sm divide-y" style={{ borderColor: 'var(--crai-md-table-border)' }}>
         {children}
       </table>
     </div>
   ),
-  thead: ({ children }: any) => <thead style={{ backgroundColor: 'var(--crai-bg-tertiary)' }}>{children}</thead>,
+  thead: ({ children }: any) => <thead style={{ backgroundColor: 'var(--crai-md-table-header-bg)' }}>{children}</thead>,
   th: ({ children }: any) => <th className="text-left py-2 px-3 font-semibold text-xs">{children}</th>,
   td: ({ children }: any) => <td className="py-2 px-3 text-xs border-t" style={{ borderColor: 'var(--crai-border)' }}>{children}</td>,
 
   // 引用
   blockquote: ({ children }: any) => (
-    <blockquote className="border-l-2 pl-3 my-2 text-xs"
+    <blockquote className="border-l-2 pl-3 pr-2 py-1 my-2 rounded-r"
       style={{
-        borderColor: 'var(--crai-accent)',
-        color: 'var(--crai-fg-secondary)',
+        borderColor: 'var(--crai-md-blockquote-border)',
+        backgroundColor: 'var(--crai-md-blockquote-bg)',
+        color: 'var(--crai-md-blockquote-fg)',
       }}>
       {children}
     </blockquote>
@@ -91,7 +92,7 @@ const components = {
   em: ({ children }: any) => <em className="italic">{children}</em>,
   a: ({ href, children }: any) => (
     <a href={href} target="_blank" rel="noreferrer"
-      style={{ color: 'var(--crai-accent)' }}
+      style={{ color: 'var(--crai-md-link-color)' }}
       className="hover:underline">
       {children}
     </a>

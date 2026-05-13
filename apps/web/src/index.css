@@ -4,90 +4,33 @@
 /* ============================================================
    Crai Design Token System
    ============================================================
-   所有视觉参数定义为 CSS 自定义属性。
-   Inspector 通过修改这些变量实时调整样式。
+   Token 默认值由 @/theme/tokens.ts 的 applyTokens() 设置。
+   CSS 中只做 var() 引用。数值修改在 Inspector 中进行。
    ============================================================ */
 
-@layer base {
-  :root {
-    /* ── 主题色 ── */
-    --crai-accent: #6366f1;
-    --crai-accent-hover: #4f46e5;
-    --crai-accent-soft: #eef2ff;
-    --crai-destructive: #ef4444;
-    --crai-success: #22c55e;
-    --crai-info: #f59e0b;
-
-    /* ── 背景与文字 ── */
-    --crai-bg: #ffffff;
-    --crai-bg-secondary: #f8fafc;
-    --crai-bg-tertiary: #f1f5f9;
-    --crai-fg: #0f172a;
-    --crai-fg-secondary: #475569;
-    --crai-fg-tertiary: #94a3b8;
-
-    /* ── 边框 ── */
-    --crai-border: #e2e8f0;
-    --crai-border-hover: #cbd5e1;
-
-    /* ── 消息气泡 ── */
-    --crai-msg-user-bg: #6366f1;
-    --crai-msg-user-fg: #ffffff;
-    --crai-msg-user-radius: 16px 16px 4px 16px;
-    --crai-msg-assistant-bg: #f1f5f9;
-    --crai-msg-assistant-fg: #0f172a;
-    --crai-msg-assistant-radius: 16px 16px 16px 4px;
-    --crai-msg-font-size: 15px;
-    --crai-msg-line-height: 1.6;
-    --crai-msg-max-width: 680px;
-
-    /* ── 布局 ── */
-    --crai-chat-max-width: 800px;
-    --crai-chat-padding: 16px;
-    --crai-input-height: 52px;
-    --crai-input-radius: 12px;
-
-    /* ── 动效 ── */
-    --crai-duration-fast: 150ms;
-    --crai-duration-normal: 250ms;
-    --crai-easing: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* ── 暗色模式 ── */
-  .dark {
-    --crai-accent: #818cf8;
-    --crai-accent-hover: #6366f1;
-    --crai-accent-soft: #1e1b4b;
-    --crai-bg: #0f172a;
-    --crai-bg-secondary: #1e293b;
-    --crai-bg-tertiary: #334155;
-    --crai-fg: #f1f5f9;
-    --crai-fg-secondary: #94a3b8;
-    --crai-fg-tertiary: #64748b;
-    --crai-border: #334155;
-    --crai-border-hover: #475569;
-    --crai-msg-user-bg: #6366f1;
-    --crai-msg-user-fg: #ffffff;
-    --crai-msg-assistant-bg: #1e293b;
-    --crai-msg-assistant-fg: #f1f5f9;
-  }
-
-  /* ── 圆角预设 ── */
-  .radius-none {
-    --crai-msg-user-radius: 0;
-    --crai-msg-assistant-radius: 0;
-    --crai-input-radius: 0;
-  }
-  .radius-square {
-    --crai-msg-user-radius: 8px;
-    --crai-msg-assistant-radius: 8px;
-    --crai-input-radius: 8px;
-  }
-  .radius-pill {
-    --crai-msg-user-radius: 24px 24px 4px 24px;
-    --crai-msg-assistant-radius: 24px 24px 24px 4px;
-    --crai-input-radius: 26px;
-  }
+/* ── 暗色模式覆盖 ── */
+.dark {
+  --crai-bg: #0f172a;
+  --crai-bg-secondary: #1e293b;
+  --crai-bg-tertiary: #334155;
+  --crai-fg: #f1f5f9;
+  --crai-fg-secondary: #94a3b8;
+  --crai-fg-tertiary: #64748b;
+  --crai-accent: #818cf8;
+  --crai-border: #334155;
+  --crai-msg-user-bg: #6366f1;
+  --crai-msg-assistant-bg: #1e293b;
+  --crai-msg-assistant-fg: #f1f5f9;
+  --crai-md-code-bg: #1e293b;
+  --crai-md-code-border: #334155;
+  --crai-md-code-header-bg: #334155;
+  --crai-md-table-border: #334155;
+  --crai-md-table-header-bg: #1e293b;
+  --crai-md-blockquote-bg: #1e293b;
+  --crai-md-inline-code-bg: #334155;
+  --crai-md-heading-color: #f1f5f9;
+  --crai-input-bg: #1e293b;
+  --crai-input-border: #334155;
 }
 
 /* ── 基础全局样式 ── */
@@ -114,10 +57,16 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 .msg-enter {
-  animation: msg-enter var(--crai-duration-normal) var(--crai-easing);
+  animation: msg-enter 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Inspector 滑块等控件的自定义样式 ── */
+/* ── KaTeX 显示公式居中 ── */
+.katex-display {
+  text-align: center;
+  margin: 0.8em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
 .inspector-slider {
   -webkit-appearance: none;
   appearance: none;

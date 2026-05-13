@@ -81,25 +81,22 @@ export function CodeBlock({ code, language }: Props) {
   }
 
   return (
-    <div className="relative group my-3 rounded-lg overflow-hidden border"
-      style={{ borderColor: 'var(--crai-border)' }}>
-      <div className="flex items-center justify-between px-3 py-1.5 text-[10px]"
-        style={{ backgroundColor: 'var(--crai-bg-tertiary)', color: 'var(--crai-fg-tertiary)' }}>
-        <span>{lang}</span>
-        <button onClick={handleCopy}
-          className="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-0.5 rounded text-[10px]"
-          style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
-          {copied ? '已复制' : '复制'}
-        </button>
-      </div>
+    <div className="relative group my-3 rounded-lg overflow-hidden"
+      style={{ border: '1px solid var(--crai-md-code-border)' }}>
       {html ? (
         <div className="overflow-x-auto text-sm leading-relaxed"
+          style={{ backgroundColor: 'var(--crai-md-code-bg)', fontSize: 'var(--crai-md-code-font-size)' }}
           dangerouslySetInnerHTML={{ __html: html }} />
       ) : error ? (
-        <pre className="p-3 text-sm overflow-x-auto" style={{ color: 'var(--crai-fg)' }}><code>{code}</code></pre>
+        <pre className="p-3 text-sm overflow-x-auto" style={{ backgroundColor: 'var(--crai-md-code-bg)', color: 'var(--crai-fg)' }}><code>{code}</code></pre>
       ) : (
-        <pre className="p-3 text-sm overflow-x-auto" style={{ color: 'var(--crai-fg-tertiary)' }}><code>加载中…</code></pre>
+        <pre className="p-3 text-sm overflow-x-auto" style={{ backgroundColor: 'var(--crai-md-code-bg)', color: 'var(--crai-fg-tertiary)' }}><code>加载中…</code></pre>
       )}
+      <button onClick={handleCopy}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity px-2 py-0.5 rounded text-[10px]"
+        style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
+        {copied ? '已复制' : '复制'}
+      </button>
     </div>
   )
 }

@@ -1,252 +1,274 @@
-import { useState, useEffect } from 'react'
-import { TOKENS, type TokenDef, type ExportedConfig } from '../types/inspector'
+/**
+ * InspectorPanel — 注册表驱动的样式调优面板。
+ *
+ * 读取 @/theme/tokens.ts 的 TOKENS 数组，
+ * 按 group 分组自动生成色彩选择器、尺寸滑块、数值输入框。
+ * 新增组件只需在 tokens.ts 中加一条记录，无需修改此文件。
+ */
+import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  TOKENS, tokensByGroup, setToken, resetToken, resetGroup, resetAll,
+  exportTokens, importTokens, THEME_PRESETS,
+  type TokenDef, type TokenGroup
+} from '../theme/tokens'
+
+const GROUP_LABELS: Record<TokenGroup, string> = {
+  base: '基础',
+  message: '消息气泡',
+  markdown: 'Markdown',
+  input: '输入框',
+  layout: '布局',
+}
 
 interface Props {
-  /** 当前是否暗色模式。 */
   dark: boolean
-  /** 切换暗色/亮色。 */
   onToggleDark: () => void
-  /** 关闭面板。 */
   onClose: () => void
 }
 
-/**
- * Crai Inspector — 浮动 DevTools 面板。
- *
- * 列举所有 CSS 变量，提供对应的控件进行实时调节。
- * 可导出配置复现同样的视觉效果。
- */
 export function InspectorPanel({ dark, onToggleDark, onClose }: Props) {
-  const [tokenValues, setTokenValues] = useState<Record<string, string>>({})
-  const [activeCategory, setActiveCategory] = useState<string>('theme')
+  const groups = tokensByGroup()
+  const [expanded, setExpanded] = useState<Set<TokenGroup>>(new Set(['base']))
+  const [, forceUpdate] = useState(0)
 
-  // 初始化：从 CSS 变量读取当前值
-  useEffect(() => {
-    const root = document.documentElement
-    const values: Record<string, string> = {}
-    for (const t of TOKENS) {
-      if (t.key.startsWith('_')) continue // 特殊处理
-      const val = getComputedStyle(root).getPropertyValue(`--crai-${t.key}`).trim()
-      if (val) values[t.key] = val
-    }
-    setTokenValues(values)
+  const toggleGroup = useCallback((g: TokenGroup) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(g)) next.delete(g)
+      else next.add(g)
+      return next
+    })
   }, [])
 
-  // 更新 CSS 变量
-  function updateToken(key: string, value: string) {
-    document.documentElement.style.setProperty(`--crai-${key}`, value)
-    setTokenValues((prev) => ({ ...prev, [key]: value }))
-  }
-
-  // 导出配置
-  function exportConfig() {
-    const config: ExportedConfig = {
-      tokens: { ...tokenValues },
-      darkMode: dark,
-    }
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'crai-theme.json'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // 按分类分组
-  const categories = ['theme', 'message', 'layout', 'effects'] as const
-  const categoryLabels: Record<string, string> = {
-    theme: '主题色', message: '消息气泡', layout: '布局', effects: '动效',
-  }
+  const handleChange = useCallback((token: TokenDef, value: string) => {
+    setToken(token.name, value)
+    forceUpdate((n) => n + 1)
+  }, [])
 
   return (
-    <div className="fixed top-0 right-0 h-full w-80 z-50 shadow-2xl flex flex-col text-sm overflow-hidden"
+    <div
+      className="fixed top-0 right-0 h-full z-50 shadow-2xl flex flex-col text-sm overflow-hidden"
       style={{
+        width: 'var(--crai-panel-width)',
         backgroundColor: 'var(--crai-bg)',
         color: 'var(--crai-fg)',
         borderLeft: '1px solid var(--crai-border)',
       }}
     >
-      {/* ── 标题栏 ── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b"
+      {/* 标题栏 */}
+      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0"
         style={{ borderColor: 'var(--crai-border)' }}>
-        <span className="font-semibold text-base">Crai Inspector</span>
-        <button onClick={onClose} className="text-lg leading-none opacity-50 hover:opacity-100">✕</button>
-      </div>
-
-      {/* ── 工具栏 ── */}
-      <div className="flex gap-2 px-4 py-2 border-b flex-wrap"
-        style={{ borderColor: 'var(--crai-border)' }}>
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className="px-2 py-1 rounded text-xs font-medium transition-colors"
-            style={{
-              backgroundColor: activeCategory === cat ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
-              color: activeCategory === cat ? '#fff' : 'var(--crai-fg-secondary)',
-            }}
-          >
-            {categoryLabels[cat]}
+        <span className="font-semibold text-base">Inspector</span>
+        <div className="flex gap-2">
+          <button onClick={onToggleDark}
+            className="text-xs px-2 py-1 rounded"
+            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
+            {dark ? '☀ 浅色' : '🌙 深色'}
           </button>
+          <button onClick={() => { resetAll(); forceUpdate((n) => n + 1) }}
+            className="text-xs px-2 py-1 rounded"
+            style={{ color: 'var(--crai-destructive)', border: '1px solid var(--crai-destructive)' }}>
+            重置全部
+          </button>
+          <button onClick={onClose} className="text-lg leading-none opacity-50 hover:opacity-100">✕</button>
+        </div>
+      </div>
+
+      {/* 预设选择器 */}
+      <div className="px-3 py-2 border-b shrink-0" style={{ borderColor: 'var(--crai-border)' }}>
+        <div className="flex gap-2">
+          <select onChange={(e) => {
+            if (!e.target.value) return
+            const preset = THEME_PRESETS.find((p) => p.name === e.target.value)
+            if (preset) { importTokens(preset.tokens); forceUpdate((n) => n + 1) }
+            e.target.value = ''
+          }}
+            className="flex-1 text-xs px-2 py-1.5 rounded outline-none"
+            style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}>
+            <option value="">🎨 应用预设配色…</option>
+            {THEME_PRESETS.map((p) => (
+              <option key={p.name} value={p.name}>{p.name}</option>
+            ))}
+          </select>
+          <button onClick={() => {
+            const data = exportTokens()
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+            const a = document.createElement('a')
+            a.href = URL.createObjectURL(blob)
+            a.download = `crai-theme-${Date.now()}.json`
+            a.click()
+          }}
+            className="text-xs px-2 py-1.5 rounded shrink-0"
+            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
+            导出
+          </button>
+          <button onClick={() => {
+            const input = document.createElement('input')
+            input.type = 'file'
+            input.accept = '.json'
+            input.onchange = () => {
+              const file = input.files?.[0]
+              if (!file) return
+              const reader = new FileReader()
+              reader.onload = () => {
+                try {
+                  const data = JSON.parse(reader.result as string)
+                  importTokens(data)
+                  forceUpdate((n) => n + 1)
+                } catch { alert('无效的配置文件') }
+              }
+              reader.readAsText(file)
+            }
+            input.click()
+          }}
+            className="text-xs px-2 py-1.5 rounded shrink-0"
+            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
+            导入
+          </button>
+        </div>
+      </div>
+
+      {/* 分组列表 */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+        {(Object.keys(groups) as TokenGroup[]).map((group) => (
+          <div key={group}>
+            <button
+              onClick={() => toggleGroup(group)}
+              className="w-full flex items-center justify-between px-2 py-1.5 rounded text-xs font-medium"
+              style={{ color: 'var(--crai-fg-secondary)' }}>
+              <span>{GROUP_LABELS[group]}</span>
+              <span className="text-[10px]">{expanded.has(group) ? '▼' : '▶'}</span>
+            </button>
+
+            {expanded.has(group) && (
+              <div className="ml-1 pl-2 border-l" style={{ borderColor: 'var(--crai-border)' }}>
+                {groups[group].map((token) => (
+                  <TokenControl key={token.name} token={token} onChange={handleChange} />
+                ))}
+                <button
+                  onClick={() => { resetGroup(group); forceUpdate((n) => n + 1) }}
+                  className="text-[10px] px-2 py-0.5 mt-1 mb-2 rounded"
+                  style={{ color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}>
+                  重置分组
+                </button>
+              </div>
+            )}
+          </div>
         ))}
-
-        <div className="flex-1" />
-
-        {/* 暗色切换 */}
-        <button
-          onClick={onToggleDark}
-          className="px-2 py-1 rounded text-xs"
-          style={{ backgroundColor: 'var(--crai-bg-tertiary)' }}
-          title="切换暗色/亮色"
-        >
-          {dark ? '☀' : '☾'}
-        </button>
-
-        {/* 导出 */}
-        <button
-          onClick={exportConfig}
-          className="px-2 py-1 rounded text-xs font-medium"
-          style={{ backgroundColor: 'var(--crai-accent)', color: '#fff' }}
-        >
-          导出
-        </button>
       </div>
 
-      {/* ── 参数列表 ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {TOKENS
-          .filter((t) => t.category === activeCategory)
-          .map((token) => (
-            <TokenControl
-              key={token.key}
-              token={token}
-              value={tokenValues[token.key] ?? ''}
-              onChange={(v) => updateToken(token.key, v)}
-            />
-          ))}
-      </div>
-
-      {/* ── 底部提示 ── */}
-      <div className="px-4 py-2 border-t text-xs"
+      {/* 底部 */}
+      <div className="px-4 py-2 border-t text-[10px] shrink-0"
         style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}>
-        Crai Inspector · 调整实时生效
+        修改实时生效，退出时保存
       </div>
     </div>
   )
 }
 
-// ── 单个参数控件 ──
+// ── 单个 token 控件 ──
 
-function TokenControl({ token, value, onChange }: {
-  token: TokenDef
-  value: string
-  onChange: (v: string) => void
-}) {
-  if (token.key.startsWith('_')) {
-    // 特殊控件
-    if (token.key === '_radius_preset') {
+function TokenControl({ token, onChange }: { token: TokenDef; onChange: (t: TokenDef, v: string) => void }) {
+  const val = getComputedStyle(document.documentElement).getPropertyValue(token.name).trim() || token.defaultValue
+
+  if (token.type === 'color') {
+    return (
+      <div className="flex items-center gap-2 py-1.5">
+        <input type="color" value={toHex(val)} onChange={(e) => onChange(token, e.target.value)}
+          className="w-6 h-6 rounded cursor-pointer border-0 p-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] truncate" style={{ color: 'var(--crai-fg)' }}>{token.label}</div>
+          <div className="text-[10px] font-mono truncate" style={{ color: 'var(--crai-fg-tertiary)' }}>{val}</div>
+        </div>
+        <button onClick={() => onChange(token, token.defaultValue)}
+          className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+          style={{ color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}>默认</button>
+      </div>
+    )
+  }
+
+  if (token.type === 'size') {
+    const num = parseFloat(val)
+    const unit = val.replace(/[\d.-]/g, '') || 'px'
+    const isMulti = val.includes(' ') && val.split(' ').length === 4
+
+    if (isMulti) {
+      const parts = val.split(' ').map((s) => parseFloat(s))
+      const avg = parts.reduce((a, b) => a + b, 0) / parts.length
       return (
-        <SelectControl token={token} value={value} onChange={onChange} />
+        <div className="py-1.5">
+          <div className="flex items-center justify-between mb-0.5">
+            <span className="text-[11px]" style={{ color: 'var(--crai-fg)' }}>{token.label}</span>
+            <span className="text-[10px] font-mono" style={{ color: 'var(--crai-fg-tertiary)' }}>{val}</span>
+          </div>
+          <input type="range" min={token.min ?? 0} max={token.max ?? 48} step="1"
+            value={isNaN(avg) ? 12 : Math.round(avg)}
+            onChange={(e) => {
+              const v = e.target.value + unit
+              onChange(token, `${v} ${v} ${v} ${v}`)
+            }}
+            className="inspector-slider w-full" />
+        </div>
       )
     }
-    return null
-  }
 
-  switch (token.control) {
-    case 'color':
-      return <ColorControl token={token} value={value} onChange={onChange} />
-    case 'slider':
-      return <SliderControl token={token} value={value} onChange={onChange} />
-    default:
-      return (
-        <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>
-          {token.label}: 未实现
+    return (
+      <div className="py-1.5">
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="text-[11px]" style={{ color: 'var(--crai-fg)' }}>{token.label}</span>
+          <span className="text-[10px] font-mono" style={{ color: 'var(--crai-fg-tertiary)' }}>{val}</span>
         </div>
-      )
+        <div className="flex items-center gap-2">
+          <input type="range" min={token.min ?? 0} max={token.max ?? 60} step="1"
+            value={isNaN(num) ? 14 : num}
+            onChange={(e) => onChange(token, e.target.value + unit)}
+            className="inspector-slider flex-1" />
+          <button onClick={() => onChange(token, token.defaultValue)}
+            className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+            style={{ color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}>默认</button>
+        </div>
+      </div>
+    )
   }
-}
 
-function ColorControl({ token, value, onChange }: { token: TokenDef; value: string; onChange: (v: string) => void }) {
+  if (token.type === 'select') {
+    return (
+      <div className="flex items-center gap-2 py-1.5">
+        <span className="text-[11px] flex-1" style={{ color: 'var(--crai-fg)' }}>{token.label}</span>
+        <select value={val} onChange={(e) => onChange(token, e.target.value)}
+          className="text-xs px-2 py-1 rounded outline-none"
+          style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}>
+          {(token.options ?? []).map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+        <button onClick={() => onChange(token, token.defaultValue)}
+          className="text-[10px] px-1.5 py-0.5 rounded shrink-0"
+          style={{ color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}>默认</button>
+      </div>
+    )
+  }
+
+  // number
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="color"
-        value={toHex(value)}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-7 h-7 rounded cursor-pointer border-0 p-0"
-      />
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium" style={{ color: 'var(--crai-fg)' }}>{token.label}</div>
-        <div className="text-xs truncate" style={{ color: 'var(--crai-fg-tertiary)' }}>
-          {value || '—'}
-        </div>
+    <div className="py-1.5">
+      <div className="flex items-center justify-between mb-0.5">
+        <span className="text-[11px]" style={{ color: 'var(--crai-fg)' }}>{token.label}</span>
+        <input type="number" step="0.1" value={val}
+          onChange={(e) => onChange(token, e.target.value)}
+          className="w-16 text-xs px-2 py-0.5 rounded text-right font-mono outline-none"
+          style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
       </div>
     </div>
   )
 }
 
-function SliderControl({ token, value, onChange }: { token: TokenDef; value: string; onChange: (v: string) => void }) {
-  const numVal = parseFloat(value) || token.min || 0
-  return (
-    <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span style={{ color: 'var(--crai-fg)' }}>{token.label}</span>
-        <span style={{ color: 'var(--crai-fg-tertiary)' }}>{value}</span>
-      </div>
-      <input
-        type="range"
-        min={token.min}
-        max={token.max}
-        step={token.step}
-        value={numVal}
-        onChange={(e) => {
-          const v = token.step && token.step < 1 ? parseFloat(e.target.value).toFixed(1) : e.target.value
-          onChange(`${v}${value.endsWith('px') ? 'px' : ''}`)
-        }}
-        className="inspector-slider"
-      />
-    </div>
-  )
-}
-
-function SelectControl({ token, value, onChange }: { token: TokenDef; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs shrink-0" style={{ color: 'var(--crai-fg)' }}>{token.label}</span>
-      <select
-        value={value}
-        onChange={(e) => {
-          // 移除旧的 radius class，添加新的
-          document.documentElement.classList.remove('radius-none', 'radius-square', 'radius-pill')
-          if (e.target.value) document.documentElement.classList.add(e.target.value)
-          onChange(e.target.value)
-        }}
-        className="flex-1 rounded px-2 py-1 text-xs outline-none"
-        style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', borderColor: 'var(--crai-border)', borderWidth: 1 }}
-      >
-        {token.options?.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
-/** 将任意颜色字符串转为 #rrggbb 格式，供 <input type="color"> 使用。 */
 function toHex(color: string): string {
+  // 如果已经是 hex 格式，直接返回
   if (/^#[0-9a-f]{6}$/i.test(color)) return color
-  // 简单处理 oklch / rgb 等格式：返回一个默认色
-  const temp = document.createElement('div')
-  temp.style.color = color
-  document.body.appendChild(temp)
-  const computed = getComputedStyle(temp).color
-  document.body.removeChild(temp)
-  // 从 rgb(r, g, b) 转为 hex
-  const match = computed.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
-  if (match) {
-    const [_, r, g, b] = match
-    return '#' + [r, g, b].map((n) => parseInt(n).toString(16).padStart(2, '0')).join('')
+  if (/^#[0-9a-f]{3}$/i.test(color)) {
+    return '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3]
   }
-  return '#6366f1'
+  // 其他格式（rgb, oklch 等）无法直接转为颜色选择器的值，返回默认
+  return '#4f46e5'
 }

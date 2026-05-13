@@ -39,7 +39,7 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
       style={{ borderColor: 'var(--crai-border)' }}>
       <div
         className="mx-auto flex items-end gap-2"
-        style={{ maxWidth: 'var(--crai-msg-max-width)' }}
+        style={{ maxWidth: 'var(--crai-chat-max-width)' }}
       >
         <textarea
           ref={textareaRef}
@@ -51,7 +51,7 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
           rows={1}
           className="flex-1 resize-none outline-none px-4 py-3 text-[length:var(--crai-msg-font-size)] leading-[var(--crai-msg-line-height)]"
           style={{
-            backgroundColor: 'var(--crai-bg-secondary)',
+            backgroundColor: 'var(--crai-input-bg)',
             color: 'var(--crai-fg)',
             borderRadius: 'var(--crai-input-radius)',
             borderColor: 'var(--crai-border)',

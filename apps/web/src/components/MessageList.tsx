@@ -18,7 +18,7 @@ export function MessageList({ messages, className = '' }: Props) {
     <div className={`flex-1 overflow-y-auto px-[var(--crai-chat-padding)] ${className}`}>
       <div
         className="mx-auto"
-        style={{ maxWidth: 'var(--crai-msg-max-width)' }}
+        style={{ maxWidth: 'var(--crai-chat-max-width)' }}
       >
         {messages.map((msg) => (
           <MessageBubble key={msg.id} msg={msg} />
