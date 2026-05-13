@@ -62,21 +62,28 @@ const components = {
 
   // 表格
   table: ({ children }: any) => (
-    <div data-token-group="table" className="my-3 overflow-x-auto rounded border" style={{ borderColor: 'var(--crai-md-table-border)' }}>
-      <table className="min-w-full text-sm divide-y" style={{ borderColor: 'var(--crai-md-table-border)' }}>
+    <div data-token-group="table" className="my-3 overflow-x-auto rounded" style={{ border: '1px solid var(--crai-md-table-border)' }}>
+      <table className="min-w-full text-sm divide-y"
+        style={{ borderColor: 'var(--crai-md-table-border)', color: 'var(--crai-md-table-fg)' }}>
         {children}
       </table>
     </div>
   ),
   thead: ({ children }: any) => <thead style={{ backgroundColor: 'var(--crai-md-table-header-bg)' }}>{children}</thead>,
-  th: ({ children }: any) => <th className="text-left py-2 px-3 font-semibold text-xs">{children}</th>,
-  td: ({ children }: any) => <td className="py-2 px-3 text-xs border-t" style={{ borderColor: 'var(--crai-border)' }}>{children}</td>,
+  th: ({ children }: any) => <th className="text-left font-semibold text-xs"
+    style={{ padding: 'var(--crai-md-table-cell-padding, 8px 12px)' }}>{children}</th>,
+  td: ({ children }: any) => <td className="text-xs border-t"
+    style={{
+      borderColor: 'var(--crai-border)',
+      backgroundColor: 'var(--crai-md-table-body-bg)',
+      padding: 'var(--crai-md-table-cell-padding, 8px 12px)',
+    }}>{children}</td>,
 
   // 引用
   blockquote: ({ children }: any) => (
-    <blockquote data-token-group="blockquote" className="border-l-2 pl-3 pr-2 py-1 my-2 rounded-r"
+    <blockquote data-token-group="blockquote" className="pl-3 pr-2 py-1 my-2 rounded-r"
       style={{
-        borderColor: 'var(--crai-md-blockquote-border)',
+        borderLeft: 'var(--crai-md-blockquote-border-width, 4px) solid var(--crai-md-blockquote-border)',
         backgroundColor: 'var(--crai-md-blockquote-bg)',
         color: 'var(--crai-md-blockquote-fg)',
       }}>

@@ -75,14 +75,14 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
             width: '100%',
             backgroundColor: 'transparent',
             color: 'var(--crai-fg)',
-            fontSize: 'var(--crai-msg-font-size)',
-            lineHeight: 'var(--crai-msg-line-height)',
+            fontSize: 'var(--crai-input-font-size)',
+            lineHeight: 'var(--crai-input-line-height)',
             border: 'none',
             borderRadius: 0,
             outline: 'none',
             resize: 'none',
             boxSizing: 'border-box',
-            padding: '12px 16px 0',
+            padding: '12px var(--crai-input-padding-x, 16px) 0',
             maxHeight: 'calc(var(--crai-input-max-height, 120px))',
             overflowY: 'hidden',
           }}
@@ -99,6 +99,7 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
           <button
             onClick={handleSubmit}
             disabled={disabled || !text.trim()}
+            className="crai-send-btn"
             style={{
               backgroundColor: 'var(--crai-accent)',
               borderRadius: 'var(--crai-btn-radius, 8px)',
@@ -107,7 +108,7 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
               lineHeight: 'var(--crai-btn-height, 32px)',
               padding: '0 20px',
               fontWeight: 500,
-              color: '#fff',
+              color: 'var(--crai-btn-color)',
               opacity: disabled || !text.trim() ? 0.4 : 1,
               border: 'none',
               cursor: disabled || !text.trim() ? 'default' : 'pointer',

@@ -81,8 +81,8 @@ export function CodeBlock({ code, language }: Props) {
   }
 
   return (
-    <div className="relative group my-3 rounded-lg overflow-hidden"
-      style={{ border: '1px solid var(--crai-md-code-border)' }}>
+    <div className="relative group my-3 overflow-hidden"
+      style={{ border: '1px solid var(--crai-md-code-border)', borderRadius: 'var(--crai-md-code-radius, 8px)' }}>
       {html ? (
         <div className="overflow-x-auto text-sm leading-relaxed"
           style={{ backgroundColor: 'var(--crai-md-code-bg)', fontSize: 'var(--crai-md-code-font-size)' }}
