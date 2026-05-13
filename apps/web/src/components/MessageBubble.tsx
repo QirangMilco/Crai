@@ -23,6 +23,7 @@ export function MessageBubble({ msg }: Props) {
           lineHeight: isUser ? 'var(--crai-msg-user-line-height)' : 'var(--crai-msg-ai-line-height)',
           boxShadow: 'var(--crai-shadow-bubble)',
           padding: 'var(--crai-msg-padding-y, 12px) var(--crai-msg-padding-x, 16px)',
+          width: isUser ? undefined : '100%',
           maxWidth: isUser ? 'var(--crai-msg-user-max-width)' : 'var(--crai-msg-max-width)',
         }}>
         {isUser ? (
