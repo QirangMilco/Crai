@@ -244,6 +244,10 @@ export interface GlobalConfig {
   providers: Record<string, ProviderConfig>
   defaultProvider?: string
   defaultModel?: string
+  /** 工具调用专用模型（小模型）。未设置时使用 defaultModel。 */
+  toolProvider?: string
+  /** 工具调用专用模型名。未设置时使用 defaultModel。 */
+  toolModel?: string
   recentWorkspaces: string[]
 }
 

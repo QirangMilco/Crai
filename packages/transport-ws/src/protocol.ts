@@ -92,11 +92,27 @@ export interface SessionLoadMessage {
   sessionId: string
 }
 
+/** 客户端请求更新 session 元数据（如标题）。 */
+export interface SessionUpdateMessage {
+  type: 'session:update'
+  sessionId: string
+  title?: string
+}
+
+/** 客户端请求浏览指定路径的目录结构（只返回子目录，不含文件）。 */
+export interface DirBrowseMessage {
+  type: 'dir:browse'
+  /** 浏览的路径。为空时返回平台根目录列表。 */
+  path?: string
+}
+
 export type ClientMessage =
   | PromptMessage
   | SessionNewMessage
+  | SessionUpdateMessage
   | ResolveInputMessage
   | SessionLoadMessage
+  | DirBrowseMessage
   | ConfigGetMessage
   | ConfigSetMessage
   | ConfigSetProviderMessage
@@ -196,3 +212,17 @@ export type ServerMessage =
   | WorkspaceConfigDataMessage
   | SessionListDataMessage
   | SessionDataMessage
+  | DirBrowseDataMessage
+
+/** 目录浏览响应。 */
+export interface DirBrowseDataMessage {
+  type: 'dir:browse:data'
+  /** 当前浏览的目录路径。 */
+  path: string
+  /** 当前目录下的子目录名列表（不含文件）。 */
+  dirs: string[]
+  /** 父目录路径。在根目录时为 undefined。 */
+  parent?: string
+  /** 错误信息。 */
+  error?: string
+}

@@ -3,7 +3,10 @@ import assert from 'node:assert/strict'
 import type { ExtensionContext, RuntimeHandle, Session } from '@crai/core'
 import { EVENTS, createId } from '@crai/core'
 import { WebSocket } from 'ws'
-import { createWsTransport } from '../src/index'
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { createWsTransport, browseDir } from '../src/index'
 
 // ── Mock RuntimeHandle ─────────────────────────────
 
@@ -297,5 +300,95 @@ describe('transport-ws', () => {
     ws.on('error', () => { disconnected = true })
     await new Promise((r) => setTimeout(r, 100))
     assert.ok(disconnected, 'stop 后新连接应被拒绝')
+  })
+
+  // ── session:update ──
+  it('session:update 更新标题并刷新列表', async () => {
+    // 先创建一个 session
+    const ws = new WebSocket(serverUrl)
+    await new Promise<void>((r) => ws.on('open', () => r()))
+
+    ws.send(JSON.stringify({ type: 'session:new' }))
+    const raw = await waitForMessage(ws)
+    const { id: sessionId } = JSON.parse(raw)
+    assert.ok(sessionId)
+
+    // 发送 session:update 设置标题
+    ws.send(JSON.stringify({ type: 'session:update', sessionId, title: '测试会话' }))
+    const raw2 = await waitForMessage(ws)
+    const msg2 = JSON.parse(raw2)
+    assert.equal(msg2.type, 'session:list:data')
+    const updated = msg2.sessions?.find((s: any) => s.id === sessionId)
+    assert.ok(updated, '更新后的 session 应在列表中')
+
+    ws.close()
+  })
+
+  // ── dir:browse ──
+  it('dir:browse 返回目录列表', async () => {
+    const ws = new WebSocket(serverUrl)
+    await new Promise<void>((r) => ws.on('open', () => r()))
+
+    // 请求浏览用户主目录
+    ws.send(JSON.stringify({ type: 'dir:browse' }))
+
+    const raw = await waitForMessage(ws)
+    const msg = JSON.parse(raw)
+    assert.equal(msg.type, 'dir:browse:data')
+    assert.ok(Array.isArray(msg.dirs))
+    assert.equal(typeof msg.path, 'string')
+
+    ws.close()
+  })
+})
+
+// ── browseDir 单元测试 ──
+
+describe('browseDir', () => {
+  it('无参数时返回用户主目录', () => {
+    const result = browseDir()
+    assert.ok(result.path.length > 0)
+    assert.ok(Array.isArray(result.dirs))
+    assert.equal(result.parent, undefined)
+  })
+
+  it('返回指定路径的子目录（不含文件）', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'crai-test-'))
+    mkdirSync(join(tmp, 'sub1'))
+    mkdirSync(join(tmp, 'sub2'))
+
+    const result = browseDir(tmp)
+    assert.ok(result.dirs.includes('sub1'))
+    assert.ok(result.dirs.includes('sub2'))
+
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('不返回隐藏目录', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'crai-test-'))
+    mkdirSync(join(tmp, 'visible'))
+    mkdirSync(join(tmp, '.hidden'))
+
+    const result = browseDir(tmp)
+    assert.ok(result.dirs.includes('visible'))
+    assert.ok(!result.dirs.includes('.hidden'))
+
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('不存在的路径返回错误', () => {
+    const result = browseDir('/this/path/does/not/exist/12345')
+    assert.ok(result.error)
+    assert.deepEqual(result.dirs, [])
+  })
+
+  it('拒绝系统敏感目录', () => {
+    const result = browseDir('/etc')
+    assert.equal(result.error, '不允许浏览此目录')
+  })
+
+  it('系统敏感目录的子目录也被拒绝', () => {
+    const result = browseDir('/etc/ssl')
+    assert.equal(result.error, '不允许浏览此目录')
   })
 })

@@ -36,6 +36,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
   const [editKey, setEditKey] = useState('')                      // 编辑中的 API key
   const [editBaseURL, setEditBaseURL] = useState('')              // 编辑中的 base URL
   const [editModel, setEditModel] = useState('')                  // 编辑中的 default model
+  const [editToolModel, setEditToolModel] = useState('')          // 编辑中的 tool model
   const [editModelsPath, setEditModelsPath] = useState('')        // 编辑中的 models 路径
   const [fetchedModels, setFetchedModels] = useState<string[]>([])
   const [fetching, setFetching] = useState(false)
@@ -63,6 +64,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
     setEditKey(p.apiKey)
     setEditBaseURL(p.baseURL || firstPartyDefault(name)?.defaultBaseURL || '')
     setEditModel(config?.defaultModel ?? p.models?.[0] ?? '')
+    setEditToolModel(config?.toolModel ?? '')
     setEditModelsPath((p as any).modelsPath ?? '')
     setFetchedModels(p.models ?? [])
   }
@@ -77,6 +79,8 @@ export function ConfigPanel({ config, send, onClose }: Props) {
     }})
     // 设置 defaultModel
     if (editModel) send({ type: 'config:set', config: { defaultModel: editModel } })
+    // 设置 toolModel（如果不同于 defaultModel）
+    if (editToolModel) send({ type: 'config:set', config: { toolModel: editToolModel, toolProvider: editing } })
     // 刷新配置 UI
     send({ type: 'config:get' })
     setEditing(null)
@@ -87,6 +91,7 @@ export function ConfigPanel({ config, send, onClose }: Props) {
     setEditKey('')
     setEditBaseURL('')
     setEditModel('')
+    setEditToolModel('')
     setFetchedModels([])
   }
 
@@ -256,6 +261,38 @@ export function ConfigPanel({ config, send, onClose }: Props) {
                           <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>
                             请先保存 API key
                           </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 工具模型选择 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>工具模型（用于工具调用）</span>
+                        <span className="text-[9px]" style={{ color: 'var(--crai-fg-tertiary)' }}>未设置时使用默认模型</span>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {fetchedModels.length > 0 ? (
+                          <>
+                            <button onClick={() => setEditToolModel('')}
+                              className="text-[10px] px-2 py-0.5 rounded transition-colors"
+                              style={{
+                                backgroundColor: !editToolModel ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
+                                color: !editToolModel ? '#fff' : 'var(--crai-fg)',
+                              }}>同默认模型</button>
+                            {fetchedModels.map((m) => (
+                              <button key={m} onClick={() => setEditToolModel(m)}
+                                className="text-[10px] px-2 py-0.5 rounded transition-colors"
+                                style={{
+                                  backgroundColor: editToolModel === m ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
+                                  color: editToolModel === m ? '#fff' : 'var(--crai-fg)',
+                                }}>
+                                {m}
+                              </button>
+                            ))}
+                          </>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>请先获取模型列表</span>
                         )}
                       </div>
                     </div>

@@ -114,7 +114,6 @@ class WorkspaceManager {
       }
     }
     for (const dir of global.recentWorkspaces) await this.ensure(dir)
-    if (this.runtimes.size === 0) await this.ensure(process.cwd())
   }
 
   list(): string[] { return Array.from(this.runtimes.keys()) }

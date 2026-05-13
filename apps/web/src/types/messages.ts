@@ -25,7 +25,7 @@ export interface ErrorMsg {
   message: string
 }
 
-export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | ConfigModelsDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg | SessionListDataMsg | SessionDataMsg
+export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | ConfigModelsDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg | SessionListDataMsg | SessionDataMsg | DirBrowseDataMsg
 
 // ── 配置/工作区 响应 ──
 
@@ -103,7 +103,26 @@ export interface SessionLoadMsg {
   sessionId: string
 }
 
-export type ClientMsg = PromptMsg | SessionNewMsg | SessionLoadMsg | ResolveInputMsg | SessionListMsg |
+export interface SessionUpdateMsg {
+  type: 'session:update'
+  sessionId: string
+  title?: string
+}
+
+export interface DirBrowseMsg {
+  type: 'dir:browse'
+  path?: string
+}
+
+export interface DirBrowseDataMsg {
+  type: 'dir:browse:data'
+  path: string
+  dirs: string[]
+  parent?: string
+  error?: string
+}
+
+export type ClientMsg = PromptMsg | SessionNewMsg | SessionLoadMsg | SessionUpdateMsg | DirBrowseMsg | ResolveInputMsg | SessionListMsg |
   ConfigGetMsg | ConfigSetMsg | ConfigSetProviderMsg | ConfigRemoveProviderMsg | ConfigFetchModelsMsg |
   WorkspaceListMsg | WorkspaceSwitchMsg | WorkspaceConfigGetMsg | WorkspaceConfigSetMsg
 
