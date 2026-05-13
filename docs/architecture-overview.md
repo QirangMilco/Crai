@@ -179,7 +179,7 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 
 ### 5.3 应用与 UI 层 (App / Shell) - 吸收自 crystalagents / snow-cli
 - **crystalagents**: 吸收其现代化的前端 UI 风格、主题系统以及基于 Markdown 的产物渲染逻辑，落位到 `apps/web` 或 `packages/ui-kit`。
-- **snow-cli**: 吸收其 LSP (Language Server Protocol) 集成和仓库分析逻辑，落位到 `packages/devtools`。
+- **snow-cli**: 吸收其 LSP (Language Server Protocol) 集成和仓库分析逻辑，落位到 `tools/devtools`。
 
 ### 5.4 记忆层 (Memory) - 吸收自 SimpleMem / reasonix
 - **SimpleMem**: 吸收其三阶段记忆流水线（语义压缩→混合检索→答案生成）、多视图索引模型（语义/词汇/符号三层）以及 Token 预算分层上下文注入策略。记忆策略以独立 extension 形式实现。

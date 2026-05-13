@@ -6,7 +6,6 @@ Crai 围绕以下层级组织：
 - **core**: 最小契约与类型
 - **runtime**: 可执行内核与编排
 - **extension**: 可选行为
-- **devtools**: 开发自动化
 - **app**: 产品表面
 
 目标是保持 `packages/core` 干净，保持 `packages/runtime` 精简。
@@ -16,10 +15,10 @@ Crai 围绕以下层级组织：
 ```txt
 packages/
   core/                纯 TS 类型/常量（零 Node 依赖）
+  base/                跨扩展共享实用工具（有 Node 依赖，core 与 runtime 之间的桥梁）
   runtime/             运行时内核
   config/              配置管理（全局 + 工作区 + 变体）
   cli-repl/            交互式 CLI REPL
-  devtools/            开发辅助工具
   loader-ts/           TS 扩展加载器
   persistence/         会话持久化
   provider/            LLM provider
@@ -28,12 +27,14 @@ packages/
   tools-fs/            文件系统工具
   tools-shell/         shell 执行工具
   tools-web/           网络工具
-  transport-cli/       CLI 传输适配器
   transport-ws/        WebSocket 传输适配器
 
 apps/
   server/              生产服务器入口
   web/                 Vite + React + Tailwind PWA
+
+tools/
+  devtools/            开发辅助工具（非 workspace 包）
 
 docs/
 ```
@@ -46,7 +47,13 @@ docs/
 - `defineExtension()` 辅助函数
 - 仅包含运行时内核所需的契约
 
-### 3.2 `packages/runtime`
+### 3.2 `packages/base`
+- **core 与 extension 之间的桥梁层**（有 Node 依赖）
+- `resolveAllowedPath` / `validateToolPaths` / `getPathArg` — 路径校验工具
+- `ConsoleLogger` — 电平过滤 + 大小轮转 + 文件输出的日志实现
+- 扩展不应直接依赖 core（零 Node 依赖），需要 Node API 时通过 base 获取
+
+### 3.3 `packages/runtime`
 - 最小运行时内核
 - Prompt 流程调度、Session 管理
 - 中间件与钩子执行
@@ -117,15 +124,6 @@ docs/
 - 工作区列表/切换/配置 handler
 - request:input bridge
 - publishEvent（多工作区事件转发）
-
-### 3.14 `packages/transport-cli`
-- CLI 适配器（复用 CLI REPL）
-
-### 3.15 `packages/devtools`
-- 任务追踪助手
-- 仓库巡检助手
-- 开发工作流助手
-- 此包不得修改 `packages/core` 的边界
 
 ## 4. 应用层
 

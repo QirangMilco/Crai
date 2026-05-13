@@ -77,7 +77,7 @@ Crai 的目标不是一开始就完全自给自足，而是先依赖外部 codin
 ### 3.3 `@crai/core` (defineExtension)
 扩展开发所需的辅助 API（`defineExtension`）已合入 `@crai/core`。
 
-### 3.4 `packages/devtools` 或 `apps/*`
+### 3.4 `tools/devtools` 或 `apps/*`
 承载所有通用开发能力：
 - implementation tracker UI
 - task planner

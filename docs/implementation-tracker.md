@@ -50,6 +50,12 @@
 - 三层配置：变体（dev/prod 目录隔离）→ 全局（API keys、providers）→ 工作区（仅 security）
 - 不依赖环境变量，全文件驱动
 
+### Base
+- `@crai/base`：core 与 extension 之间的桥梁层
+- `resolveAllowedPath` / `validateToolPaths` / `getPathArg` — 路径校验工具
+- `ConsoleLogger` — 电平过滤 + 大小轮转 + 文件输出
+- 消除 tools-fs、security、config 之间的重复代码
+
 ### Transport
 - `@crai/transport-ws`：WebSocket 传输层
   - ServerMessage/ClientMessage 歧视联合协议
@@ -57,7 +63,6 @@
   - 工作区列表、切换、配置 handler
   - request:input 模式（向所有客户端广播问题，取第一个回复）
   - `publishEvent(workspaceId, event, payload)` 多工作区事件转发
-- `@crai/transport-cli`：CLI 适配器
 
 ### Server
 - `apps/server`：生产级服务器入口
@@ -121,8 +126,6 @@ packages/
     ├── storage-fs    — 文件存储适配器
     ├── persistence   — 持久化扩展
     ├── transport-ws  — WebSocket 传输
-    ├── transport-cli — CLI 传输
     ├── cli-repl      — CLI 交互 REPL
-    ├── devtools      — 开发工具
     └── loader-ts     — TS 加载器
 ```
