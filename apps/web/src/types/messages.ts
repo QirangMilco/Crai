@@ -25,7 +25,7 @@ export interface ErrorMsg {
   message: string
 }
 
-export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | ConfigModelsDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg | SessionListDataMsg
+export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | ConfigModelsDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg | SessionListDataMsg | SessionDataMsg
 
 // ── 配置/工作区 响应 ──
 
@@ -69,6 +69,12 @@ export interface SessionListDataMsg {
   sessions: Array<{ id: string; title?: string; createdAt: number; updatedAt: number }>
 }
 
+export interface SessionDataMsg {
+  type: 'session:data'
+  sessionId: string
+  messages: Array<{ id: string; role: string; text: string; createdAt: number }>
+}
+
 // ── Client → Server ──
 
 export interface PromptMsg {
@@ -92,7 +98,12 @@ export interface ResolveInputMsg {
   value: string
 }
 
-export type ClientMsg = PromptMsg | SessionNewMsg | ResolveInputMsg | SessionListMsg |
+export interface SessionLoadMsg {
+  type: 'session:load'
+  sessionId: string
+}
+
+export type ClientMsg = PromptMsg | SessionNewMsg | SessionLoadMsg | ResolveInputMsg | SessionListMsg |
   ConfigGetMsg | ConfigSetMsg | ConfigSetProviderMsg | ConfigRemoveProviderMsg | ConfigFetchModelsMsg |
   WorkspaceListMsg | WorkspaceSwitchMsg | WorkspaceConfigGetMsg | WorkspaceConfigSetMsg
 

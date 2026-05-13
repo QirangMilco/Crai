@@ -126,6 +126,22 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         break
       }
 
+      case 'session:load': {
+        const rt = resolveRuntime()!
+        const raw = await rt.listMessages(msg.sessionId)
+        // 将内部 Message（parts 格式）转为客户端简易格式
+        const messages = raw
+          .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
+          .map((m) => ({
+            id: m.id,
+            role: m.role,
+            text: m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n'),
+            createdAt: m.createdAt,
+          }))
+        ws.send(JSON.stringify({ type: 'session:data', sessionId: msg.sessionId, messages } satisfies ServerMessage))
+        break
+      }
+
       // ── 配置 / 工作区消息（委托给 handlers） ──
 
       case 'config:get': {

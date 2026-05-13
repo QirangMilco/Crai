@@ -396,7 +396,11 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       const storage = storages[0]?.value
       return storage ? storage.listSessions() : []
     },
-    listMessages: () => Promise.resolve([]),
+    listMessages: async (sessionId) => {
+      const storages = deps.registries.storages.list()
+      const storage = storages[0]?.value
+      return storage ? storage.listMessages(sessionId) : []
+    },
     loadExtension: (ext) => handleLoadExtension(deps, runtime, loadedExtensions, options, ext),
     unloadExtension: (name) => handleUnloadExtension(deps, loadedExtensions, name),
     dispose: () => handleDispose(deps, loadedExtensions, runtimeId),

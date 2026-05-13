@@ -103,6 +103,7 @@ export function ChatView({ wsUrl }: Props) {
         }
         case 'session:id':
           setSessionId(msg.id)
+          send({ type: 'session:load', sessionId: msg.id })
           break
         case 'request:input': {
           const answer = prompt(msg.question + (msg.options?.length ? `\n选项: ${msg.options.join(', ')}` : ''))
@@ -134,6 +135,16 @@ export function ChatView({ wsUrl }: Props) {
         case 'session:list:data':
           setSessions(msg.sessions ?? [])
           break
+        case 'session:data': {
+          const chatMsgs = (msg.messages ?? []).map((m: any) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            text: m.text,
+            createdAt: m.createdAt ?? Date.now(),
+          }))
+          setMessages(chatMsgs)
+          break
+        }
       }
     }, []),
   })
@@ -156,8 +167,8 @@ export function ChatView({ wsUrl }: Props) {
 
   const handleSwitchSession = useCallback((sid: string) => {
     setSessionId(sid)
-    setMessages([])
-  }, [])
+    send({ type: 'session:load', sessionId: sid })
+  }, [send])
 
   const handleSwitchWorkspace = useCallback((rootDir: string) => {
     send({ type: 'workspace:switch', rootDir })

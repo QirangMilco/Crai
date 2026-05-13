@@ -86,10 +86,17 @@ export interface WorkspaceConfigSetMessage {
   config: WorkspaceConfig
 }
 
+/** 客户端请求加载指定 session 的历史消息。 */
+export interface SessionLoadMessage {
+  type: 'session:load'
+  sessionId: string
+}
+
 export type ClientMessage =
   | PromptMessage
   | SessionNewMessage
   | ResolveInputMessage
+  | SessionLoadMessage
   | ConfigGetMessage
   | ConfigSetMessage
   | ConfigSetProviderMessage
@@ -170,6 +177,13 @@ export interface SessionListDataMessage {
   sessions: Array<{ id: string; title?: string; createdAt: number; updatedAt: number }>
 }
 
+/** session 历史消息响应。 */
+export interface SessionDataMessage {
+  type: 'session:data'
+  sessionId: string
+  messages: Array<{ id: string; role: string; text: string; createdAt: number }>
+}
+
 export type ServerMessage =
   | EventMessage
   | RequestInputMessage
@@ -181,3 +195,4 @@ export type ServerMessage =
   | WorkspaceSwitchedMessage
   | WorkspaceConfigDataMessage
   | SessionListDataMessage
+  | SessionDataMessage
