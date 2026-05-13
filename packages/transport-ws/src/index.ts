@@ -21,8 +21,8 @@ export interface WsTransportHandlers {
   onConfigFetchModels?: (providerName: string) => Promise<{ models: string[]; error?: string }>
   onWorkspaceList?: () => Array<{ rootDir: string; config: WorkspaceConfig }> | Promise<Array<{ rootDir: string; config: WorkspaceConfig }>>
   onWorkspaceSwitch?: (rootDir: string) => Promise<{ model: string; provider: string }>
-  onWorkspaceConfigGet?: () => WorkspaceConfig | Promise<WorkspaceConfig>
-  onWorkspaceConfigSet?: (config: WorkspaceConfig) => void | Promise<void>
+  onWorkspaceConfigGet?: (rootDir: string) => WorkspaceConfig | Promise<WorkspaceConfig>
+  onWorkspaceConfigSet?: (rootDir: string, config: WorkspaceConfig) => void | Promise<void>
 }
 
 export interface WsTransportOptions {
@@ -162,6 +162,8 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         const opts: any = {}
         if (msg.sessionId) opts.sessionId = msg.sessionId
         else if (currentSessionId) opts.sessionId = currentSessionId
+        if (msg.model) opts.model = msg.model
+        if (msg.provider) opts.provider = msg.provider
         const result = await rt.prompt({ type: 'text', text: msg.text }, opts)
         currentSessionId = result.session.id
         ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
@@ -202,6 +204,46 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             createdAt: m.createdAt,
           }))
         ws.send(JSON.stringify({ type: 'session:data', sessionId: msg.sessionId, messages } satisfies ServerMessage))
+        break
+      }
+
+      // ── session:generate-title ──
+
+      case 'session:generate-title': {
+        const rt = resolveRuntime()!
+        // 获取 session 消息
+        const raw = await rt.listMessages(msg.sessionId)
+        const userMsg = raw.find((m: any) => m.role === 'user')?.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
+        const aiMsg = raw.filter((m: any) => m.role === 'assistant').pop()?.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
+        if (!userMsg) { ws.send(JSON.stringify({ type: 'error', message: 'no messages to summarize' } satisfies ServerMessage)); break }
+
+        try {
+          const title = await rt.callModel(
+            [
+              { role: 'user', content: userMsg.slice(0, 500) },
+              ...(aiMsg ? [{ role: 'assistant', content: aiMsg.slice(0, 500) }] : []),
+            ],
+            {
+              system: '用一句简短的话概括这个对话的主题。直接输出标题，不要前缀，不要引号，不要标点结尾。15字以内。',
+              temperature: 0.3,
+              maxTokens: 50,
+              utility: true,
+            },
+          )
+          const cleanTitle = title.replace(/^[""''“”「」]+|[""''“”」」]+$/g, '').trim()
+          if (cleanTitle) {
+            // 持久化标题
+            const session = await rt.getSession(msg.sessionId)
+            if (session) {
+              const storages = (rt as any).registries?.storages?.list()
+              const storage = storages?.[0]?.value
+              if (storage) await storage.updateSession({ ...session, title: cleanTitle, updatedAt: Date.now() })
+            }
+            ws.send(JSON.stringify({ type: 'session:title', sessionId: msg.sessionId, title: cleanTitle } satisfies ServerMessage))
+          }
+        } catch (err: any) {
+          ws.send(JSON.stringify({ type: 'error', message: `title generation failed: ${err.message}` } satisfies ServerMessage))
+        }
         break
       }
 
@@ -280,14 +322,14 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
 
       case 'workspace:config:get': {
         if (!handlers?.onWorkspaceConfigGet) { ws.send(JSON.stringify({ type: 'error', message: 'workspace config not available' } satisfies ServerMessage)); break }
-        const wc = await handlers.onWorkspaceConfigGet()
+        const wc = await handlers.onWorkspaceConfigGet(currentWorkspace ?? process.cwd())
         ws.send(JSON.stringify({ type: 'workspace:config:data', config: wc } satisfies ServerMessage))
         break
       }
 
       case 'workspace:config:set': {
         if (!handlers?.onWorkspaceConfigSet) { ws.send(JSON.stringify({ type: 'error', message: 'workspace config not writable' } satisfies ServerMessage)); break }
-        await handlers.onWorkspaceConfigSet(msg.config)
+        await handlers.onWorkspaceConfigSet(currentWorkspace ?? process.cwd(), msg.config)
         break
       }
     }

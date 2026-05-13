@@ -363,6 +363,7 @@ export interface Logger {
 export interface RuntimeHandle {
   id: ID
   prompt(input: RuntimeInput, options?: PromptOptions): Promise<PromptResult>
+  callModel(messages: Array<{ role: string; content: string }>, options?: CallModelOptions): Promise<string>
   createSession(input?: Metadata, sessionId?: ID): Promise<Session>
   stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
@@ -371,6 +372,17 @@ export interface RuntimeHandle {
   loadExtension(ext: Extension): Promise<void>
   unloadExtension(name: string): Promise<void>
   dispose(): Promise<void>
+}
+
+export interface CallModelOptions {
+  system?: string
+  model?: string
+  provider?: string
+  temperature?: number
+  maxTokens?: number
+  /** 工具模式：关闭思考/推理，用于标题生成、摘要等轻量任务。 */
+  utility?: boolean
+  signal?: AbortSignal
 }
 
 export interface PromptOptions {

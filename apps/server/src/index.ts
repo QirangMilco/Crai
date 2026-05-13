@@ -167,8 +167,8 @@ async function main() {
         const eff = config.getEffectiveConfig(config.getGlobal(), await config.loadWorkspace(dir))
         return { model: eff.model, provider: eff.provider }
       },
-      onWorkspaceConfigGet: async () => config.loadWorkspace(process.cwd()),
-      onWorkspaceConfigSet: async (cfg) => { await config.saveWorkspace(process.cwd(), cfg); gWorkspaces?.sync() },
+      onWorkspaceConfigGet: async (rootDir) => config.loadWorkspace(rootDir || process.cwd()),
+      onWorkspaceConfigSet: async (rootDir, cfg) => { await config.saveWorkspace(rootDir || process.cwd(), cfg); gWorkspaces?.sync() },
     },
     getRuntime: (rootDir) => {
       if (rootDir) return gWorkspaces?.getRuntime(rootDir)

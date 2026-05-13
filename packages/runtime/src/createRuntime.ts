@@ -401,6 +401,36 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       const storage = storages[0]?.value
       return storage ? storage.listMessages(sessionId) : []
     },
+    callModel: async (messages, opts) => {
+      const modelName = opts?.model ?? Object.keys(deps.registries.models.entries())[0]
+      if (!modelName) throw new Error('No model available')
+      const adapter = deps.registries.models.get(modelName)
+      if (!adapter) throw new Error(`Model "${modelName}" not found`)
+
+      const context: any = {
+        messages: messages.map((m) => ({
+          role: m.role,
+          parts: [{ type: 'text' as const, text: m.content }],
+        })),
+        tools: [],
+        settings: {
+          temperature: opts?.temperature ?? 0.3,
+          maxTokens: opts?.maxTokens ?? 100,
+          providerSpecific: opts?.utility ? { mode: 'utility' } : undefined,
+        },
+      }
+
+      if (opts?.system) {
+        context.messages.unshift({
+          role: 'system',
+          parts: [{ type: 'text' as const, text: opts.system }],
+        })
+      }
+
+      const res = await adapter.request({ sessionId: '', turnId: '', model: modelName, context })
+      const text = res.message.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
+      return text
+    },
     loadExtension: (ext) => handleLoadExtension(deps, runtime, loadedExtensions, options, ext),
     unloadExtension: (name) => handleUnloadExtension(deps, loadedExtensions, name),
     dispose: () => handleDispose(deps, loadedExtensions, runtimeId),

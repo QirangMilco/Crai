@@ -8,11 +8,13 @@ import type { GlobalConfig, ProviderConfig, WorkspaceConfig } from '@crai/core'
 
 // ── Client → Server ───────────────────────────────
 
-/** 客户端向 runtime 发送 prompt。 */
+/** 客户端向 runtime 发送 prompt。可指定模型/provider 以覆盖默认。 */
 export interface PromptMessage {
   type: 'prompt'
   sessionId?: string
   text: string
+  model?: string
+  provider?: string
 }
 
 /** 客户端请求创建新 session。 */
@@ -106,12 +108,19 @@ export interface DirBrowseMessage {
   path?: string
 }
 
+/** 客户端请求服务端用工具模型为 session 生成标题。 */
+export interface SessionGenerateTitleMessage {
+  type: 'session:generate-title'
+  sessionId: string
+}
+
 export type ClientMessage =
   | PromptMessage
   | SessionNewMessage
   | SessionUpdateMessage
   | ResolveInputMessage
   | SessionLoadMessage
+  | SessionGenerateTitleMessage
   | DirBrowseMessage
   | ConfigGetMessage
   | ConfigSetMessage
@@ -213,6 +222,16 @@ export type ServerMessage =
   | SessionListDataMessage
   | SessionDataMessage
   | DirBrowseDataMessage
+  | SessionTitleMessage
+
+/** 目录浏览响应。 */
+
+/** session 标题生成响应。 */
+export interface SessionTitleMessage {
+  type: 'session:title'
+  sessionId: string
+  title: string
+}
 
 /** 目录浏览响应。 */
 export interface DirBrowseDataMessage {

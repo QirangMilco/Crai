@@ -77,7 +77,6 @@ export function ChatView({ wsUrl }: Props) {
   const [sessions, setSessions] = useState<Array<{ id: string; title?: string; createdAt: number }>>([])
   const [dirBrowser, setDirBrowser] = useState<{ path: string; dirs: string[]; parent?: string; error?: string } | null>(null)
   const titledSessions = useRef<Set<string>>(new Set())
-  const configRef = useRef<any>(null)
   const debounceRef = useRef<{ text: string; timer: any } | null>(null)
 
   const { status, send } = useWebSocket({
@@ -119,9 +118,10 @@ export function ChatView({ wsUrl }: Props) {
               setMessages((prev) => prev.map((m, i) =>
                 i === prev.length - 1 && m.role === 'assistant' ? { ...m, text: textParts } : m,
               ))
-              // 首次 AI 响应完成后，调用工具模型自动生成会话标题
+              // 首次 AI 响应完成后，请求服务端生成标题
               if (sessionId && !titledSessions.current.has(sessionId)) {
-                generateTitle(sessionId, text, textParts)
+                titledSessions.current.add(sessionId)
+                send({ type: 'session:generate-title', sessionId })
               }
             }
           }
@@ -138,7 +138,6 @@ export function ChatView({ wsUrl }: Props) {
         }
         case 'config:data':
           setGlobalConfig(msg.config)
-          configRef.current = msg.config
           break
         case 'workspace:list:data': {
           const list = msg.workspaces?.map((w: any) => ({ rootDir: w.rootDir })) ?? []
@@ -174,6 +173,9 @@ export function ChatView({ wsUrl }: Props) {
         }
         case 'dir:browse:data':
           setDirBrowser({ path: msg.path, dirs: msg.dirs, parent: msg.parent, error: msg.error })
+          break
+        case 'session:title':
+          setSessions((prev) => prev.map((s) => s.id === msg.sessionId ? { ...s, title: msg.title } : s))
           break
       }
     }, []),
@@ -225,52 +227,6 @@ export function ChatView({ wsUrl }: Props) {
   function handleDirSelect(path: string) {
     setDirBrowser(null)
     handleSwitchWorkspace(path)
-  }
-
-  /** 调用工具模型自动生成会话标题。 */
-  async function generateTitle(sid: string, userText: string, aiText: string) {
-    const cfg = configRef.current
-    if (!cfg) return
-    const toolProviderName = cfg.toolProvider ?? cfg.defaultProvider
-    const toolModel = cfg.toolModel ?? cfg.defaultModel
-    const provider = toolProviderName ? cfg.providers?.[toolProviderName] : undefined
-    if (!provider?.apiKey || !toolModel) return
-
-    titledSessions.current.add(sid)
-
-    try {
-      const baseURL = (provider.baseURL || 'https://api.openai.com/v1').replace(/\/+$/, '')
-      const res = await fetch(`${baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${provider.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: toolModel,
-          messages: [
-            {
-              role: 'system',
-              content: '用一句简短的话概括这个对话的主题。直接输出标题，不要前缀，不要引号，不要标点结尾。15字以内。',
-            },
-            { role: 'user', content: userText.slice(0, 500) },
-            { role: 'assistant', content: aiText.slice(0, 500) },
-          ],
-          temperature: 0.3,
-          max_tokens: 50,
-        }),
-        signal: AbortSignal.timeout(10000),
-      })
-      if (!res.ok) return
-      const data = await res.json()
-      const title = data?.choices?.[0]?.message?.content?.trim()
-      if (!title) return
-
-      setSessions((prev) => prev.map((s) => s.id === sid ? { ...s, title } : s))
-      send({ type: 'session:update', sessionId: sid, title })
-    } catch {
-      // 静默失败，不影响用户体验
-    }
   }
 
   useEffect(() => {
