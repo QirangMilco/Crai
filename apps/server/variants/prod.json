@@ -6,7 +6,6 @@
   },
   "debug": {
     "trace": false,
-    "verboseTools": false,
     "logLevel": "warn"
   }
 }

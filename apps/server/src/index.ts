@@ -5,7 +5,8 @@
  * - 通过 Web 界面添加/删除 provider 后自动同步
  * - 从配置文件读取配，无需环境变量
  */
-import { createRuntime, type RuntimeHandle } from '@crai/runtime'
+import { createRuntime } from '@crai/runtime'
+import type { RuntimeHandle } from '@crai/core'
 import { createOpenAIProvider, createDeepSeekProvider, listModels } from '@crai/provider'
 import { ConsoleLogger } from '@crai/base'
 import { createFileStorage } from '@crai/storage-fs'
@@ -71,8 +72,8 @@ class WorkspaceManager {
     }
     const dataDir = this.config.workspaceDataDir(rootDir)
     const provider = eff.provider === 'deepseek'
-      ? createDeepSeekProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined })
-      : createOpenAIProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined })
+      ? createDeepSeekProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined, logger: this.log })
+      : createOpenAIProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined, logger: this.log })
     const runtime = await createRuntime({
       logger: this.log,
       extensions: [
@@ -125,6 +126,14 @@ let gWorkspaces: WorkspaceManager | undefined
 
 async function main() {
   const variant = await loadVariant()
+
+  // 从变体配置注入调试 scope
+  if (variant.debug.scopes?.length) {
+    const core = await import('@crai/core')
+    core.setDebugScopes(variant.debug.scopes)
+    console.log(`[debug] 激活的 scopes: ${variant.debug.scopes.join(', ')}`)
+  }
+
   const config = new ConfigManager(variant)
   await config.loadGlobal()
 
@@ -139,6 +148,7 @@ async function main() {
 
   const transport = createWsTransport({
     port: variant.server.defaultPort,
+    logger: log,
     handlers: {
       onConfigGet: () => config.getGlobal(),
       onConfigSet: (cfg) => { Object.assign(config.getGlobal(), cfg); config.saveGlobal(); gWorkspaces?.sync() },

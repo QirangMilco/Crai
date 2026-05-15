@@ -48,7 +48,7 @@ function mockRuntime(): RuntimeHandle {
     async callModel(messages: any, opts?: any) { return 'test response' },
     async loadExtension() {},
     async unloadExtension() {},
-    async listSessions() { return [] },
+    async listSessions() { return Array.from(sessions.values()).map((s) => ({ id: s.id, title: s.title, createdAt: s.createdAt, updatedAt: s.updatedAt })) },
     async dispose() {},
   }
 

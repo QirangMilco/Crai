@@ -80,7 +80,7 @@
 
 ### CLI
 - `@crai/cli-repl`（交互式 REPL）
-- AI_DEBUG 调试系统
+- 调试系统（按 scope 控制输出，通过变体配置注入）
 - 敏感命令确认（Always-Allow + 强制确认）
 - 会话管理（/session 命令）
 

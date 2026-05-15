@@ -538,13 +538,31 @@ export interface PromptResult {
 export interface RuntimeHandle {
   id: ID
   prompt(input: RuntimeInput, options?: PromptOptions): Promise<PromptResult>
-  createSession(input?: Metadata): Promise<Session>
+  /**
+   * 轻量模型调用，无副作用。
+   * 不经过 turn 生命周期、不触发钩子、不持久化。
+   * 用于标题生成、摘要等内部辅助任务。
+   */
+  callModel(messages: Array<{ role: string; content: string }>, options?: CallModelOptions): Promise<string>
+  createSession(input?: Metadata, sessionId?: ID): Promise<Session>
   stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
+  listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>>
   listMessages(sessionId: ID): Promise<Message[]>
   loadExtension(ext: Extension): Promise<void>
   unloadExtension(name: string): Promise<void>
   dispose(): Promise<void>
+}
+
+export interface CallModelOptions {
+  system?: string
+  model?: string
+  provider?: string
+  temperature?: number
+  maxTokens?: number
+  /** 工具模式：关闭思考/推理，用于标题生成、摘要等轻量任务。 */
+  utility?: boolean
+  signal?: AbortSignal
 }
 ```
 

@@ -65,6 +65,33 @@ body {
   animation: msg-enter 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ── Thinking 指示器 ── */
+.crai-thinking-indicator {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 0;
+}
+.crai-thinking-indicator span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--crai-accent);
+  opacity: 0.4;
+  animation: crai-think-pulse 1.4s ease-in-out infinite;
+}
+.crai-thinking-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.crai-thinking-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes crai-think-pulse {
+  0%, 80%, 100% { opacity: 0.4; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
 /* ── 发送按钮 ── */
 .crai-send-btn {
   transition: background-color 0.15s, opacity 0.2s;

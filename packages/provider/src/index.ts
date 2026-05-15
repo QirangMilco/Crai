@@ -15,6 +15,8 @@ export type { DeepSeekAdapterOptions } from './deepseek/adapter'
 
 export { sseLines } from './core/stream'
 
+export { setDebugScopes, isDebugScope, DEBUG_SCOPES } from './core/debug'
+
 /**
  * 通用模型列表获取。
  * 大部分 OpenAI 兼容提供商在 {baseURL}/models 返回标准格式。

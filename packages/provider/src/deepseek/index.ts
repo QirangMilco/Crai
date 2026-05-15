@@ -1,5 +1,5 @@
 /** DeepSeek provider extension 工厂。注册为 Crai Extension。 */
-import type { Extension } from '@crai/core'
+import type { Extension, Logger } from '@crai/core'
 import { DeepSeekAdapter, type DeepSeekAdapterOptions } from './adapter'
 import { DEFAULT_MODELS, EXTENSION_NAME } from './constants'
 
@@ -8,6 +8,7 @@ export interface DeepSeekProviderOptions {
   baseURL?: string
   adapterName?: string
   models?: string[]
+  logger?: Logger
 }
 
 /**
@@ -26,6 +27,7 @@ export function createDeepSeekProvider(options: DeepSeekProviderOptions): Extens
     apiKey: options.apiKey,
     baseURL: options.baseURL,
     adapterName: options.adapterName,
+    logger: options.logger,
   }
 
   return {

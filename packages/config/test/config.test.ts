@@ -13,7 +13,7 @@ function testVariant(tmp: string): AppVariant {
     configDirName: tmp,
     workspaceDataDirName: '.crai-test',
     server: { defaultPort: 9999 },
-    debug: { trace: false, verboseTools: false },
+    debug: { trace: false },
   }
 }
 

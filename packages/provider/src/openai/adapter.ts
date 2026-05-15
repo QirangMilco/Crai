@@ -4,6 +4,7 @@
  * 自动在 Crai Message 与 OpenAI API 格式间双向转换。
  */
 import type {
+  Logger,
   Message,
   MessagePart,
   ModelAdapter,
@@ -14,7 +15,7 @@ import type {
   TextPart,
   ToolCallPart,
 } from '@crai/core'
-import { STREAM_EVENT_TYPES, createId } from '@crai/core'
+import { debugLog, STREAM_EVENT_TYPES, createId } from '@crai/core'
 import { isDebugScope, DEBUG_SCOPES } from '../core/debug'
 import { sseLines } from '../core/stream'
 import {
@@ -29,6 +30,7 @@ export interface OpenAIAdapterOptions {
   apiKey: string
   baseURL?: string
   adapterName?: string
+  logger?: Logger
 }
 
 interface OpenAIMessage {
@@ -278,12 +280,10 @@ function buildDoneResponse(
   const toolParts = buildToolCallPartsFromAccumulator()
   parts.push(...toolParts)
 
-  if (isDebugScope(DEBUG_SCOPES.API)) {
-    console.error(`[debug:api] stream response (model=..., finish_reason=${finishReason ?? 'null'}):\n${JSON.stringify({
-      text: text || '(no text content)',
-      toolCalls: toolParts.map(t => ({ name: t.name, arguments: t.arguments })),
-    }, null, 2)}\n`)
-  }
+  debugLog(DEBUG_SCOPES.API, `stream response (finish_reason=${finishReason ?? 'null'})`, {
+    text: text || '(no text content)',
+    toolCalls: toolParts.map(t => ({ name: t.name, arguments: t.arguments })),
+  })
 
   return {
     type: 'done',
@@ -318,14 +318,23 @@ export class OpenAIAdapter implements ModelAdapter {
     return `${this.baseURL}${API.CHAT_PATH}`
   }
 
+  /** scope=api 的调试输出，走 logger.debug() 或回退 console.error。 */
+  private debugApi(label: string, data: unknown): void {
+    if (!isDebugScope(DEBUG_SCOPES.API)) return
+    const msg = `[debug:api] ${label}\n${JSON.stringify(data, null, 2)}\n`
+    if (this.options.logger) {
+      this.options.logger.debug(msg)
+    } else {
+      console.error(msg)
+    }
+  }
+
   async request(request: ModelRequest): Promise<ModelResponse> {
     const body = buildOpenAIBody(request)
     const bodyJson = JSON.stringify(body)
 
-    if (isDebugScope(DEBUG_SCOPES.API)) {
-      console.error(`[debug:api] POST ${this.chatURL}`)
-      console.error(`[debug:api] request body (model=${request.model}):\n${bodyJson}\n`)
-    }
+    this.debugApi(`POST ${this.chatURL}`, '')
+    this.debugApi(`request body (model=${request.model})`, bodyJson)
 
     const res = await fetch(this.chatURL, {
       method: API.METHOD,
@@ -338,17 +347,13 @@ export class OpenAIAdapter implements ModelAdapter {
 
     if (!res.ok) {
       const errBody = await res.text()
-      if (isDebugScope(DEBUG_SCOPES.API)) {
-        console.error(`[debug:api] response error (${res.status}):\n${errBody}\n`)
-      }
+      this.debugApi(`response error (${res.status})`, errBody)
       const err: RuntimeError = { code: ERROR_CODES.API_ERROR, message: `OpenAI API error (${res.status}): ${errBody}` }
       throw err
     }
 
     const data = (await res.json()) as OpenAIResponse
-    if (isDebugScope(DEBUG_SCOPES.API)) {
-      console.error(`[debug:api] response body:\n${JSON.stringify(data, null, 2)}\n`)
-    }
+    this.debugApi('response body', data)
     return fromOpenAIResponse(data)
   }
 
@@ -356,10 +361,8 @@ export class OpenAIAdapter implements ModelAdapter {
     const body = buildOpenAIBody(request, true)
     const bodyJson = JSON.stringify(body)
 
-    if (isDebugScope(DEBUG_SCOPES.API)) {
-      console.error(`[debug:api] POST ${this.chatURL} (stream)`)
-      console.error(`[debug:api] request body (model=${request.model}):\n${bodyJson}\n`)
-    }
+    this.debugApi(`POST ${this.chatURL} (stream)`, '')
+    this.debugApi(`request body (model=${request.model})`, bodyJson)
 
     const res = await fetch(this.chatURL, {
       method: API.METHOD,
@@ -372,9 +375,7 @@ export class OpenAIAdapter implements ModelAdapter {
 
     if (!res.ok) {
       const errBody = await res.text()
-      if (isDebugScope(DEBUG_SCOPES.API)) {
-        console.error(`[debug:api] stream response error (${res.status}):\n${errBody}\n`)
-      }
+      this.debugApi(`stream response error (${res.status})`, errBody)
       yield { type: STREAM_EVENT_TYPES.ERROR, error: { code: ERROR_CODES.API_ERROR, message: `OpenAI API error (${res.status}): ${errBody}` } }
       return
     }

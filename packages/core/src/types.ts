@@ -220,7 +220,6 @@ export interface AppVariant {
   }
   debug: {
     trace: boolean
-    verboseTools: boolean
     /** 日志级别：debug | info | warn | error */
     logLevel?: string
     /** 日志文件输出目录。设置后日志以追加模式写入文件。 */
@@ -229,6 +228,8 @@ export interface AppVariant {
     maxFileSize?: number
     /** 保留的旧日志文件数量（默认 3）。 */
     maxBackups?: number
+    /** 调试输出范围（scope 列表）。由变体配置注入，运行时通过 setDebugScopes() 设置。 */
+    scopes?: string[]
   }
 }
 

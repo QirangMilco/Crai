@@ -78,6 +78,7 @@ export function ChatView({ wsUrl }: Props) {
   const [dirBrowser, setDirBrowser] = useState<{ path: string; dirs: string[]; parent?: string; error?: string } | null>(null)
   const titledSessions = useRef<Set<string>>(new Set())
   const debounceRef = useRef<{ text: string; timer: any } | null>(null)
+  const sessionIdRef = useRef<string | null>(null)
 
   const { status, send } = useWebSocket({
     url: wsUrl,
@@ -88,19 +89,23 @@ export function ChatView({ wsUrl }: Props) {
       switch (msg.type) {
         case 'event': {
           if (msg.event === 'model.delta' && typeof msg.payload?.delta === 'string') {
-            // 防抖：累积 delta 后批量更新，避免每次字符触发全量重渲染
             if (!debounceRef.current) debounceRef.current = { text: '', timer: null }
             const d = debounceRef.current
             d.text += msg.payload.delta
-            if (d.timer) clearTimeout(d.timer)
-            d.timer = setTimeout(() => {
-              const batch = d.text
-              d.text = ''
-              d.timer = null
-              setMessages((prev) => prev.map((m, i) =>
-                i === prev.length - 1 && m.role === 'assistant' ? { ...m, text: m.text + batch } : m,
-              ))
-            }, 16) // ~60fps
+            if (!d.timer) {
+              d.timer = setTimeout(() => {
+                const batch = d.text
+                d.text = ''
+                d.timer = null
+                setMessages((prev) => {
+                  const idx = prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
+                  if (idx === undefined) return prev
+                  const copy = [...prev]
+                  copy[idx] = { ...copy[idx], text: copy[idx].text + batch }
+                  return copy
+                })
+              }, 50)
+            }
           }
           if (msg.event === 'model.completed' && msg.payload?.response?.message?.parts) {
             // 立即刷新防抖缓冲区
@@ -115,13 +120,18 @@ export function ChatView({ wsUrl }: Props) {
               .map((p: any) => p.text)
               .join('')
             if (textParts) {
-              setMessages((prev) => prev.map((m, i) =>
-                i === prev.length - 1 && m.role === 'assistant' ? { ...m, text: textParts } : m,
-              ))
+              setMessages((prev) => {
+                // 找到最后一个 assistant 消息更新
+                const idx = prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
+                if (idx === undefined) return prev
+                const copy = [...prev]
+                copy[idx] = { ...copy[idx], text: copy[idx].text + textParts }
+                return copy
+              })
               // 首次 AI 响应完成后，请求服务端生成标题
-              if (sessionId && !titledSessions.current.has(sessionId)) {
-                titledSessions.current.add(sessionId)
-                send({ type: 'session:generate-title', sessionId })
+              if (sessionIdRef.current && !titledSessions.current.has(sessionIdRef.current)) {
+                titledSessions.current.add(sessionIdRef.current)
+                send({ type: 'session:generate-title', sessionId: sessionIdRef.current })
               }
             }
           }
@@ -129,7 +139,9 @@ export function ChatView({ wsUrl }: Props) {
         }
         case 'session:id':
           setSessionId(msg.id)
+          sessionIdRef.current = msg.id
           send({ type: 'session:load', sessionId: msg.id })
+          send({ type: 'session:list' })
           break
         case 'request:input': {
           const answer = prompt(msg.question + (msg.options?.length ? `\n选项: ${msg.options.join(', ')}` : ''))
@@ -155,6 +167,7 @@ export function ChatView({ wsUrl }: Props) {
         case 'workspace:switched':
           setCurrentWorkspace(msg.rootDir)
           setSessionId(null)
+          sessionIdRef.current = null
           setMessages([])
           send({ type: 'workspace:list' })
           break
@@ -162,13 +175,30 @@ export function ChatView({ wsUrl }: Props) {
           setSessions(msg.sessions ?? [])
           break
         case 'session:data': {
-          const chatMsgs = (msg.messages ?? []).map((m: any) => ({
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            text: m.text,
-            createdAt: m.createdAt ?? Date.now(),
-          }))
-          setMessages(chatMsgs)
+          setMessages((prev) => {
+            const incomingIds = new Set((msg.messages ?? []).map((m: any) => m.id))
+            // 保留本地已有但服务端没有的消息（如正在流式中的 assistant 消息）
+            const kept = prev.filter((m) => !incomingIds.has(m.id))
+            const incoming = (msg.messages ?? []).map((m: any) => ({
+              id: m.id,
+              role: m.role as 'user' | 'assistant',
+              text: m.text,
+              createdAt: m.createdAt ?? Date.now(),
+            }))
+            // 用服务端数据覆盖同 id 消息，保留本地独有的
+            const merged = [...incoming]
+            for (const local of kept) {
+              const existing = merged.findIndex((m) => m.id === local.id)
+              if (existing >= 0) {
+                merged[existing] = { ...merged[existing], text: merged[existing].text || local.text }
+              } else {
+                merged.push(local)
+              }
+            }
+            // 按 createdAt 排序
+            merged.sort((a, b) => a.createdAt - b.createdAt)
+            return merged
+          })
           break
         }
         case 'dir:browse:data':

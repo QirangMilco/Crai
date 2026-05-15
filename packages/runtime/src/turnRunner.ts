@@ -14,7 +14,7 @@ import type {
   ToolExecutionResult,
   ToolHandler,
 } from '@crai/core'
-import type { HookBus, HookMap, RuntimeHandle, Session, AdapterContext } from '@crai/core'
+import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId } from '@crai/core'
 import { debugLog, DEBUG_SCOPES } from './debug'
@@ -48,6 +48,8 @@ export interface TurnRunnerDeps {
   middlewares?: ModelMiddlewareStore
   /** AdapterContext 供工具执行时传入。 */
   adapterContext?: AdapterContext
+  /** 日志记录器，调试输出受 logLevel 过滤。 */
+  logger?: Logger
 }
 
 /** 将 RuntimeInput 转换为 Message。 */
@@ -225,7 +227,7 @@ export async function runTurn(
     const handler = deps.resolveTool ? await deps.resolveTool(tc.name) : undefined
     debugLog(DEBUG_SCOPES.TOOLS, `工具调用: ${tc.name}`, {
       toolCallId: tc.toolCallId, name: tc.name, arguments: tc.arguments,
-    })
+    }, deps.logger)
     if (!handler) {
       await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 无 handler` })
       return { tc, execResult: makeErrResult(tc, `工具 "${tc.name}" 无 handler`) }
@@ -233,7 +235,7 @@ export async function runTurn(
     const execResult = await executeOneTool(handler, tc, session, deps, turnId)
     debugLog(DEBUG_SCOPES.TOOLS, `工具结果: ${tc.name}`, {
       toolCallId: execResult.toolCallId, name: execResult.name, isError: execResult.isError,
-    })
+    }, deps.logger)
     return { tc, execResult }
   }
 
@@ -362,13 +364,12 @@ export async function runTurn(
 
   // ── 最终持久化与返回 ──
 
-  await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response: finalResponse! })
-  await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: finalResponse!.message })
-
   await deps.hooks.run(HOOKS.PERSIST_BEFORE, { session }, { runtime })
   await deps.hooks.run(HOOKS.TURN_AFTER, { session, turnId, messages: allRoundMessages }, { runtime })
   await deps.hooks.run(HOOKS.PERSIST_AFTER, { session }, { runtime })
 
+  await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response: finalResponse! })
+  await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: finalResponse!.message })
   await deps.emitEvent(EVENTS.TURN_COMPLETED, { session, turnId })
 
   return {

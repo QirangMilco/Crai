@@ -1,5 +1,5 @@
 /** OpenAI provider extension 工厂。创建后可注册 4 个默认模型到 runtime。 */
-import type { Extension } from '@crai/core'
+import type { Extension, Logger } from '@crai/core'
 import { OpenAIAdapter, type OpenAIAdapterOptions } from './adapter'
 import { DEFAULT_MODELS, EXTENSION_NAME } from './constants'
 
@@ -8,6 +8,7 @@ export interface OpenAIProviderOptions {
   baseURL?: string
   adapterName?: string
   models?: string[]
+  logger?: Logger
 }
 
 /**
@@ -22,6 +23,7 @@ export function createOpenAIProvider(options: OpenAIProviderOptions): Extension 
     apiKey: options.apiKey,
     baseURL: options.baseURL,
     adapterName: options.adapterName,
+    logger: options.logger,
   }
 
   return {

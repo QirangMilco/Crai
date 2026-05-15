@@ -29,8 +29,10 @@ function Bubble({ msg }: Props) {
         }}>
         {isUser ? (
           <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-        ) : (
+        ) : msg.text ? (
           <MarkdownRenderer content={msg.text} />
+        ) : (
+          <div className="crai-thinking-indicator"><span>●</span><span>●</span><span>●</span></div>
         )}
       </div>
     </div>

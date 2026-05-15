@@ -212,6 +212,7 @@ async function handlePrompt(
   const turnDeps: TurnRunnerDeps = {
     hooks: deps.hooks,
     emitEvent: deps.events.emit,
+    logger: deps.logger,
     middlewares: deps.middlewares,
     buildContext: async () => {
       const storages = deps.registries.storages.list()
@@ -402,7 +403,8 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       return storage ? storage.listMessages(sessionId) : []
     },
     callModel: async (messages, opts) => {
-      const modelName = opts?.model ?? Object.keys(deps.registries.models.entries())[0]
+      const models = deps.registries.models.list()
+      const modelName = opts?.model ?? models[0]?.name
       if (!modelName) throw new Error('No model available')
       const adapter = deps.registries.models.get(modelName)
       if (!adapter) throw new Error(`Model "${modelName}" not found`)

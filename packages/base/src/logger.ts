@@ -86,7 +86,7 @@ export class ConsoleLogger implements Logger {
     const line = `${ts} [${LEVEL_LABELS[level]}] [${this._tag}] ${message}${meta}`
 
     switch (level) {
-      case 'debug': console.debug(line); break
+      case 'debug': console.error(line); break
       case 'info':  console.info(line); break
       case 'warn':  console.warn(line); break
       case 'error': console.error(line); break

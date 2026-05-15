@@ -1,8 +1,8 @@
 /**
  * @crai/transport-ws — WebSocket transport for Crai runtime.
  */
-import type { Extension, RuntimeHandle } from '@crai/core'
-import { EVENTS, createId } from '@crai/core'
+import type { Extension, Logger, RuntimeHandle } from '@crai/core'
+import { DEBUG_SCOPES, debugLog, EVENTS, createId, setDebugScopes } from '@crai/core'
 import { readdirSync, statSync, realpathSync } from 'node:fs'
 import { join, resolve, sep, normalize } from 'node:path'
 import { homedir } from 'node:os'
@@ -33,6 +33,8 @@ export interface WsTransportOptions {
   handlers?: WsTransportHandlers
   /** 根据工作区路径获取对应的 runtime。没有 API key 时可能为 undefined。 */
   getRuntime?: (rootDir: string) => RuntimeHandle | undefined
+  /** 日志记录器，调试输出受 logLevel 过滤。 */
+  logger?: Logger
 }
 
 // ── 返回接口 ───────────────────────────────────────
@@ -109,7 +111,7 @@ export function browseDir(inputPath?: string): { path: string; dirs: string[]; p
 // ── Factory ────────────────────────────────────────
 
 export function createWsTransport(options: WsTransportOptions = {}): WsTransport {
-  const { host = '0.0.0.0', port: preferredPort = 0, handlers, getRuntime } = options
+  const { host = '0.0.0.0', port: preferredPort = 0, handlers, getRuntime, logger } = options
   const httpServer = http.createServer()
   const wss = new WebSocketServer({ server: httpServer })
   const clients = new Set<WebSocket>()
@@ -174,6 +176,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         const rt = resolveRuntime()!
         const session = await rt.createSession(msg.system ? { system: msg.system } : undefined)
         currentSessionId = session.id
+        logger?.info(`已创建 session ${session.id}`)
         ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
         break
       }
@@ -211,13 +214,26 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
 
       case 'session:generate-title': {
         const rt = resolveRuntime()!
+        logger?.info(`正在为 session ${msg.sessionId} 生成标题`)
         // 获取 session 消息
         const raw = await rt.listMessages(msg.sessionId)
         const userMsg = raw.find((m: any) => m.role === 'user')?.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
         const aiMsg = raw.filter((m: any) => m.role === 'assistant').pop()?.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
+        debugLog(DEBUG_SCOPES.TITLE_GEN, 'start', { sessionId: msg.sessionId, messagesFound: !!userMsg }, logger)
         if (!userMsg) { ws.send(JSON.stringify({ type: 'error', message: 'no messages to summarize' } satisfies ServerMessage)); break }
 
+        // 查找工具模型配置
+        let toolModel: string | undefined
         try {
+          const cfg = handlers?.onConfigGet ? await handlers.onConfigGet() : undefined
+          if (cfg) {
+            toolModel = (cfg as any).toolModel ?? (cfg as any).defaultModel ?? undefined
+          }
+        } catch { /* 静默回退到默认模型 */ }
+        debugLog(DEBUG_SCOPES.TITLE_GEN, 'model', { toolModel }, logger)
+
+        try {
+          debugLog(DEBUG_SCOPES.TITLE_GEN, 'calling', { model: toolModel ?? '(default)' }, logger)
           const title = await rt.callModel(
             [
               { role: 'user', content: userMsg.slice(0, 500) },
@@ -225,11 +241,13 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             ],
             {
               system: '用一句简短的话概括这个对话的主题。直接输出标题，不要前缀，不要引号，不要标点结尾。15字以内。',
+              model: toolModel,
               temperature: 0.3,
               maxTokens: 50,
               utility: true,
             },
           )
+          debugLog(DEBUG_SCOPES.TITLE_GEN, 'raw_response', { raw: title }, logger)
           const cleanTitle = title.replace(/^[""''“”「」]+|[""''“”」」]+$/g, '').trim()
           if (cleanTitle) {
             // 持久化标题
@@ -239,9 +257,13 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
               const storage = storages?.[0]?.value
               if (storage) await storage.updateSession({ ...session, title: cleanTitle, updatedAt: Date.now() })
             }
+            logger?.info(`标题生成成功: ${cleanTitle}`)
+            debugLog(DEBUG_SCOPES.TITLE_GEN, 'success', { title: cleanTitle }, logger)
             ws.send(JSON.stringify({ type: 'session:title', sessionId: msg.sessionId, title: cleanTitle } satisfies ServerMessage))
           }
         } catch (err: any) {
+          logger?.warn(`标题生成失败: ${err.message}`)
+          debugLog(DEBUG_SCOPES.TITLE_GEN, 'error', { message: err.message }, logger)
           ws.send(JSON.stringify({ type: 'error', message: `title generation failed: ${err.message}` } satisfies ServerMessage))
         }
         break
@@ -252,6 +274,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         const session = await rt.getSession(msg.sessionId)
         if (session) {
           const updated = { ...session, title: msg.title ?? session.title, updatedAt: Date.now() }
+          logger?.info(`已更新 session ${msg.sessionId} 标题: ${(msg.title ?? '(清空)').slice(0, 40)}`)
           // 通过 runtime 的内部存储持久化标题
           const storages = (rt as any).registries?.storages?.list()
           const storage = storages?.[0]?.value
@@ -313,6 +336,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
 
       case 'workspace:switch': {
         if (!handlers?.onWorkspaceSwitch) { ws.send(JSON.stringify({ type: 'error', message: 'workspace switching not supported' } satisfies ServerMessage)); break }
+        logger?.info(`正在切换到工作区 ${msg.rootDir}`)
         const info = await handlers.onWorkspaceSwitch(msg.rootDir)
         currentSessionId = undefined
         currentWorkspace = msg.rootDir
