@@ -520,12 +520,14 @@ export class DeepSeekAdapter implements ModelAdapter {
           if (!inThinking) {
             inThinking = true
           }
+          this.debugApi('THINKING_DELTA yield', { reasoning: delta.reasoning_content.substring(0, 60) })
           yield { type: STREAM_EVENT_TYPES.THINKING_DELTA, delta: delta.reasoning_content }
         }
 
         // 第一次收到内容 delta 时，思考阶段结束
         if (delta?.content && inThinking) {
           inThinking = false
+          this.debugApi('THINKING_DONE yield', {})
           yield { type: STREAM_EVENT_TYPES.THINKING_DONE }
         }
 
@@ -540,6 +542,7 @@ export class DeepSeekAdapter implements ModelAdapter {
           // 思考阶段结束（如有工具调用，思考已完成）
           if (inThinking) {
             inThinking = false
+            this.debugApi('THINKING_DONE yield (tool_calls)', {})
             yield { type: STREAM_EVENT_TYPES.THINKING_DONE }
           }
           for (const tc of delta.tool_calls) {
@@ -553,6 +556,11 @@ export class DeepSeekAdapter implements ModelAdapter {
             accumulatedToolCallsMap.set(index, existing)
 
             // 发射 tool-call-delta
+            this.debugApi('TOOL_CALL_DELTA yield', {
+              name: tc.function?.name ?? existing.name,
+              toolCallId: tc.id ?? existing.id,
+              argsDeltaLen: (tc.function?.arguments ?? '').length,
+            })
             yield {
               type: STREAM_EVENT_TYPES.TOOL_CALL_DELTA,
               toolCallId: tc.id ?? existing.id,

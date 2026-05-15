@@ -10,6 +10,6 @@
     "logDir": "logs",
     "maxFileSize": 10485760,
     "maxBackups": 3,
-    "scopes": ["title-gen"]
+    "scopes": ["api", "middleware", "title-gen"]
   }
 }

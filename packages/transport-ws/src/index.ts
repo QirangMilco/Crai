@@ -440,6 +440,9 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
     },
 
     publishEvent: (workspaceId: string, event: string, payload: unknown) => {
+      if (event === 'thinking.delta' || event === 'thinking.done' || event === 'tool.start' || event === 'tool.delta' || event === 'tool.done') {
+        debugLog(DEBUG_SCOPES.API, `ws broadcast: ${event}`, { workspaceId, hasPayload: !!payload }, logger)
+      }
       broadcast({ type: 'event', event, payload: { workspaceId, ...(typeof payload === 'object' && payload !== null ? payload : {}) } })
     },
   }

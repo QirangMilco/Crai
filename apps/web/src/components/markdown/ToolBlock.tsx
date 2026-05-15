@@ -53,7 +53,7 @@ export const ToolBlock = memo(function ToolBlock({ tool }: Props) {
         flexShrink: 0,
       }} />
       <span style={{ flex: 1 }}>{label}</span>
-      {!done && <span className="crai-thinking-dots" />}
+      {!done && <span style={{ display: 'inline-block', width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: 0.6, animation: 'crai-think-pulse 1.4s ease-in-out infinite' }} />}
       {done && <span>{tool.status === 'success' ? '✓' : '✗'}</span>}
     </div>
   )
@@ -76,7 +76,7 @@ export const ToolGroupBlock = memo(function ToolGroupBlock({ tools }: { tools: T
         marginBottom: tools.length > 1 ? 4 : 0,
       }}>
         <span>{allDone ? `工具调用 (${tools.length})` : `正在调用工具 (${tools.filter(t => t.status === 'running').length})`}</span>
-        {!allDone && <span className="crai-thinking-dots" />}
+        {!allDone && <span style={{ display: 'inline-block', width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: 0.6, animation: 'crai-think-pulse 1.4s ease-in-out infinite' }} />}
       </div>
       {tools.map((tool, i) => (
         <ToolBlock key={`${tool.toolCallId}-${i}`} tool={tool} />

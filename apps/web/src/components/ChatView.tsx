@@ -7,6 +7,18 @@ import { ConfigPanel } from './ConfigPanel'
 import { DirBrowser } from './DirBrowser'
 import type { ChatMessage } from '../types/messages'
 
+/** 前端调试日志，仅在 localStorage 中设置了对应 scope 时输出到 stderr。
+ * 用法：浏览器控制台运行 localStorage.setItem('crai:debug:scope', 'thinking,stream')
+ * scope 列表：thinking, stream, merge
+ */
+function debugLog(scope: string, ...args: unknown[]) {
+  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('crai:debug:scope') || '' : ''
+  const scopes = raw.split(',').map((s) => s.trim()).filter(Boolean)
+  if (scopes.includes('ALL') || scopes.includes(scope)) {
+    console.error(`[crai:${scope}]`, ...args)
+  }
+}
+
 interface Props {
   wsUrl: string
 }
@@ -71,12 +83,27 @@ function updateLastAssistantBlocks(
   prev: ChatMessage[],
   updater: (blocks: any[]) => any[],
 ): ChatMessage[] {
-  const idx = prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
+  const idx = findLastAssistantIndex(prev)
   if (idx === undefined) return prev
   const copy = [...prev]
   const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
   copy[idx] = { ...copy[idx], blocks: updater(blocks) }
   return copy
+}
+
+/** 找到最后一条 assistant 消息的索引，找不到则创建一个新的。 */
+function findCreateAssistant(prev: ChatMessage[]): { copy: ChatMessage[]; idx: number } {
+  const idx = findLastAssistantIndex(prev)
+  if (idx !== undefined) return { copy: prev, idx }
+  const now = Date.now()
+  const msg: ChatMessage = { id: `asst-${now}`, role: 'assistant', text: '', createdAt: now }
+  debugLog('thinking', 'created fallback assistant message', `asst-${now}`)
+  const copy = [...prev, msg]
+  return { copy, idx: copy.length - 1 }
+}
+
+function findLastAssistantIndex(prev: ChatMessage[]): number | undefined {
+  return prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
 }
 
 export function ChatView({ wsUrl }: Props) {
@@ -102,6 +129,7 @@ export function ChatView({ wsUrl }: Props) {
       switch (msg.type) {
         case 'event': {
           if (msg.event === 'model.delta' && typeof msg.payload?.delta === 'string') {
+            debugLog('stream', 'model.delta', msg.payload.delta.slice(0, 50))
             if (!debounceRef.current) debounceRef.current = { text: '', timer: null }
             const d = debounceRef.current
             d.text += msg.payload.delta
@@ -111,9 +139,7 @@ export function ChatView({ wsUrl }: Props) {
                 d.text = ''
                 d.timer = null
                 setMessages((prev) => {
-                  const idx = prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
-                  if (idx === undefined) return prev
-                  const copy = [...prev]
+                  const { copy, idx } = findCreateAssistant(prev)
                   copy[idx] = { ...copy[idx], text: copy[idx].text + batch }
                   return copy
                 })
@@ -123,17 +149,23 @@ export function ChatView({ wsUrl }: Props) {
 
           // ── 思考过程与工具调用流式事件 ──
           if (msg.event === 'thinking.delta' && typeof msg.payload?.delta === 'string') {
-            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
-              const existing = blocks.filter((b) => b.type === 'thinking').pop() as any
+            debugLog('thinking', 'thinking.delta arrived', msg.payload.delta.slice(0, 60))
+            setMessages((prev) => {
+              const { copy, idx } = findCreateAssistant(prev)
+              const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
+              const existing = blocks.filter((b: any) => b.type === 'thinking').pop() as any
               if (existing) {
                 existing.content += msg.payload.delta
               } else {
+                debugLog('thinking', 'creating thinking block on message', copy[idx].id)
                 blocks.push({ type: 'thinking', content: msg.payload.delta, sealed: false })
               }
-              return blocks
-            }))
+              copy[idx] = { ...copy[idx], blocks }
+              return copy
+            })
           }
           if (msg.event === 'thinking.done') {
+            debugLog('thinking', 'thinking.done')
             setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
               for (const b of blocks) {
                 if (b.type === 'thinking') b.sealed = true
@@ -142,10 +174,13 @@ export function ChatView({ wsUrl }: Props) {
             }))
           }
           if (msg.event === 'tool.start' && msg.payload?.name) {
-            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
+            setMessages((prev) => {
+              const { copy, idx } = findCreateAssistant(prev)
+              const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
               blocks.push({ type: 'tool', toolCallId: msg.payload.toolCallId, name: msg.payload.name, args: '', status: 'running' })
-              return blocks
-            }))
+              copy[idx] = { ...copy[idx], blocks }
+              return copy
+            })
           }
           if (msg.event === 'tool.delta' && msg.payload?.delta) {
             setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
@@ -169,24 +204,17 @@ export function ChatView({ wsUrl }: Props) {
           }
 
           if (msg.event === 'model.completed' && msg.payload?.response?.message?.parts) {
-            // 立即刷新防抖缓冲区
+            // 立即刷新防抖缓冲区（不再追加 payload 中的完整回复，避免重复）
             if (debounceRef.current?.timer) {
               clearTimeout(debounceRef.current.timer)
               debounceRef.current.timer = null
             }
             const pending = debounceRef.current?.text ?? ''
             debounceRef.current = null
-            const textParts = pending + msg.payload.response.message.parts
-              .filter((p: any) => p.type === 'text')
-              .map((p: any) => p.text)
-              .join('')
-            if (textParts) {
+            if (pending) {
               setMessages((prev) => {
-                // 找到最后一个 assistant 消息更新
-                const idx = prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
-                if (idx === undefined) return prev
-                const copy = [...prev]
-                copy[idx] = { ...copy[idx], text: copy[idx].text + textParts }
+                const { copy, idx } = findCreateAssistant(prev)
+                copy[idx] = { ...copy[idx], text: copy[idx].text + pending }
                 return copy
               })
               // 首次 AI 响应完成后，请求服务端生成标题
@@ -237,16 +265,30 @@ export function ChatView({ wsUrl }: Props) {
           break
         case 'session:data': {
           setMessages((prev) => {
-            const incomingIds = new Set((msg.messages ?? []).map((m: any) => m.id))
-            // 保留本地已有但服务端没有的消息（如正在流式中的 assistant 消息）
-            const kept = prev.filter((m) => !incomingIds.has(m.id))
+            debugLog('merge', 'session:data merge start', { incoming: (msg.messages ?? []).length, local: prev.length, localIds: prev.map(m => m.id) })
             const incoming = (msg.messages ?? []).map((m: any) => ({
               id: m.id,
               role: m.role as 'user' | 'assistant',
               text: m.text,
               createdAt: m.createdAt ?? Date.now(),
             }))
-            // 用服务端数据覆盖同 id 消息，保留本地独有的
+            const incomingIds = new Set(incoming.map((m: any) => m.id))
+            const hasServerAssistant = incoming.some((m: any) => m.role === 'assistant')
+            const hasServerUser = incoming.some((m: any) => m.role === 'user')
+            // 分离：带 blocks 的本地消息暂存，其余按规则过滤
+            const droppedWithBlocks: Array<{ role: string; blocks: any[] }> = []
+            const kept = prev.filter((m) => {
+              if (incomingIds.has(m.id)) return false
+              if (hasServerAssistant && m.role === 'assistant' && /^asst-/.test(m.id)) {
+                if (m.blocks && m.blocks.length > 0) droppedWithBlocks.push({ role: m.role, blocks: m.blocks })
+                return false
+              }
+              if (hasServerUser && m.role === 'user' && /^user-/.test(m.id)) return false
+              return true
+            })
+            // 用服务端数据覆盖，保留 kept 中真正本地独有的消息
+            const droppedCount = prev.length - kept.length - incoming.filter(m => prev.some(p => p.id === m.id)).length
+            debugLog('merge', 'kept', kept.length, 'dropped local placeholders', droppedCount, 'incoming', incoming.length)
             const merged = [...incoming]
             for (const local of kept) {
               const existing = merged.findIndex((m) => m.id === local.id)
@@ -258,6 +300,15 @@ export function ChatView({ wsUrl }: Props) {
             }
             // 按 createdAt 排序
             merged.sort((a, b) => a.createdAt - b.createdAt)
+            // 恢复被丢弃的本地 blocks 到对应的服务端消息
+            for (const dropped of droppedWithBlocks) {
+              const targetIdx = merged.map((m, i) => ({ m, i }))
+                .filter(x => x.m.role === dropped.role && !x.m.blocks)
+                .pop()?.i
+              if (targetIdx !== undefined) {
+                merged[targetIdx] = { ...merged[targetIdx], blocks: dropped.blocks }
+              }
+            }
             return merged
           })
           break

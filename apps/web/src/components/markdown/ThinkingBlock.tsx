@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from 'react'
+import { memo, useState, useCallback, useRef, useEffect } from 'react'
 
 interface Props {
   content: string
@@ -8,6 +8,23 @@ interface Props {
 export const ThinkingBlock = memo(function ThinkingBlock({ content, sealed }: Props) {
   const [open, setOpen] = useState(true)
   const toggle = useCallback(() => setOpen((v) => !v), [])
+  const startRef = useRef(Date.now())
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (sealed) {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000))
+      return
+    }
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startRef.current) / 1000))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [sealed])
+
+  const label = sealed
+    ? `思考完毕（${Math.max(elapsed, 1)}s）`
+    : `思考中（${Math.max(elapsed, 1)}s）`
 
   return (
     <details
@@ -37,9 +54,7 @@ export const ThinkingBlock = memo(function ThinkingBlock({ content, sealed }: Pr
           transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
           fontSize: 12,
         }}>›</span>
-        {sealed ? '思考完毕' : (
-          <><span>思考中</span><span className="crai-thinking-dots" style={{ marginLeft: 2 }} /></>
-        )}
+        {label}
       </summary>
       {open && content && (
         <div

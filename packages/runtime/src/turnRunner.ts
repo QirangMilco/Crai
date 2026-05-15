@@ -74,6 +74,7 @@ async function consumeStream(
   session: Session,
   turnId: string,
   emitEvent: TurnRunnerDeps['emitEvent'],
+  logger?: Logger,
 ): Promise<ModelResponse> {
   const startedTools = new Set<string>()
   for await (const event of stream) {
@@ -82,9 +83,11 @@ async function consumeStream(
         await emitEvent(EVENTS.MODEL_DELTA, { session, turnId, delta: event.delta })
         break
       case 'thinking-delta':
+        debugLog(DEBUG_SCOPES.MIDDLEWARE, `consumeStream: thinking-delta (${event.delta.substring(0, 60)})`, { sessionId: session.id }, logger)
         await emitEvent(EVENTS.THINKING_DELTA, { session, turnId, delta: event.delta })
         break
       case 'thinking-done':
+        debugLog(DEBUG_SCOPES.MIDDLEWARE, 'consumeStream: thinking-done', { sessionId: session.id }, logger)
         await emitEvent(EVENTS.THINKING_DONE, { session, turnId })
         break
       case 'tool-call-delta':
@@ -112,7 +115,7 @@ function buildModelFn(
   if (deps.streamModel) {
     return async (req) => {
       const stream = deps.streamModel!(req)
-      return consumeStream(stream, session, turnId, deps.emitEvent)
+      return consumeStream(stream, session, turnId, deps.emitEvent, deps.logger)
     }
   }
   return deps.requestModel

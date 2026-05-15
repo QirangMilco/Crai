@@ -36,11 +36,7 @@ function Bubble({ msg }: Props) {
             {msg.blocks && msg.blocks.length > 0 && (
               <ContentBlocksRenderer blocks={msg.blocks} />
             )}
-            {msg.text ? (
-              <MarkdownRenderer content={msg.text} />
-            ) : !msg.blocks?.length ? (
-              <div className="crai-thinking-indicator"><span>●</span><span>●</span><span>●</span></div>
-            ) : null}
+            {msg.text ? <MarkdownRenderer content={msg.text} /> : <div style={{ minHeight: '1em' }} />}
           </>
         )}
       </div>
@@ -49,7 +45,9 @@ function Bubble({ msg }: Props) {
 }
 
 export const MessageBubble = memo(Bubble, (prev, next) => {
-  return prev.msg.id === next.msg.id && prev.msg.text === next.msg.text
+  return prev.msg.id === next.msg.id
+    && prev.msg.text === next.msg.text
+    && prev.msg.blocks === next.msg.blocks
 })
 
 /** 渲染内容块列表：思考过程 → 工具调用 → 文本 */
