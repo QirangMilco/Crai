@@ -10,7 +10,7 @@ const GROUP_LABELS: Record<string, string> = {
   'user-msg': '💬 用户消息', 'ai-msg': '🤖 AI 消息',
   'code-block': '📄 代码块', table: '📊 表格', blockquote: '📝 引用 & 链接',
   heading: '📰 标题', input: '⌨️ 输入框', 'input-box': '📦 输入框容器', 'input-field': '🖊️ 文本区', 'input-bar': '🔧 工具栏',
-  layout: '📐 布局',
+  layout: '📐 布局', 'thinking-block': '🧠 思考过程', 'tool-block': '🔧 工具调用',
 }
 
 interface Props { onClose: () => void }

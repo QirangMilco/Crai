@@ -113,11 +113,19 @@ describe('DeepSeekAdapter', () => {
       events.push(event)
     }
 
+    // 验证 thinking-delta 事件
+    const thinkingDeltas = events.filter(e => e.type === STREAM_EVENT_TYPES.THINKING_DELTA)
+    assert.ok(thinkingDeltas.length > 0, '应有 thinking-delta 事件')
+    assert.equal((thinkingDeltas[0] as any).delta, '思考')
+
+    // 验证 thinking-done 事件（第一次收到 content delta 时触发）
+    const thinkingDone = events.filter(e => e.type === STREAM_EVENT_TYPES.THINKING_DONE)
+    assert.equal(thinkingDone.length, 1, '应有 thinking-done 事件')
+
     const textDeltas = events.filter(e => e.type === STREAM_EVENT_TYPES.TEXT_DELTA)
     const text = textDeltas.map(e => (e as any).delta).join('')
     assert.equal(text, '回答')
 
-    // reasoning_content 应存储在 metadata.reasoningContent 中（通过最终事件的 response 检查）
     const doneEvent = events.find(e => e.type === STREAM_EVENT_TYPES.DONE) as any
     assert.ok(doneEvent)
     assert.equal(doneEvent.response.message.metadata?.reasoningContent, '思考')
@@ -213,6 +221,15 @@ describe('DeepSeekAdapter', () => {
     for await (const event of adapter.stream(makeRequest('do search'))) {
       events.push(event)
     }
+
+    // 验证 tool-call-delta 事件
+    const toolCallDeltas = events.filter(e => e.type === STREAM_EVENT_TYPES.TOOL_CALL_DELTA)
+    assert.ok(toolCallDeltas.length > 0, '应有 tool-call-delta 事件')
+    const firstDelta = toolCallDeltas[0] as any
+    assert.equal(firstDelta.toolCallId, 'call_001')
+    assert.equal(firstDelta.name, 'search_tool')
+    const secondDelta = toolCallDeltas[1] as any
+    assert.ok(secondDelta.argsDelta.includes('test'), '参数增量应包含 test')
 
     const doneEvent = events.find(e => e.type === STREAM_EVENT_TYPES.DONE) as any
     assert.ok(doneEvent)

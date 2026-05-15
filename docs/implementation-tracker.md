@@ -74,9 +74,11 @@
 ### Web UI
 - `apps/web`：Vite + React 18 + TypeScript + Tailwind CSS
 - PWA 支持（vite-plugin-pwa）
-- Inspector 浮动面板（22 CSS token 参数）
+- Inspector 浮动面板（50+ CSS token 参数）
 - Config 面板（provider CRUD）
 - 自动检测 WS URL（从页面 origin 推导）
+- 思考过程显示（ThinkingBlock，可折叠）
+- 工具调用显示（ToolBlock/ToolGroupBlock，实时状态）
 
 ### CLI
 - `@crai/cli-repl`（交互式 REPL）
@@ -88,6 +90,9 @@
 - 所有测试沙箱隔离（mkdtempSync 在系统临时目录）
 - 150+ 测试覆盖全部 P0/P1/P2
 - 测试覆盖率：core、runtime、storage-fs、security、tools-fs、tools-shell、tools-web、transport-ws
+- 思考过程流式展示（thinking.delta/thinking.done 事件 → ThinkingBlock 组件）
+- 工具调用流式展示（tool.start/tool.delta/tool.done 事件 → ToolBlock 组件）
+- DeepSeek reasoning_content 实时推送
 
 ## 下一步
 

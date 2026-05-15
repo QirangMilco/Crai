@@ -75,10 +75,24 @@ async function consumeStream(
   turnId: string,
   emitEvent: TurnRunnerDeps['emitEvent'],
 ): Promise<ModelResponse> {
+  const startedTools = new Set<string>()
   for await (const event of stream) {
     switch (event.type) {
       case 'text-delta':
         await emitEvent(EVENTS.MODEL_DELTA, { session, turnId, delta: event.delta })
+        break
+      case 'thinking-delta':
+        await emitEvent(EVENTS.THINKING_DELTA, { session, turnId, delta: event.delta })
+        break
+      case 'thinking-done':
+        await emitEvent(EVENTS.THINKING_DONE, { session, turnId })
+        break
+      case 'tool-call-delta':
+        if (!startedTools.has(event.toolCallId)) {
+          startedTools.add(event.toolCallId)
+          await emitEvent(EVENTS.TOOL_START, { session, turnId, toolCallId: event.toolCallId, name: event.name })
+        }
+        await emitEvent(EVENTS.TOOL_DELTA, { session, turnId, toolCallId: event.toolCallId, delta: event.argsDelta })
         break
       case 'done':
         return event.response
@@ -131,6 +145,7 @@ async function executeOneTool(
   try {
     const result = await handler.execute(execRequest, execCtx)
     await deps.emitEvent(EVENTS.TOOL_COMPLETED, { session, result })
+    await deps.emitEvent(EVENTS.TOOL_DONE, { session, turnId, toolCallId: toolCall.toolCallId, name: toolCall.name })
     await deps.hooks.run(HOOKS.TOOL_AFTER, { session, result }, { runtime: undefined as any })
     return result
   } catch (cause) {
@@ -141,6 +156,7 @@ async function executeOneTool(
       content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `执行出错: ${(cause as Error).message}` }],
     }
     await deps.emitEvent(EVENTS.TOOL_FAILED, { session, result: errResult })
+    await deps.emitEvent(EVENTS.TOOL_DONE, { session, turnId, toolCallId: toolCall.toolCallId, name: toolCall.name, isError: true })
     return errResult
   }
 }

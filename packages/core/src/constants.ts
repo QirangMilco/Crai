@@ -27,6 +27,11 @@ export const EVENTS = {
   TOOL_BLOCKED: 'tool.blocked',
   PERMISSION_REQUESTED: 'permission.requested',
   PERMISSION_RESOLVED: 'permission.resolved',
+  THINKING_DELTA: 'thinking.delta',
+  THINKING_DONE: 'thinking.done',
+  TOOL_START: 'tool.start',
+  TOOL_DELTA: 'tool.delta',
+  TOOL_DONE: 'tool.done',
 } as const
 
 export const HOOKS = {
@@ -146,7 +151,10 @@ export const STREAM_EVENT_TYPES = {
   TEXT_START: 'text-start',
   TEXT_DELTA: 'text-delta',
   TEXT_END: 'text-end',
+  THINKING_DELTA: 'thinking-delta',
+  THINKING_DONE: 'thinking-done',
   TOOL_CALL: 'tool-call',
+  TOOL_CALL_DELTA: 'tool-call-delta',
   MESSAGE: 'message',
   DONE: 'done',
   ERROR: 'error',

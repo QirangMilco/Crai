@@ -5,7 +5,7 @@
  * ref 字段记录父 token 名，Inspector 据此展示继承态 UI。
  */
 export type TokenType = 'color' | 'size' | 'number' | 'select' | 'text'
-export type TokenGroup = 'base' | 'font-size' | 'line-height' | 'radius' | 'spacing' | 'user-msg' | 'ai-msg' | 'code-block' | 'table' | 'blockquote' | 'heading' | 'input' | 'input-box' | 'input-field' | 'input-bar' | 'layout'
+export type TokenGroup = 'base' | 'font-size' | 'line-height' | 'radius' | 'spacing' | 'user-msg' | 'ai-msg' | 'code-block' | 'table' | 'blockquote' | 'heading' | 'input' | 'input-box' | 'input-field' | 'input-bar' | 'layout' | 'thinking-block' | 'tool-block'
 
 export interface TokenDef {
   name: string; label: string; group: TokenGroup; type: TokenType
@@ -150,6 +150,36 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-header-height', label: '顶栏高度', group: 'layout', type: 'size', defaultValue: '48px', max: 120 },
   { name: '--crai-gap', label: '组件间距', group: 'layout', type: 'size', defaultValue: '12px', max: 60 },
   { name: '--crai-panel-width', label: '面板宽度', group: 'layout', type: 'size', defaultValue: '320px', min: 160, max: 600 },
+
+  // ── 思考过程 ──
+  { name: '--crai-thinking-bg', label: '背景', group: 'thinking-block', type: 'color', defaultValue: '#f3f4f6' },
+  { name: '--crai-thinking-fg', label: '标题色', group: 'thinking-block', type: 'color', defaultValue: '#6b7280' },
+  { name: '--crai-thinking-content-fg', label: '内容色', group: 'thinking-block', type: 'color', defaultValue: 'var(--crai-fg)', ref: '--crai-fg' },
+  { name: '--crai-thinking-radius', label: '圆角', group: 'thinking-block', type: 'size', defaultValue: '6px', max: 20 },
+  { name: '--crai-thinking-font-size', label: '字号', group: 'thinking-block', type: 'size', defaultValue: 'var(--crai-font-size)', max: 32 },
+  { name: '--crai-thinking-line-height', label: '行高', group: 'thinking-block', type: 'number', defaultValue: 'var(--crai-line-height)' },
+  { name: '--crai-thinking-content-font-size', label: '内容字号', group: 'thinking-block', type: 'size', defaultValue: 'var(--crai-font-size)', max: 32 },
+  { name: '--crai-thinking-content-line-height', label: '内容行高', group: 'thinking-block', type: 'number', defaultValue: 'var(--crai-line-height)' },
+  { name: '--crai-thinking-padding', label: '内边距', group: 'thinking-block', type: 'size', defaultValue: '8px 12px', max: 40 },
+  { name: '--crai-thinking-mt', label: '上边距', group: 'thinking-block', type: 'size', defaultValue: '4px', max: 40 },
+  { name: '--crai-thinking-mb', label: '下边距', group: 'thinking-block', type: 'size', defaultValue: '4px', max: 40 },
+
+  // ── 工具调用 ──
+  { name: '--crai-tool-bg', label: '背景', group: 'tool-block', type: 'color', defaultValue: '#f3f4f6' },
+  { name: '--crai-tool-fg', label: '文字色', group: 'tool-block', type: 'color', defaultValue: '#374151' },
+  { name: '--crai-tool-radius', label: '圆角', group: 'tool-block', type: 'size', defaultValue: '6px', max: 20 },
+  { name: '--crai-tool-font-size', label: '字号', group: 'tool-block', type: 'size', defaultValue: 'var(--crai-font-size)', max: 32 },
+  { name: '--crai-tool-line-height', label: '行高', group: 'tool-block', type: 'number', defaultValue: 'var(--crai-line-height)' },
+  { name: '--crai-tool-gap', label: '图标间距', group: 'tool-block', type: 'size', defaultValue: '8px', max: 40 },
+  { name: '--crai-tool-padding', label: '内边距', group: 'tool-block', type: 'size', defaultValue: '4px 8px', max: 40 },
+  { name: '--crai-tool-mt', label: '上边距', group: 'tool-block', type: 'size', defaultValue: '2px', max: 40 },
+  { name: '--crai-tool-mb', label: '下边距', group: 'tool-block', type: 'size', defaultValue: '2px', max: 40 },
+  { name: '--crai-tool-group-title-size', label: '组标题字号', group: 'tool-block', type: 'size', defaultValue: '12px', max: 32 },
+  { name: '--crai-tool-group-title-fg', label: '组标题色', group: 'tool-block', type: 'color', defaultValue: '#9ca3af' },
+  { name: '--crai-tool-group-mt', label: '组上边距', group: 'tool-block', type: 'size', defaultValue: '4px', max: 40 },
+  { name: '--crai-tool-group-mb', label: '组下边距', group: 'tool-block', type: 'size', defaultValue: '4px', max: 40 },
+  { name: '--crai-tool-success', label: '成功色', group: 'tool-block', type: 'color', defaultValue: 'var(--crai-success)', ref: '--crai-success' },
+  { name: '--crai-tool-error', label: '失败色', group: 'tool-block', type: 'color', defaultValue: 'var(--crai-destructive)', ref: '--crai-destructive' },
 ]
 
 // ── 辅助 ──

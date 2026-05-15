@@ -1,6 +1,8 @@
 import { memo } from 'react'
-import type { ChatMessage } from '../types/messages'
+import type { ChatMessage, ContentBlock } from '../types/messages'
 import { MarkdownRenderer } from './markdown/MarkdownRenderer'
+import { ThinkingBlock } from './markdown/ThinkingBlock'
+import { ToolBlock, ToolGroupBlock } from './markdown/ToolBlock'
 
 interface Props {
   msg: ChatMessage
@@ -29,10 +31,17 @@ function Bubble({ msg }: Props) {
         }}>
         {isUser ? (
           <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-        ) : msg.text ? (
-          <MarkdownRenderer content={msg.text} />
         ) : (
-          <div className="crai-thinking-indicator"><span>●</span><span>●</span><span>●</span></div>
+          <>
+            {msg.blocks && msg.blocks.length > 0 && (
+              <ContentBlocksRenderer blocks={msg.blocks} />
+            )}
+            {msg.text ? (
+              <MarkdownRenderer content={msg.text} />
+            ) : !msg.blocks?.length ? (
+              <div className="crai-thinking-indicator"><span>●</span><span>●</span><span>●</span></div>
+            ) : null}
+          </>
         )}
       </div>
     </div>
@@ -42,3 +51,18 @@ function Bubble({ msg }: Props) {
 export const MessageBubble = memo(Bubble, (prev, next) => {
   return prev.msg.id === next.msg.id && prev.msg.text === next.msg.text
 })
+
+/** 渲染内容块列表：思考过程 → 工具调用 → 文本 */
+function ContentBlocksRenderer({ blocks }: { blocks: ContentBlock[] }) {
+  const thinkingBlocks = blocks.filter((b): b is ContentBlock & { type: 'thinking' } => b.type === 'thinking')
+  const toolBlocks = blocks.filter((b): b is ContentBlock & { type: 'tool' } => b.type === 'tool')
+
+  return (
+    <>
+      {thinkingBlocks.map((b, i) => (
+        <ThinkingBlock key={`thinking-${i}`} content={b.content} sealed={b.sealed} />
+      ))}
+      {toolBlocks.length > 0 && <ToolGroupBlock tools={toolBlocks.map((t) => ({ toolCallId: t.toolCallId, name: t.name, args: t.args, status: t.status }))} />}
+    </>
+  )
+}

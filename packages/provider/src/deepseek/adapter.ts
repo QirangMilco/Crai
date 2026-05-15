@@ -498,6 +498,7 @@ export class DeepSeekAdapter implements ModelAdapter {
     resetAccumulatedToolCalls()
     resetAccumulator()
     let fullContent = ''
+    let inThinking = false
 
     try {
       for await (const data of sseLines(res.body)) {
@@ -516,6 +517,16 @@ export class DeepSeekAdapter implements ModelAdapter {
         // 捕获 reasoning_content（DeepSeek thinking mode 的思考链）
         if (delta?.reasoning_content) {
           accumulatedReasoningContent += delta.reasoning_content
+          if (!inThinking) {
+            inThinking = true
+          }
+          yield { type: STREAM_EVENT_TYPES.THINKING_DELTA, delta: delta.reasoning_content }
+        }
+
+        // 第一次收到内容 delta 时，思考阶段结束
+        if (delta?.content && inThinking) {
+          inThinking = false
+          yield { type: STREAM_EVENT_TYPES.THINKING_DONE }
         }
 
         // 普通文本 delta
@@ -526,6 +537,11 @@ export class DeepSeekAdapter implements ModelAdapter {
 
         // tool_calls delta（与 OpenAI 格式相同）
         if (delta?.tool_calls) {
+          // 思考阶段结束（如有工具调用，思考已完成）
+          if (inThinking) {
+            inThinking = false
+            yield { type: STREAM_EVENT_TYPES.THINKING_DONE }
+          }
           for (const tc of delta.tool_calls) {
             const index = tc.index ?? 0
             const existing = accumulatedToolCallsMap.get(index) ?? { id: '', name: '', args: '' }
@@ -535,6 +551,15 @@ export class DeepSeekAdapter implements ModelAdapter {
             if (tc.function?.arguments) existing.args += tc.function.arguments
 
             accumulatedToolCallsMap.set(index, existing)
+
+            // 发射 tool-call-delta
+            yield {
+              type: STREAM_EVENT_TYPES.TOOL_CALL_DELTA,
+              toolCallId: tc.id ?? existing.id,
+              name: tc.function?.name ?? existing.name,
+              argsDelta: tc.function?.arguments ?? '',
+              index,
+            }
           }
         }
 

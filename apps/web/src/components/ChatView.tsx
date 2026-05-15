@@ -66,6 +66,19 @@ function Dropdown<T extends string>({ label, items, selected, onSelect, onAction
   )
 }
 
+/** 更新最后一条 assistant 消息的 blocks 数组。 */
+function updateLastAssistantBlocks(
+  prev: ChatMessage[],
+  updater: (blocks: any[]) => any[],
+): ChatMessage[] {
+  const idx = prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
+  if (idx === undefined) return prev
+  const copy = [...prev]
+  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
+  copy[idx] = { ...copy[idx], blocks: updater(blocks) }
+  return copy
+}
+
 export function ChatView({ wsUrl }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -107,6 +120,54 @@ export function ChatView({ wsUrl }: Props) {
               }, 50)
             }
           }
+
+          // ── 思考过程与工具调用流式事件 ──
+          if (msg.event === 'thinking.delta' && typeof msg.payload?.delta === 'string') {
+            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
+              const existing = blocks.filter((b) => b.type === 'thinking').pop() as any
+              if (existing) {
+                existing.content += msg.payload.delta
+              } else {
+                blocks.push({ type: 'thinking', content: msg.payload.delta, sealed: false })
+              }
+              return blocks
+            }))
+          }
+          if (msg.event === 'thinking.done') {
+            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
+              for (const b of blocks) {
+                if (b.type === 'thinking') b.sealed = true
+              }
+              return blocks
+            }))
+          }
+          if (msg.event === 'tool.start' && msg.payload?.name) {
+            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
+              blocks.push({ type: 'tool', toolCallId: msg.payload.toolCallId, name: msg.payload.name, args: '', status: 'running' })
+              return blocks
+            }))
+          }
+          if (msg.event === 'tool.delta' && msg.payload?.delta) {
+            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
+              for (const b of blocks) {
+                if (b.type === 'tool' && b.toolCallId === msg.payload.toolCallId) {
+                  b.args += msg.payload.delta
+                }
+              }
+              return blocks
+            }))
+          }
+          if (msg.event === 'tool.done') {
+            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
+              for (const b of blocks) {
+                if (b.type === 'tool' && b.toolCallId === msg.payload.toolCallId) {
+                  b.status = msg.payload.isError ? 'error' : 'success'
+                }
+              }
+              return blocks
+            }))
+          }
+
           if (msg.event === 'model.completed' && msg.payload?.response?.message?.parts) {
             // 立即刷新防抖缓冲区
             if (debounceRef.current?.timer) {

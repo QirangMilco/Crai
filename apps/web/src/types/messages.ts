@@ -151,6 +151,12 @@ export interface WorkspaceSwitchMsg { type: 'workspace:switch'; rootDir: string 
 export interface WorkspaceConfigGetMsg { type: 'workspace:config:get' }
 export interface WorkspaceConfigSetMsg { type: 'workspace:config:set'; config: { provider?: string; model?: string; security?: { mode?: string } } }
 
+// ── 内容块类型（流式渲染用） ──
+
+export type ContentBlock =
+  | { type: 'thinking'; content: string; sealed: boolean }
+  | { type: 'tool'; toolCallId: string; name: string; args: string; status: 'running' | 'success' | 'error' }
+
 // ── 内部消息模型 ──
 
 export interface ChatMessage {
@@ -158,4 +164,6 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   text: string
   createdAt: number
+  /** 流式内容块：思考、工具调用等，按展示顺序渲染。 */
+  blocks?: ContentBlock[]
 }

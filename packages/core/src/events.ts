@@ -50,6 +50,12 @@ export interface EventMap {
   'tool.blocked': { session: Session; toolCall: ToolCallPart; reason: string }
   'permission.requested': { session: Session; request: PermissionCheckRequest }
   'permission.resolved': { session: Session; request: PermissionCheckRequest; decision: PermissionDecision }
+
+  'thinking.delta': { session: Session; turnId: ID; delta: string }
+  'thinking.done': { session: Session; turnId: ID }
+  'tool.start': { session: Session; turnId: ID; toolCallId: ID; name: string }
+  'tool.delta': { session: Session; turnId: ID; toolCallId: ID; delta: string }
+  'tool.done': { session: Session; turnId: ID; toolCallId: ID; name: string; isError?: boolean }
 }
 
 export type RuntimeInput =
@@ -95,7 +101,10 @@ export type ModelStreamEvent =
   | { type: 'text-start' }
   | { type: 'text-delta'; delta: string }
   | { type: 'text-end' }
+  | { type: 'thinking-delta'; delta: string }
+  | { type: 'thinking-done' }
   | { type: 'tool-call'; toolCall: ToolCallPart }
+  | { type: 'tool-call-delta'; toolCallId: string; name: string; argsDelta: string; index: number }
   | { type: 'message'; message: Message }
   | { type: 'done'; response: ModelResponse }
   | { type: 'error'; error: RuntimeError }
