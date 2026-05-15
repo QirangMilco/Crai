@@ -6,18 +6,7 @@ import { InspectorPanel } from './InspectorPanel'
 import { ConfigPanel } from './ConfigPanel'
 import { DirBrowser } from './DirBrowser'
 import type { ChatMessage } from '../types/messages'
-
-/** 前端调试日志，仅在 localStorage 中设置了对应 scope 时输出到 stderr。
- * 用法：浏览器控制台运行 localStorage.setItem('crai:debug:scope', 'thinking,stream')
- * scope 列表：thinking, stream, merge
- */
-function debugLog(scope: string, ...args: unknown[]) {
-  const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('crai:debug:scope') || '' : ''
-  const scopes = raw.split(',').map((s) => s.trim()).filter(Boolean)
-  if (scopes.includes('ALL') || scopes.includes(scope)) {
-    console.error(`[crai:${scope}]`, ...args)
-  }
-}
+import { debugLog } from '../utils/debug'
 
 interface Props {
   wsUrl: string
@@ -239,6 +228,10 @@ export function ChatView({ wsUrl }: Props) {
         }
         case 'config:data':
           setGlobalConfig(msg.config)
+          // 自动同步服务端调试 scope 到 localStorage
+          if (msg.config?.debugScopes?.length) {
+            localStorage.setItem('crai:debug:scope', msg.config.debugScopes.join(','))
+          }
           break
         case 'workspace:list:data': {
           const list = msg.workspaces?.map((w: any) => ({ rootDir: w.rootDir })) ?? []

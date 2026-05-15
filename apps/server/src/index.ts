@@ -131,7 +131,10 @@ async function main() {
   if (variant.debug.scopes?.length) {
     const core = await import('@crai/core')
     core.setDebugScopes(variant.debug.scopes)
+    const available = Object.values(core.DEBUG_SCOPES).join(', ')
     console.log(`[debug] 激活的 scopes: ${variant.debug.scopes.join(', ')}`)
+    console.log(`[debug] 全部可用 scope: ${available}`)
+    console.log(`[debug] 用法: 在 variants/dev.json 的 debug.scopes 数组中添加所需 scope`)
   }
 
   const config = new ConfigManager(variant)
@@ -150,7 +153,7 @@ async function main() {
     port: variant.server.defaultPort,
     logger: log,
     handlers: {
-      onConfigGet: () => config.getGlobal(),
+      onConfigGet: () => ({ ...config.getGlobal(), debugScopes: variant.debug.scopes }),
       onConfigSet: (cfg) => { Object.assign(config.getGlobal(), cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigSetProvider: (name, cfg) => { config.setProvider(name, cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigRemoveProvider: (name) => { config.removeProvider(name); config.saveGlobal(); gWorkspaces?.sync() },

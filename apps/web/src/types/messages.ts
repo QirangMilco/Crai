@@ -36,6 +36,8 @@ export interface ConfigDataMsg {
     defaultProvider?: string
     defaultModel?: string
     recentWorkspaces: string[]
+    /** 服务端变体配置中的调试 scope 列表，自动同步到前端。 */
+    debugScopes?: string[]
   }
 }
 
