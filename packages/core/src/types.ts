@@ -228,8 +228,11 @@ export interface AppVariant {
     maxFileSize?: number
     /** 保留的旧日志文件数量（默认 3）。 */
     maxBackups?: number
-    /** 调试输出范围（scope 列表）。由变体配置注入，运行时通过 setDebugScopes() 设置。 */
-    scopes?: string[]
+    /** 调试输出范围。兼容两种格式：
+     *   - string[]: 仅服务端 scope（旧格式）
+     *   - { server?, client? }: 前后端分开配置
+     */
+    scopes?: string[] | { server?: string[]; client?: string[] }
   }
 }
 

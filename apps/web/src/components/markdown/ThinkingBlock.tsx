@@ -3,13 +3,19 @@ import { memo, useState, useCallback, useRef, useEffect } from 'react'
 interface Props {
   content: string
   sealed: boolean
+  /** 自动折叠（用于文本到达后收起思考块）。 */
+  autoCollapse?: boolean
 }
 
-export const ThinkingBlock = memo(function ThinkingBlock({ content, sealed }: Props) {
+export const ThinkingBlock = memo(function ThinkingBlock({ content, sealed, autoCollapse }: Props) {
   const [open, setOpen] = useState(true)
   const toggle = useCallback(() => setOpen((v) => !v), [])
   const startRef = useRef(Date.now())
   const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    if (autoCollapse) setOpen(false)
+  }, [autoCollapse])
 
   useEffect(() => {
     if (sealed) {

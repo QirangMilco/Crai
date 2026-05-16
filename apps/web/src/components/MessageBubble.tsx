@@ -34,9 +34,13 @@ function Bubble({ msg }: Props) {
         ) : (
           <>
             {msg.blocks && msg.blocks.length > 0 && (
-              <ContentBlocksRenderer blocks={msg.blocks} />
+              <ContentBlocksRenderer blocks={msg.blocks} autoCollapse={!!msg.text} />
             )}
-            {msg.text ? <MarkdownRenderer content={msg.text} /> : <div style={{ minHeight: '1em' }} />}
+            {msg.text ? (
+              <MarkdownRenderer content={msg.text} />
+            ) : !msg.blocks?.length ? (
+              <ThreeDotIndicator />
+            ) : null}
           </>
         )}
       </div>
@@ -51,16 +55,36 @@ export const MessageBubble = memo(Bubble, (prev, next) => {
 })
 
 /** 渲染内容块列表：思考过程 → 工具调用 → 文本 */
-function ContentBlocksRenderer({ blocks }: { blocks: ContentBlock[] }) {
+function ContentBlocksRenderer({ blocks, autoCollapse }: { blocks: ContentBlock[]; autoCollapse?: boolean }) {
   const thinkingBlocks = blocks.filter((b): b is ContentBlock & { type: 'thinking' } => b.type === 'thinking')
   const toolBlocks = blocks.filter((b): b is ContentBlock & { type: 'tool' } => b.type === 'tool')
 
   return (
     <>
       {thinkingBlocks.map((b, i) => (
-        <ThinkingBlock key={`thinking-${i}`} content={b.content} sealed={b.sealed} />
+        <ThinkingBlock key={`thinking-${i}`} content={b.content} sealed={b.sealed} autoCollapse={autoCollapse} />
       ))}
       {toolBlocks.length > 0 && <ToolGroupBlock tools={toolBlocks.map((t) => ({ toolCallId: t.toolCallId, name: t.name, args: t.args, status: t.status }))} />}
     </>
+  )
+}
+
+/** 三圆点思考指示器（思考中、尚无文本时显示）。 */
+function ThreeDotIndicator() {
+  const dot: React.CSSProperties = {
+    display: 'inline-block',
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    backgroundColor: 'var(--crai-accent)',
+    opacity: 0.4,
+    animation: 'crai-think-pulse 1.4s ease-in-out infinite',
+  }
+  return (
+    <div className="flex gap-1 items-center py-2">
+      <span style={dot} />
+      <span style={{ ...dot, animationDelay: '0.2s' }} />
+      <span style={{ ...dot, animationDelay: '0.4s' }} />
+    </div>
   )
 }

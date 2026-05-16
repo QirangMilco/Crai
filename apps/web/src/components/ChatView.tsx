@@ -146,7 +146,7 @@ export function ChatView({ wsUrl }: Props) {
               if (existing) {
                 existing.content += msg.payload.delta
               } else {
-                debugLog('thinking', 'creating thinking block on message', copy[idx].id)
+                debugLog('thinking', 'created thinking block', { msgId: copy[idx].id, delta: msg.payload.delta })
                 blocks.push({ type: 'thinking', content: msg.payload.delta, sealed: false })
               }
               copy[idx] = { ...copy[idx], blocks }
@@ -154,7 +154,7 @@ export function ChatView({ wsUrl }: Props) {
             })
           }
           if (msg.event === 'thinking.done') {
-            debugLog('thinking', 'thinking.done')
+            debugLog('thinking', 'thinking.done', {})
             setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
               for (const b of blocks) {
                 if (b.type === 'thinking') b.sealed = true

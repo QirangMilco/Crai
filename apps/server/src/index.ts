@@ -127,14 +127,21 @@ let gWorkspaces: WorkspaceManager | undefined
 async function main() {
   const variant = await loadVariant()
 
-  // 从变体配置注入调试 scope
-  if (variant.debug.scopes?.length) {
+  // 从变体配置注入调试 scope（兼容新旧格式）
+  const serverScopes: string[] = Array.isArray(variant.debug.scopes)
+    ? variant.debug.scopes
+    : (variant.debug.scopes?.server ?? [])
+  const clientScopes: string[] = !Array.isArray(variant.debug.scopes)
+    ? (variant.debug.scopes?.client ?? [])
+    : []
+
+  if (serverScopes.length > 0) {
     const core = await import('@crai/core')
-    core.setDebugScopes(variant.debug.scopes)
+    core.setDebugScopes(serverScopes)
     const available = Object.values(core.DEBUG_SCOPES).join(', ')
-    console.log(`[debug] 激活的 scopes: ${variant.debug.scopes.join(', ')}`)
-    console.log(`[debug] 全部可用 scope: ${available}`)
-    console.log(`[debug] 用法: 在 variants/dev.json 的 debug.scopes 数组中添加所需 scope`)
+    console.log(`[debug] 服务端 scopes: ${serverScopes.join(', ')}`)
+    if (clientScopes.length > 0) console.log(`[debug] 客户端 scopes: ${clientScopes.join(', ')}`)
+    console.log(`[debug] 全部可用服务端 scope: ${available}`)
   }
 
   const config = new ConfigManager(variant)
@@ -153,7 +160,7 @@ async function main() {
     port: variant.server.defaultPort,
     logger: log,
     handlers: {
-      onConfigGet: () => ({ ...config.getGlobal(), debugScopes: variant.debug.scopes }),
+      onConfigGet: () => ({ ...config.getGlobal(), debugScopes: clientScopes }),
       onConfigSet: (cfg) => { Object.assign(config.getGlobal(), cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigSetProvider: (name, cfg) => { config.setProvider(name, cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigRemoveProvider: (name) => { config.removeProvider(name); config.saveGlobal(); gWorkspaces?.sync() },
