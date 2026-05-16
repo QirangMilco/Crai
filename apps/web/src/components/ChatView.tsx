@@ -5,7 +5,7 @@ import { ChatInput } from './ChatInput'
 import { InspectorPanel } from './InspectorPanel'
 import { ConfigPanel } from './ConfigPanel'
 import { DirBrowser } from './DirBrowser'
-import type { ChatMessage } from '../types/messages'
+import type { ChatMessage, ContentBlock } from '../types/messages'
 import { debugLog } from '../utils/debug'
 
 interface Props {
@@ -67,19 +67,6 @@ function Dropdown<T extends string>({ label, items, selected, onSelect, onAction
   )
 }
 
-/** 更新最后一条 assistant 消息的 blocks 数组。 */
-function updateLastAssistantBlocks(
-  prev: ChatMessage[],
-  updater: (blocks: any[]) => any[],
-): ChatMessage[] {
-  const idx = findLastAssistantIndex(prev)
-  if (idx === undefined) return prev
-  const copy = [...prev]
-  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-  copy[idx] = { ...copy[idx], blocks: updater(blocks) }
-  return copy
-}
-
 /** 找到最后一条 assistant 消息的索引，找不到则创建一个新的。 */
 function findCreateAssistant(prev: ChatMessage[]): { copy: ChatMessage[]; idx: number } {
   const idx = findLastAssistantIndex(prev)
@@ -95,6 +82,96 @@ function findLastAssistantIndex(prev: ChatMessage[]): number | undefined {
   return prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
 }
 
+/** 在最后一条 assistant 消息上追加文本块内容。无 debounce，实时写入。 */
+function appendTextBlock(prev: ChatMessage[], delta: string): ChatMessage[] {
+  const { copy, idx } = findCreateAssistant(prev)
+  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
+  const existing = blocks.find((b: any) => b.type === 'text') as any
+  if (existing) {
+    existing.content += delta
+  } else {
+    // text 永远在最后
+    blocks.push({ type: 'text', content: delta })
+  }
+  copy[idx] = { ...copy[idx], blocks }
+  return copy
+}
+
+/** thinking 块永远在最前。已存在则 replace，否则 unshift。 */
+function upsertThinkingBlock(prev: ChatMessage[], delta: string): ChatMessage[] {
+  const { copy, idx } = findCreateAssistant(prev)
+  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
+  const existingIdx = blocks.findIndex((b: any) => b.type === 'thinking')
+  const block: ContentBlock = {
+    type: 'thinking',
+    content: existingIdx >= 0 ? (blocks[existingIdx] as any).content + delta : delta,
+    sealed: false,
+  }
+  if (existingIdx >= 0) blocks[existingIdx] = block
+  else blocks.unshift(block)
+  copy[idx] = { ...copy[idx], blocks }
+  return copy
+}
+
+/** tool_group：已有未完成组则追加，否则 push 新组。 */
+function upsertToolGroup(prev: ChatMessage[], toolCallId: string, name: string): ChatMessage[] {
+  const { copy, idx } = findCreateAssistant(prev)
+  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
+  // 找最后一个包含未完成工具的 tool_group
+  const lastIdx = blocks.map((b, i) => ({ b, i })).filter(
+    (x) => x.b.type === 'tool_group' && (x.b as any).tools.some((t: any) => t.status === 'running'),
+  ).pop()?.i
+  if (lastIdx !== undefined) {
+    const tg = blocks[lastIdx] as any
+    tg.tools.push({ toolCallId, name, args: '', status: 'running' })
+  } else {
+    blocks.push({
+      type: 'tool_group',
+      tools: [{ toolCallId, name, args: '', status: 'running' }],
+      collapsed: false,
+    })
+  }
+  copy[idx] = { ...copy[idx], blocks }
+  return copy
+}
+
+/** 更新指定 tool_group 中某 tool 的 args。 */
+function updateToolArgs(prev: ChatMessage[], toolCallId: string, argsDelta: string): ChatMessage[] {
+  const idx = findLastAssistantIndex(prev)
+  if (idx === undefined) return prev
+  const copy = [...prev]
+  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
+  for (const b of blocks) {
+    if (b.type !== 'tool_group') continue
+    const tool = (b as any).tools.find((t: any) => t.toolCallId === toolCallId && t.status === 'running')
+    if (tool) { tool.args += argsDelta; break }
+  }
+  copy[idx] = { ...copy[idx], blocks }
+  return copy
+}
+
+/** 标记 tool 完成，若组内全部完成则折叠。 */
+function markToolDone(prev: ChatMessage[], toolCallId: string, isError: boolean): ChatMessage[] {
+  const idx = findLastAssistantIndex(prev)
+  if (idx === undefined) return prev
+  const copy = [...prev]
+  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
+  for (const b of blocks) {
+    if (b.type !== 'tool_group') continue
+    const tool = (b as any).tools.find((t: any) => t.toolCallId === toolCallId && t.status === 'running')
+    if (tool) {
+      tool.status = isError ? 'error' : 'success'
+      // 所有工具完成后自动折叠
+      if ((b as any).tools.every((t: any) => t.status !== 'running')) {
+        (b as any).collapsed = true
+      }
+      break
+    }
+  }
+  copy[idx] = { ...copy[idx], blocks }
+  return copy
+}
+
 export function ChatView({ wsUrl }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -106,7 +183,6 @@ export function ChatView({ wsUrl }: Props) {
   const [sessions, setSessions] = useState<Array<{ id: string; title?: string; createdAt: number }>>([])
   const [dirBrowser, setDirBrowser] = useState<{ path: string; dirs: string[]; parent?: string; error?: string } | null>(null)
   const titledSessions = useRef<Set<string>>(new Set())
-  const debounceRef = useRef<{ text: string; timer: any } | null>(null)
   const sessionIdRef = useRef<string | null>(null)
 
   const { status, send } = useWebSocket({
@@ -119,98 +195,44 @@ export function ChatView({ wsUrl }: Props) {
         case 'event': {
           if (msg.event === 'model.delta' && typeof msg.payload?.delta === 'string') {
             debugLog('stream', 'model.delta', msg.payload.delta.slice(0, 50))
-            if (!debounceRef.current) debounceRef.current = { text: '', timer: null }
-            const d = debounceRef.current
-            d.text += msg.payload.delta
-            if (!d.timer) {
-              d.timer = setTimeout(() => {
-                const batch = d.text
-                d.text = ''
-                d.timer = null
-                setMessages((prev) => {
-                  const { copy, idx } = findCreateAssistant(prev)
-                  copy[idx] = { ...copy[idx], text: copy[idx].text + batch }
-                  return copy
-                })
-              }, 50)
-            }
+            // 实时写入 text block，无 debounce
+            setMessages((prev) => appendTextBlock(prev, msg.payload.delta))
           }
 
           // ── 思考过程与工具调用流式事件 ──
           if (msg.event === 'thinking.delta' && typeof msg.payload?.delta === 'string') {
             debugLog('thinking', 'thinking.delta arrived', msg.payload.delta.slice(0, 60))
-            setMessages((prev) => {
-              const { copy, idx } = findCreateAssistant(prev)
-              const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-              const existing = blocks.filter((b: any) => b.type === 'thinking').pop() as any
-              if (existing) {
-                existing.content += msg.payload.delta
-              } else {
-                debugLog('thinking', 'created thinking block', { msgId: copy[idx].id, delta: msg.payload.delta })
-                blocks.push({ type: 'thinking', content: msg.payload.delta, sealed: false })
-              }
-              copy[idx] = { ...copy[idx], blocks }
-              return copy
-            })
+            setMessages((prev) => upsertThinkingBlock(prev, msg.payload.delta))
           }
           if (msg.event === 'thinking.done') {
             debugLog('thinking', 'thinking.done', {})
-            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
-              for (const b of blocks) {
-                if (b.type === 'thinking') b.sealed = true
-              }
-              return blocks
-            }))
-          }
-          if (msg.event === 'tool.start' && msg.payload?.name) {
             setMessages((prev) => {
-              const { copy, idx } = findCreateAssistant(prev)
+              const idx = findLastAssistantIndex(prev)
+              if (idx === undefined) return prev
+              const copy = [...prev]
               const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-              blocks.push({ type: 'tool', toolCallId: msg.payload.toolCallId, name: msg.payload.name, args: '', status: 'running' })
+              for (const b of blocks) {
+                if (b.type === 'thinking') (b as any).sealed = true
+              }
               copy[idx] = { ...copy[idx], blocks }
               return copy
             })
           }
+          if (msg.event === 'tool.start' && msg.payload?.name) {
+            setMessages((prev) => upsertToolGroup(prev, msg.payload.toolCallId, msg.payload.name))
+          }
           if (msg.event === 'tool.delta' && msg.payload?.delta) {
-            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
-              for (const b of blocks) {
-                if (b.type === 'tool' && b.toolCallId === msg.payload.toolCallId) {
-                  b.args += msg.payload.delta
-                }
-              }
-              return blocks
-            }))
+            setMessages((prev) => updateToolArgs(prev, msg.payload.toolCallId, msg.payload.delta))
           }
           if (msg.event === 'tool.done') {
-            setMessages((prev) => updateLastAssistantBlocks(prev, (blocks) => {
-              for (const b of blocks) {
-                if (b.type === 'tool' && b.toolCallId === msg.payload.toolCallId) {
-                  b.status = msg.payload.isError ? 'error' : 'success'
-                }
-              }
-              return blocks
-            }))
+            setMessages((prev) => markToolDone(prev, msg.payload.toolCallId, !!msg.payload.isError))
           }
 
-          if (msg.event === 'model.completed' && msg.payload?.response?.message?.parts) {
-            // 立即刷新防抖缓冲区（不再追加 payload 中的完整回复，避免重复）
-            if (debounceRef.current?.timer) {
-              clearTimeout(debounceRef.current.timer)
-              debounceRef.current.timer = null
-            }
-            const pending = debounceRef.current?.text ?? ''
-            debounceRef.current = null
-            if (pending) {
-              setMessages((prev) => {
-                const { copy, idx } = findCreateAssistant(prev)
-                copy[idx] = { ...copy[idx], text: copy[idx].text + pending }
-                return copy
-              })
-              // 首次 AI 响应完成后，请求服务端生成标题
-              if (sessionIdRef.current && !titledSessions.current.has(sessionIdRef.current)) {
-                titledSessions.current.add(sessionIdRef.current)
-                send({ type: 'session:generate-title', sessionId: sessionIdRef.current })
-              }
+          if (msg.event === 'model.completed') {
+            // 首次 AI 响应完成后，请求服务端生成标题
+            if (sessionIdRef.current && !titledSessions.current.has(sessionIdRef.current)) {
+              titledSessions.current.add(sessionIdRef.current)
+              send({ type: 'session:generate-title', sessionId: sessionIdRef.current })
             }
           }
           break
@@ -270,6 +292,11 @@ export function ChatView({ wsUrl }: Props) {
             const hasServerUser = incoming.some((m: any) => m.role === 'user')
             // 分离：带 blocks 的本地消息暂存，其余按规则过滤
             const droppedWithBlocks: Array<{ role: string; blocks: any[] }> = []
+            // 合并前保存本地 blocks（用于合并后恢复，防止跨对话消失）
+            const localBlocks = new Map<string, any[]>()
+            for (const m of prev) {
+              if (m.blocks?.length) localBlocks.set(m.id, m.blocks)
+            }
             const kept = prev.filter((m) => {
               if (incomingIds.has(m.id)) return false
               if (hasServerAssistant && m.role === 'assistant' && /^asst-/.test(m.id)) {
@@ -286,20 +313,26 @@ export function ChatView({ wsUrl }: Props) {
             for (const local of kept) {
               const existing = merged.findIndex((m) => m.id === local.id)
               if (existing >= 0) {
-                merged[existing] = { ...merged[existing], text: merged[existing].text || local.text }
+                merged[existing] = { ...merged[existing], text: merged[existing].text || local.text, blocks: merged[existing].blocks || local.blocks }
               } else {
                 merged.push(local)
               }
             }
             // 按 createdAt 排序
             merged.sort((a, b) => a.createdAt - b.createdAt)
-            // 恢复被丢弃的本地 blocks 到对应的服务端消息
+            // 恢复被丢弃的本地 blocks 到对应的服务端消息（含预创建消息和同 id 消息）
             for (const dropped of droppedWithBlocks) {
               const targetIdx = merged.map((m, i) => ({ m, i }))
                 .filter(x => x.m.role === dropped.role && !x.m.blocks)
                 .pop()?.i
               if (targetIdx !== undefined) {
                 merged[targetIdx] = { ...merged[targetIdx], blocks: dropped.blocks }
+              }
+            }
+            // 恢复本地 blocks（同 id 消息被服务端数据覆盖时）
+            for (const m of merged) {
+              if (!m.blocks && localBlocks.has(m.id)) {
+                m.blocks = localBlocks.get(m.id)
               }
             }
             return merged
@@ -366,6 +399,7 @@ export function ChatView({ wsUrl }: Props) {
 
   useEffect(() => {
     if (status === 'connected') {
+      send({ type: 'config:get' })
       send({ type: 'workspace:list' })
       send({ type: 'session:list' })
     }

@@ -35,6 +35,8 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // 中文输入法组合进行时跳过回车提交
+    if ((e.nativeEvent as any).isComposing) return
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()

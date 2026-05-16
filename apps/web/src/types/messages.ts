@@ -157,7 +157,8 @@ export interface WorkspaceConfigSetMsg { type: 'workspace:config:set'; config: {
 
 export type ContentBlock =
   | { type: 'thinking'; content: string; sealed: boolean }
-  | { type: 'tool'; toolCallId: string; name: string; args: string; status: 'running' | 'success' | 'error' }
+  | { type: 'tool_group'; tools: Array<{ toolCallId: string; name: string; args: string; status: 'running' | 'success' | 'error' }>; collapsed: boolean }
+  | { type: 'text'; content: string }
 
 // ── 内部消息模型 ──
 

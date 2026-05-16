@@ -2,7 +2,7 @@ import { memo } from 'react'
 import type { ChatMessage, ContentBlock } from '../types/messages'
 import { MarkdownRenderer } from './markdown/MarkdownRenderer'
 import { ThinkingBlock } from './markdown/ThinkingBlock'
-import { ToolBlock, ToolGroupBlock } from './markdown/ToolBlock'
+import { ToolGroupBlock } from './markdown/ToolBlock'
 
 interface Props {
   msg: ChatMessage
@@ -10,6 +10,16 @@ interface Props {
 
 function Bubble({ msg }: Props) {
   const isUser = msg.role === 'user'
+  const blocks = msg.blocks ?? []
+
+  // 空助理消息不渲染外壳，避免残留空白气泡
+  if (!isUser && blocks.length === 0 && !msg.text) {
+    return null
+  }
+
+  const textBlock = blocks.find((b): b is ContentBlock & { type: 'text' } => b.type === 'text')
+  const hasThinking = blocks.some((b) => b.type === 'thinking')
+  const hasTextBlock = !!textBlock
 
   return (
     <div
@@ -31,18 +41,11 @@ function Bubble({ msg }: Props) {
         }}>
         {isUser ? (
           <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-        ) : (
-          <>
-            {msg.blocks && msg.blocks.length > 0 && (
-              <ContentBlocksRenderer blocks={msg.blocks} autoCollapse={!!msg.text} />
-            )}
-            {msg.text ? (
-              <MarkdownRenderer content={msg.text} />
-            ) : !msg.blocks?.length ? (
-              <ThreeDotIndicator />
-            ) : null}
-          </>
-        )}
+        ) : blocks.length > 0 ? (
+          <ContentBlocksRenderer blocks={blocks} autoCollapse={hasTextBlock} />
+        ) : hasThinking ? (
+          <ThreeDotIndicator />
+        ) : null}
       </div>
     </div>
   )
@@ -50,21 +53,35 @@ function Bubble({ msg }: Props) {
 
 export const MessageBubble = memo(Bubble, (prev, next) => {
   return prev.msg.id === next.msg.id
-    && prev.msg.text === next.msg.text
     && prev.msg.blocks === next.msg.blocks
 })
 
-/** 渲染内容块列表：思考过程 → 工具调用 → 文本 */
+/** 渲染内容块列表：保持插入顺序（thinking 在前，tool_group 在中，text 在后），不排序。 */
 function ContentBlocksRenderer({ blocks, autoCollapse }: { blocks: ContentBlock[]; autoCollapse?: boolean }) {
-  const thinkingBlocks = blocks.filter((b): b is ContentBlock & { type: 'thinking' } => b.type === 'thinking')
-  const toolBlocks = blocks.filter((b): b is ContentBlock & { type: 'tool' } => b.type === 'tool')
-
   return (
     <>
-      {thinkingBlocks.map((b, i) => (
-        <ThinkingBlock key={`thinking-${i}`} content={b.content} sealed={b.sealed} autoCollapse={autoCollapse} />
-      ))}
-      {toolBlocks.length > 0 && <ToolGroupBlock tools={toolBlocks.map((t) => ({ toolCallId: t.toolCallId, name: t.name, args: t.args, status: t.status }))} />}
+      {blocks.map((block, i) => {
+        switch (block.type) {
+          case 'thinking':
+            return <ThinkingBlock key={`t-${i}`} content={block.content} sealed={block.sealed} autoCollapse={autoCollapse} />
+          case 'tool_group':
+            return (
+              <ToolGroupBlock
+                key={`tg-${i}`}
+                tools={block.tools}
+                collapsed={block.collapsed}
+                setCollapsed={(v) => {
+                  // 允许用户手动切换折叠；此处只读更新 blocks 非响应式
+                  // collapsed 已由 markToolDone 自动设置
+                }}
+              />
+            )
+          case 'text':
+            return <MarkdownRenderer key={`txt-${i}`} content={block.content} />
+          default:
+            return null
+        }
+      })}
     </>
   )
 }
