@@ -6,7 +6,7 @@
  *  - 点击展开配置 API key、base URL（预设自带默认值）、模型列表
  *  - "获取模型"按钮调用 Models API 自动填充
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 // ── 预设 first-party 提供商 ──
 
@@ -24,6 +24,10 @@ interface Props {
   } | null
   send: (msg: any) => void
   onClose: () => void
+  /** 服务端返回的模型列表结果。 */
+  modelsFetchResult?: { providerName: string; models: string[]; error?: string } | null
+  /** 清除模型结果（组件已消费后调用）。 */
+  onClearModelsResult?: () => void
 }
 
 function maskKey(key: string): string {
@@ -31,7 +35,7 @@ function maskKey(key: string): string {
   return key.slice(0, 4) + '…' + key.slice(-4)
 }
 
-export function ConfigPanel({ config, send, onClose }: Props) {
+export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearModelsResult }: Props) {
   const [editing, setEditing] = useState<string | null>(null)     // 展开编辑的 provider name
   const [editKey, setEditKey] = useState('')                      // 编辑中的 API key
   const [editBaseURL, setEditBaseURL] = useState('')              // 编辑中的 base URL
@@ -48,11 +52,26 @@ export function ConfigPanel({ config, send, onClose }: Props) {
   const [customModelsPath, setCustomModelsPath] = useState('')
 
   const providers = config?.providers ?? {}
+  const isDev = (config as any)?.variant === 'dev'
+
+  // 处理服务端返回的模型列表
+  useEffect(() => {
+    if (!modelsFetchResult || !editing) return
+    if (modelsFetchResult.providerName === editing) {
+      if (modelsFetchResult.error) {
+        alert(modelsFetchResult.error)
+      } else {
+        setFetchedModels(modelsFetchResult.models)
+      }
+      setFetching(false)
+      onClearModelsResult?.()
+    }
+  }, [modelsFetchResult])
 
   // 判断是否是预设提供商
   const isFirstParty = useCallback((name: string) => {
-    return FIRST_PARTY.some((fp) => fp.name === name)
-  }, [])
+    return FIRST_PARTY.some((fp) => fp.name === name) || (name === 'mock' && isDev)
+  }, [isDev])
 
   const firstPartyDefault = useCallback((name: string) => {
     return FIRST_PARTY.find((fp) => fp.name === name)
@@ -98,24 +117,8 @@ export function ConfigPanel({ config, send, onClose }: Props) {
   function fetchModelList() {
     if (!editing) return
     setFetching(true)
-    const base = editBaseURL.replace(/\/+$/, '')
-    if (!base) { setFetching(false); return }
-    fetch(`${base}/models`, {
-      headers: { Authorization: `Bearer ${editKey}` },
-      signal: AbortSignal.timeout(5000),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then((body) => {
-        const models = (body.data ?? []).map((m: any) => m.id).sort()
-        setFetchedModels(models)
-      })
-      .catch(() => {
-        alert('无法获取模型列表，请检查 API key 和 base URL')
-      })
-      .finally(() => setFetching(false))
+    // 通过 WebSocket 走服务端代理（Mock 无网络、真实 provider 不暴露 API key）
+    send({ type: 'config:fetch:models', providerName: editing })
   }
 
   function removeProvider(name: string) {
@@ -137,8 +140,11 @@ export function ConfigPanel({ config, send, onClose }: Props) {
   }
 
   // 合并预设 + 自定义 provider 列表
+  const firstParty = isDev
+    ? [...FIRST_PARTY, { name: 'mock', label: 'Mock（测试）', defaultBaseURL: '' }]
+    : FIRST_PARTY
   const providerEntries = [
-    ...FIRST_PARTY.map((fp) => ({
+    ...firstParty.map((fp) => ({
       name: fp.name,
       label: fp.label,
       configured: !!providers[fp.name],

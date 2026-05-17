@@ -1,4 +1,5 @@
 import { memo, useState, useCallback, useEffect } from 'react'
+import { debugLog } from '../../utils/debug'
 
 interface ToolCall {
   toolCallId: string
@@ -65,7 +66,10 @@ export const ToolGroupBlock = memo(function ToolGroupBlock({ tools, collapsed, s
   if (tools.length === 0) return null
 
   const [localCollapsed, setLocalCollapsed] = useState(collapsed)
-  useEffect(() => { setLocalCollapsed(collapsed) }, [collapsed])
+  useEffect(() => {
+    if (collapsed && !localCollapsed) debugLog('timeline', '工具组自动折叠', '')
+    setLocalCollapsed(collapsed)
+  }, [collapsed])
   const toggle = useCallback(() => setLocalCollapsed((v) => !v), [])
 
   const allDone = tools.every((t) => t.status !== 'running')

@@ -100,7 +100,13 @@ export interface ToolCallPart {
   arguments: Record<string, unknown>
 }
 
-export type MessagePart = TextPart | ImagePart | ToolCallPart
+/** 思考内容部分，用于持久化 view 层展示的 thinking block。由 consumeStream 自动附加。 */
+export interface ThinkingPart {
+  type: 'thinking'
+  thinking: string
+}
+
+export type MessagePart = TextPart | ImagePart | ToolCallPart | ThinkingPart
 
 /**
  * Message 是会话中的持久化交互单元，使用 parts 支持多模态与工具交互。

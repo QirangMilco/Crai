@@ -1,4 +1,5 @@
 import { memo, useState, useCallback, useRef, useEffect } from 'react'
+import { debugLog } from '../../utils/debug'
 
 interface Props {
   content: string
@@ -14,12 +15,17 @@ export const ThinkingBlock = memo(function ThinkingBlock({ content, sealed, auto
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
-    if (autoCollapse) setOpen(false)
+    if (autoCollapse) {
+      debugLog('timeline', '思考块自动折叠','')
+      setOpen(false)
+    }
   }, [autoCollapse])
 
   useEffect(() => {
+    debugLog('timeline', '思考计时开始','')
     if (sealed) {
       setElapsed(Math.floor((Date.now() - startRef.current) / 1000))
+      debugLog('timeline', `思考计时结束: ${Math.floor((Date.now() - startRef.current) / 1000)}s`,'')
       return
     }
     const id = setInterval(() => {

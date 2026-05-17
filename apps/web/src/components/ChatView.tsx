@@ -97,18 +97,21 @@ function appendTextBlock(prev: ChatMessage[], delta: string): ChatMessage[] {
   return copy
 }
 
-/** thinking 块永远在最前。已存在则 replace，否则 unshift。 */
+/** thinking 块：找到最后一个未封口的追加内容；已封口或无则新建并 push（支持多轮）。 */
 function upsertThinkingBlock(prev: ChatMessage[], delta: string): ChatMessage[] {
   const { copy, idx } = findCreateAssistant(prev)
   const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-  const existingIdx = blocks.findIndex((b: any) => b.type === 'thinking')
-  const block: ContentBlock = {
-    type: 'thinking',
-    content: existingIdx >= 0 ? (blocks[existingIdx] as any).content + delta : delta,
-    sealed: false,
+  // 找最后一个 thinking block
+  const lastThinking = blocks.map((b, i) => ({ b, i }))
+    .filter((x) => x.b.type === 'thinking')
+    .pop()
+  if (lastThinking && !(lastThinking.b as any).sealed) {
+    // 最新的 thinking block 未封口 → 追加内容
+    ;(blocks[lastThinking.i] as any).content += delta
+  } else {
+    // 无 thinking block 或已封口 → 新建并 push 到末尾
+    blocks.push({ type: 'thinking', content: delta, sealed: false })
   }
-  if (existingIdx >= 0) blocks[existingIdx] = block
-  else blocks.unshift(block)
   copy[idx] = { ...copy[idx], blocks }
   return copy
 }
@@ -182,6 +185,9 @@ export function ChatView({ wsUrl }: Props) {
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
   const [sessions, setSessions] = useState<Array<{ id: string; title?: string; createdAt: number }>>([])
   const [dirBrowser, setDirBrowser] = useState<{ path: string; dirs: string[]; parent?: string; error?: string } | null>(null)
+  const [availableModels, setAvailableModels] = useState<Array<{ name: string; provider: string }>>([])
+  const [currentModel, setCurrentModel] = useState<string>('')
+  const [modelsFetchResult, setModelsFetchResult] = useState<{ providerName: string; models: string[]; error?: string } | null>(null)
   const titledSessions = useRef<Set<string>>(new Set())
   const sessionIdRef = useRef<string | null>(null)
 
@@ -195,6 +201,7 @@ export function ChatView({ wsUrl }: Props) {
         case 'event': {
           if (msg.event === 'model.delta' && typeof msg.payload?.delta === 'string') {
             debugLog('stream', 'model.delta', msg.payload.delta.slice(0, 50))
+            debugLog('timeline', '文本 δ:', `${msg.payload.delta.slice(0, 30)}`)
             // 实时写入 text block，无 debounce
             setMessages((prev) => appendTextBlock(prev, msg.payload.delta))
           }
@@ -202,33 +209,40 @@ export function ChatView({ wsUrl }: Props) {
           // ── 思考过程与工具调用流式事件 ──
           if (msg.event === 'thinking.delta' && typeof msg.payload?.delta === 'string') {
             debugLog('thinking', 'thinking.delta arrived', msg.payload.delta.slice(0, 60))
+            debugLog('timeline', '思考 δ:', `${msg.payload.delta}`)
             setMessages((prev) => upsertThinkingBlock(prev, msg.payload.delta))
           }
           if (msg.event === 'thinking.done') {
             debugLog('thinking', 'thinking.done', {})
+            debugLog('timeline', '思考完成（封口）','')
             setMessages((prev) => {
               const idx = findLastAssistantIndex(prev)
               if (idx === undefined) return prev
               const copy = [...prev]
               const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-              for (const b of blocks) {
-                if (b.type === 'thinking') (b as any).sealed = true
-              }
+              // 只封口最后一个 thinking block（支持多轮）
+              const lastT = blocks.map((b, i) => ({ b, i }))
+                .filter((x) => x.b.type === 'thinking')
+                .pop()
+              if (lastT) (blocks[lastT.i] as any).sealed = true
               copy[idx] = { ...copy[idx], blocks }
               return copy
             })
           }
           if (msg.event === 'tool.start' && msg.payload?.name) {
+            debugLog('timeline', '工具开始:', msg.payload.name)
             setMessages((prev) => upsertToolGroup(prev, msg.payload.toolCallId, msg.payload.name))
           }
           if (msg.event === 'tool.delta' && msg.payload?.delta) {
             setMessages((prev) => updateToolArgs(prev, msg.payload.toolCallId, msg.payload.delta))
           }
           if (msg.event === 'tool.done') {
+            debugLog('timeline', '工具完成:', msg.payload.toolCallId, msg.payload.isError ? '✗' : '✓')
             setMessages((prev) => markToolDone(prev, msg.payload.toolCallId, !!msg.payload.isError))
           }
 
           if (msg.event === 'model.completed') {
+            debugLog('timeline', '本轮模型调用完成','')
             // 首次 AI 响应完成后，请求服务端生成标题
             if (sessionIdRef.current && !titledSessions.current.has(sessionIdRef.current)) {
               titledSessions.current.add(sessionIdRef.current)
@@ -254,6 +268,22 @@ export function ChatView({ wsUrl }: Props) {
           if (msg.config?.debugScopes?.length) {
             localStorage.setItem('crai:debug:scope', msg.config.debugScopes.join(','))
           }
+          // 提取可用模型列表
+          if (msg.config?.providers) {
+            const models: Array<{ name: string; provider: string }> = []
+            for (const [provider, cfg] of Object.entries(msg.config.providers) as [string, { models?: string[] }][]) {
+              for (const m of cfg.models ?? []) {
+                models.push({ name: m, provider })
+              }
+            }
+            setAvailableModels(models)
+            if (!currentModel && models.length > 0) {
+              setCurrentModel(models[0].name)
+            }
+          }
+          break
+        case 'config:models:data':
+          setModelsFetchResult({ providerName: msg.providerName, models: msg.models ?? [], error: msg.error })
           break
         case 'workspace:list:data': {
           const list = msg.workspaces?.map((w: any) => ({ rootDir: w.rootDir })) ?? []
@@ -286,55 +316,34 @@ export function ChatView({ wsUrl }: Props) {
               role: m.role as 'user' | 'assistant',
               text: m.text,
               createdAt: m.createdAt ?? Date.now(),
+              blocks: m.blocks as any[] | undefined,  // 服务端 now 提供 blocks
             }))
             const incomingIds = new Set(incoming.map((m: any) => m.id))
             const hasServerAssistant = incoming.some((m: any) => m.role === 'assistant')
             const hasServerUser = incoming.some((m: any) => m.role === 'user')
-            // 分离：带 blocks 的本地消息暂存，其余按规则过滤
-            const droppedWithBlocks: Array<{ role: string; blocks: any[] }> = []
-            // 合并前保存本地 blocks（用于合并后恢复，防止跨对话消失）
-            const localBlocks = new Map<string, any[]>()
-            for (const m of prev) {
-              if (m.blocks?.length) localBlocks.set(m.id, m.blocks)
-            }
+
+            // 保留本地独有的消息（无 id 冲突）；丢弃预创建的占位消息（user-/asst- 前缀）
             const kept = prev.filter((m) => {
               if (incomingIds.has(m.id)) return false
-              if (hasServerAssistant && m.role === 'assistant' && /^asst-/.test(m.id)) {
-                if (m.blocks && m.blocks.length > 0) droppedWithBlocks.push({ role: m.role, blocks: m.blocks })
-                return false
-              }
+              if (hasServerAssistant && m.role === 'assistant' && /^asst-/.test(m.id)) return false
               if (hasServerUser && m.role === 'user' && /^user-/.test(m.id)) return false
               return true
             })
-            // 用服务端数据覆盖，保留 kept 中真正本地独有的消息
-            const droppedCount = prev.length - kept.length - incoming.filter(m => prev.some(p => p.id === m.id)).length
-            debugLog('merge', 'kept', kept.length, 'dropped local placeholders', droppedCount, 'incoming', incoming.length)
+            debugLog('merge', 'kept', kept.length, 'incoming', incoming.length, 'local to drop', prev.length - kept.length - incoming.filter(m => prev.some(p => p.id === m.id)).length)
+
+            // 服务端数据为主，辅以无 id 冲突的本地消息
             const merged = [...incoming]
             for (const local of kept) {
               const existing = merged.findIndex((m) => m.id === local.id)
               if (existing >= 0) {
-                merged[existing] = { ...merged[existing], text: merged[existing].text || local.text, blocks: merged[existing].blocks || local.blocks }
+                // 保留本地已有的 blocks（合并过程中客户端可能已有 blocks）
+                merged[existing] = { ...merged[existing], blocks: merged[existing].blocks || local.blocks }
               } else {
                 merged.push(local)
               }
             }
-            // 按 createdAt 排序
             merged.sort((a, b) => a.createdAt - b.createdAt)
-            // 恢复被丢弃的本地 blocks 到对应的服务端消息（含预创建消息和同 id 消息）
-            for (const dropped of droppedWithBlocks) {
-              const targetIdx = merged.map((m, i) => ({ m, i }))
-                .filter(x => x.m.role === dropped.role && !x.m.blocks)
-                .pop()?.i
-              if (targetIdx !== undefined) {
-                merged[targetIdx] = { ...merged[targetIdx], blocks: dropped.blocks }
-              }
-            }
-            // 恢复本地 blocks（同 id 消息被服务端数据覆盖时）
-            for (const m of merged) {
-              if (!m.blocks && localBlocks.has(m.id)) {
-                m.blocks = localBlocks.get(m.id)
-              }
-            }
+            debugLog('timeline', `session:data 合并完成 → ${merged.length} 条消息`,'')
             return merged
           })
           break
@@ -349,8 +358,10 @@ export function ChatView({ wsUrl }: Props) {
     }, []),
   })
 
-  const handleSend = useCallback((text: string) => {
+  const handleSend = useCallback((text: string, model?: string) => {
     const ts = Date.now()
+    debugLog('timeline', '用户发送消息', { text, model })
+    debugLog('timeline', '创建助理消息（空）','')
     setMessages((prev) => [
       ...prev,
       { id: `user-${ts}`, role: 'user', text, createdAt: ts },
@@ -362,7 +373,7 @@ export function ChatView({ wsUrl }: Props) {
       setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, title } : s))
       send({ type: 'session:update', sessionId, title })
     }
-    send({ type: 'prompt', sessionId: sessionId ?? undefined, text })
+    send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model: model || undefined })
   }, [sessionId, send, sessions])
 
   const handleNewSession = useCallback(() => {
@@ -458,10 +469,10 @@ export function ChatView({ wsUrl }: Props) {
       </header>
 
       <MessageList messages={messages} />
-      <ChatInput onSend={handleSend} disabled={status !== 'connected'} />
+      <ChatInput onSend={handleSend} disabled={status !== 'connected'} models={availableModels} currentModel={currentModel} onModelChange={setCurrentModel} />
 
       {showInspector && <InspectorPanel onClose={() => setShowInspector(false)} />}
-      {showConfig && <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} />}
+      {showConfig && <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} />}
       {dirBrowser && <DirBrowser data={dirBrowser} onNavigate={handleDirNavigate} onSelect={handleDirSelect} onClose={() => setDirBrowser(null)} />}
     </div>
   )

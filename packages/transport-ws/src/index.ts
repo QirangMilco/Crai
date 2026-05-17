@@ -108,6 +108,37 @@ export function browseDir(inputPath?: string): { path: string; dirs: string[]; p
   }
 }
 
+/** 从 MessagePart[] 重建前端所用的 ContentBlock[]。 */
+function buildBlocksFromParts(parts: any[]): any[] {
+  const blocks: any[] = []
+  // 1) thinking parts → sealed thinking blocks（按顺序，支持多轮）
+  for (const p of parts) {
+    if (p.type === 'thinking') {
+      blocks.push({ type: 'thinking', content: p.thinking, sealed: true })
+    }
+  }
+  // 2) tool-call parts → 一个 tool_group
+  const toolCalls = parts.filter((p: any) => p.type === 'tool-call')
+  if (toolCalls.length > 0) {
+    blocks.push({
+      type: 'tool_group',
+      tools: toolCalls.map((p: any) => ({
+        toolCallId: p.toolCallId,
+        name: p.name,
+        args: typeof p.arguments === 'object' ? JSON.stringify(p.arguments) : String(p.arguments ?? ''),
+        status: 'success',
+      })),
+      collapsed: true,
+    })
+  }
+  // 3) text parts → 一个 text block
+  const texts = parts.filter((p: any) => p.type === 'text').map((p: any) => p.text)
+  if (texts.length > 0) {
+    blocks.push({ type: 'text', content: texts.join('\n') })
+  }
+  return blocks
+}
+
 // ── Factory ────────────────────────────────────────
 
 export function createWsTransport(options: WsTransportOptions = {}): WsTransport {
@@ -197,7 +228,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'session:load': {
         const rt = resolveRuntime()!
         const raw = await rt.listMessages(msg.sessionId)
-        // 将内部 Message（parts 格式）转为客户端简易格式
+        // 将内部 Message（parts 格式）转为客户端格式，含 blocks
         const messages = raw
           .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
           .map((m) => ({
@@ -205,6 +236,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             role: m.role,
             text: m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n'),
             createdAt: m.createdAt,
+            blocks: m.role === 'assistant' ? buildBlocksFromParts(m.parts) : undefined,
           }))
         ws.send(JSON.stringify({ type: 'session:data', sessionId: msg.sessionId, messages } satisfies ServerMessage))
         break

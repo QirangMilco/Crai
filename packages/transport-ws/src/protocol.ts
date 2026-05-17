@@ -202,11 +202,11 @@ export interface SessionListDataMessage {
   sessions: Array<{ id: string; title?: string; createdAt: number; updatedAt: number }>
 }
 
-/** session 历史消息响应。 */
+/** session 历史消息响应。服务端返回时按需附带 blocks。 */
 export interface SessionDataMessage {
   type: 'session:data'
   sessionId: string
-  messages: Array<{ id: string; role: string; text: string; createdAt: number }>
+  messages: Array<{ id: string; role: string; text: string; createdAt: number; blocks?: any[] }>
 }
 
 export type ServerMessage =

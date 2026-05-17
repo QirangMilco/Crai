@@ -38,6 +38,8 @@ export interface ConfigDataMsg {
     recentWorkspaces: string[]
     /** 服务端变体配置中的调试 scope 列表，自动同步到前端。 */
     debugScopes?: string[]
+    /** 运行环境变体名（如 dev / prod），前端用于条件显示 Mock provider 等。 */
+    variant?: string
   }
 }
 

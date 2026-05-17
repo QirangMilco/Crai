@@ -7,7 +7,7 @@
  */
 import { createRuntime } from '@crai/runtime'
 import type { RuntimeHandle } from '@crai/core'
-import { createOpenAIProvider, createDeepSeekProvider, listModels } from '@crai/provider'
+import { createOpenAIProvider, createDeepSeekProvider, createMockProvider, listModels } from '@crai/provider'
 import { ConsoleLogger } from '@crai/base'
 import { createFileStorage } from '@crai/storage-fs'
 import { createPersistenceExtension } from '@crai/persistence'
@@ -65,7 +65,6 @@ class WorkspaceManager {
     if (this.runtimes.has(rootDir)) return
     const eff = this.config.getEffectiveConfig(this.config.getGlobal(), await this.config.loadWorkspace(rootDir))
     if (!eff.apiKey) {
-      // 没有 API key 时也会记录到 recentWorkspaces
       await this.config.addRecentWorkspace(rootDir)
       this.log.info(`workspace 已记录: ${rootDir}（无 API key）`)
       return
@@ -78,6 +77,7 @@ class WorkspaceManager {
       logger: this.log,
       extensions: [
         provider,
+        ...(VARIANT === 'dev' ? [createMockProvider({ logger: this.log })] : []),
         createFileStorage({ baseDir: dataDir }),
         createPersistenceExtension(),
         createFsTools({ rootDir, snapshotsDir: resolve(dataDir, 'snapshots') }),
@@ -160,11 +160,15 @@ async function main() {
     port: variant.server.defaultPort,
     logger: log,
     handlers: {
-      onConfigGet: () => ({ ...config.getGlobal(), debugScopes: clientScopes }),
+      onConfigGet: () => ({ ...config.getGlobal(), debugScopes: clientScopes, variant: VARIANT }),
       onConfigSet: (cfg) => { Object.assign(config.getGlobal(), cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigSetProvider: (name, cfg) => { config.setProvider(name, cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigRemoveProvider: (name) => { config.removeProvider(name); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigFetchModels: async (providerName) => {
+        // Mock provider 返回本地模型列表（无网络请求）
+        if (providerName?.toLowerCase().includes('mock')) {
+          return { models: ['mock'] }
+        }
         const global = config.getGlobal()
         const p = global.providers[providerName]
         if (!p) return { models: [], error: `Provider "${providerName}" 不存在` }

@@ -77,12 +77,14 @@ async function consumeStream(
   logger?: Logger,
 ): Promise<ModelResponse> {
   const startedTools = new Set<string>()
+  let thinkingAccum = ''  // 积累 thinking 内容，用于持久化
   for await (const event of stream) {
     switch (event.type) {
       case 'text-delta':
         await emitEvent(EVENTS.MODEL_DELTA, { session, turnId, delta: event.delta })
         break
       case 'thinking-delta':
+        thinkingAccum += event.delta
         debugLog(DEBUG_SCOPES.MIDDLEWARE, `consumeStream: thinking-delta (${event.delta.substring(0, 60)})`, { sessionId: session.id }, logger)
         await emitEvent(EVENTS.THINKING_DELTA, { session, turnId, delta: event.delta })
         break
@@ -97,8 +99,14 @@ async function consumeStream(
         }
         await emitEvent(EVENTS.TOOL_DELTA, { session, turnId, toolCallId: event.toolCallId, delta: event.argsDelta })
         break
-      case 'done':
-        return event.response
+      case 'done': {
+        const response = event.response
+        // 将 thinking 内容附加到 response message 的 parts 中（用于持久化）
+        if (thinkingAccum) {
+          response.message.parts.push({ type: 'thinking', thinking: thinkingAccum })
+        }
+        return response
+      }
       case 'error':
         throw event.error
     }

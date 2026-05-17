@@ -1,12 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 
 interface Props {
-  onSend: (text: string) => void
+  onSend: (text: string, model?: string) => void
   disabled?: boolean
   className?: string
+  /** 可用模型列表 */
+  models?: Array<{ name: string; provider: string }>
+  /** 当前选中的模型 */
+  currentModel?: string
+  /** 切换模型 */
+  onModelChange?: (model: string) => void
 }
 
-export function ChatInput({ onSend, disabled, className = '' }: Props) {
+export function ChatInput({ onSend, disabled, className = '', models, currentModel, onModelChange }: Props) {
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -30,7 +36,7 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
   function handleSubmit() {
     const trimmed = text.trim()
     if (!trimmed || disabled) return
-    onSend(trimmed)
+    onSend(trimmed, currentModel)
     setText('')
   }
 
@@ -95,9 +101,33 @@ export function ChatInput({ onSend, disabled, className = '' }: Props) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
+            gap: 8,
             padding: '0 12px 8px',
             height: 'var(--crai-btn-height, 32px)',
           }}>
+          {models && models.length > 0 && (
+            <select
+              value={currentModel ?? ''}
+              onChange={(e) => onModelChange?.(e.target.value)}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--crai-fg-secondary)',
+                fontSize: 12,
+                border: '1px solid var(--crai-border)',
+                borderRadius: 'var(--crai-btn-radius, 8px)',
+                padding: '0 8px',
+                height: 'var(--crai-btn-height, 32px)',
+                maxWidth: 180,
+                outline: 'none',
+                cursor: 'pointer',
+              }}>
+              {models.map((m) => (
+                <option key={`${m.provider}:${m.name}`} value={m.name}>
+                  {m.provider}/{m.name.length > 20 ? m.name.slice(0, 20) + '…' : m.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             onClick={handleSubmit}
             disabled={disabled || !text.trim()}

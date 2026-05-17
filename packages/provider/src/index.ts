@@ -13,6 +13,8 @@ export type { DeepSeekProviderOptions } from './deepseek/index'
 export { DeepSeekAdapter } from './deepseek/adapter'
 export type { DeepSeekAdapterOptions } from './deepseek/adapter'
 
+export { createMockProvider } from './mock/index'
+
 export { sseLines } from './core/stream'
 
 export { setDebugScopes, isDebugScope, DEBUG_SCOPES } from './core/debug'
