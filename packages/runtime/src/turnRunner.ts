@@ -18,6 +18,7 @@ import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext }
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId } from '@crai/core'
 import { debugLog, DEBUG_SCOPES } from './debug'
+import { withIdleTimeout, StreamTimeoutError } from './streamGuards'
 
 /** 单次 turn 中工具调用的最大轮次，防止无限循环。 */
 const MAX_TOOL_ROUNDS = 10
@@ -129,7 +130,8 @@ function buildModelFn(
   if (deps.streamModel) {
     return async (req) => {
       const stream = deps.streamModel!(req)
-      return consumeStream(stream, session, turnId, deps.emitEvent, deps.logger)
+      const protectedStream = withIdleTimeout(stream, 60_000)
+      return consumeStream(protectedStream, session, turnId, deps.emitEvent, deps.logger)
     }
   }
   return deps.requestModel
@@ -330,9 +332,10 @@ export async function runTurn(
         ? ((cause as any).message ?? (cause as any).reason ?? '')
         : String(cause ?? '')
       const detail = causeMsg ? `: ${causeMsg}` : ''
+      const isTimeout = cause instanceof StreamTimeoutError
       const error: RuntimeError = {
-        code: ERROR_CODES.MODEL_REQUEST_FAILED,
-        message: `模型请求失败${detail}`,
+        code: isTimeout ? ERROR_CODES.STREAM_TIMEOUT : ERROR_CODES.MODEL_REQUEST_FAILED,
+        message: isTimeout ? `模型响应超时${detail}` : `模型请求失败${detail}`,
         cause,
       }
       await deps.emitEvent(EVENTS.TURN_FAILED, { session, turnId, error })

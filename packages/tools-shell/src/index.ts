@@ -10,6 +10,16 @@ export interface ShellToolsOptions {
   rootDir: string
   /** 输出截断长度（默认 10000 字符）。 */
   maxOutputLength?: number
+  /**
+   * 沙箱配置。
+   * 参考 OpenHanako 的 `getSandboxEnabled` 回调模式：每次工具调用时动态检查开关。
+   */
+  sandbox?: {
+    /** 每次执行时动态求值。返回 true 时启用 OS 沙箱。 */
+    enabled: () => boolean
+    /** 将原始 (command, args) 包装为沙箱化命令。 */
+    wrap: (command: string, args: string[]) => { command: string; args: string[]; cleanup: () => void }
+  }
 }
 
 export { processManager }
@@ -103,6 +113,10 @@ export function createShellTools(options: ShellToolsOptions): Extension {
               cwd: rootDir,
               timeout,
               signal: combinedSignal,
+              sandbox: options.sandbox ? {
+                enabled: options.sandbox.enabled,
+                wrap: options.sandbox.wrap,
+              } : undefined,
             })
 
             ctx?.emitProgress?.({ message: '执行完成', progress: 1, done: true })

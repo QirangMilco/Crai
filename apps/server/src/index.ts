@@ -8,7 +8,7 @@
 import { createRuntime } from '@crai/runtime'
 import type { RuntimeHandle } from '@crai/core'
 import { createOpenAIProvider, createDeepSeekProvider, createMockProvider, listModels } from '@crai/provider'
-import { ConsoleLogger } from '@crai/base'
+import { ConsoleLogger, createSandbox } from '@crai/base'
 import { createFileStorage } from '@crai/storage-fs'
 import { createPersistenceExtension } from '@crai/persistence'
 import { createWorkspaceSecurity } from '@crai/security'
@@ -91,7 +91,16 @@ class WorkspaceManager {
         createFileStorage({ baseDir: dataDir }),
         createPersistenceExtension(),
         createFsTools({ rootDir, snapshotsDir: resolve(dataDir, 'snapshots') }),
-        createShellTools({ rootDir }),
+        createShellTools({
+          rootDir,
+          sandbox: {
+            enabled: () => this.config.getGlobal().sandboxEnabled === true,
+            wrap: (cmd, args) => {
+              const sb = createSandbox({ rootDir, enabled: true })
+              return sb.wrap(cmd, args, rootDir)
+            },
+          },
+        }),
         createWebTools(),
         createWorkspaceSecurity({ rootDir, mode: 'ask', askHandler: async () => true }),
         createEventForwarder(rootDir, this.onEvent),
@@ -154,9 +163,6 @@ async function main() {
     console.log(`[debug] 全部可用服务端 scope: ${available}`)
   }
 
-  const config = new ConfigManager(variant)
-  await config.loadGlobal()
-
   const logDir = join(homedir(), variant.configDirName, variant.debug.logDir ?? 'logs')
   const log = new ConsoleLogger({
     tag: 'server',
@@ -166,12 +172,21 @@ async function main() {
     maxBackups: variant.debug.maxBackups,
   })
 
+  const config = new ConfigManager(variant, log)
+  await config.loadGlobal()
+
   const transport = createWsTransport({
     port: variant.server.defaultPort,
     logger: log,
     handlers: {
       onConfigGet: () => ({ ...config.getGlobal(), debugScopes: clientScopes, variant: VARIANT }),
-      onConfigSet: (cfg) => { Object.assign(config.getGlobal(), cfg); config.saveGlobal(); gWorkspaces?.sync() },
+      onConfigSet: (cfg) => {
+        const changed = Object.keys(cfg).join(', ')
+        log.info(`配置已更新: ${changed}`)
+        Object.assign(config.getGlobal(), cfg)
+        config.saveGlobal()
+        gWorkspaces?.sync()
+      },
       onConfigSetProvider: (name, cfg) => { config.setProvider(name, cfg); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigRemoveProvider: (name) => { config.removeProvider(name); config.saveGlobal(); gWorkspaces?.sync() },
       onConfigFetchModels: async (providerName) => {

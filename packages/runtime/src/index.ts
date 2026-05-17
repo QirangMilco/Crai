@@ -2,6 +2,7 @@
 export { createRuntime } from './createRuntime'
 export { createTraceCollector } from './trace'
 export { isDebugScope, debugLog, setDebugScopes, DEBUG_SCOPES } from './debug'
+export { StreamTimeoutError, withIdleTimeout } from './streamGuards'
 export type { RuntimeOptions } from './createRuntime'
 export { createHookBus, createEventBus } from './bus'
 export type { TraceFn } from './bus'

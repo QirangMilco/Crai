@@ -68,12 +68,34 @@ export function execCommand(
     signal?: AbortSignal
     maxBuffer?: number
     env?: Record<string, string | undefined>
+    /**
+     * 沙箱配置。
+     * - enabled: 每次调用时动态求值，返回 true 则使用 wrap 包装执行
+     * - wrap: 将原始 (command, args) 包装为沙箱化命令
+     * 参考 OpenHanako 的 getSandboxEnabled 回调模式。
+     */
+    sandbox?: {
+      enabled: () => boolean
+      wrap: (originalCommand: string, originalArgs: string[]) => { command: string; args: string[]; cleanup: () => void }
+    }
   } = {},
 ): Promise<SpawnResult> {
-  const { cwd, timeout = 30_000, signal, maxBuffer = 10 * 1024 * 1024, env } = options
+  const { cwd, timeout = 30_000, signal, maxBuffer = 10 * 1024 * 1024, env, sandbox } = options
 
   return new Promise((resolve) => {
-    const child = spawn('sh', ['-c', command], {
+    // 动态检查沙盒是否启用
+    let sandboxCleanup: (() => void) | undefined
+    let spawnCommand = 'sh'
+    let spawnArgs = ['-c', command]
+
+    if (sandbox && sandbox.enabled()) {
+      const wrapped = sandbox.wrap(spawnCommand, spawnArgs)
+      spawnCommand = wrapped.command
+      spawnArgs = wrapped.args
+      sandboxCleanup = wrapped.cleanup
+    }
+
+    const child = spawn(spawnCommand, spawnArgs, {
       cwd,
       env: env ? { ...process.env, ...env } : process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -115,12 +137,14 @@ export function execCommand(
     child.on('error', (err) => {
       clearTimeout(timer)
       signal?.removeEventListener('abort', onAbort)
+      if (sandboxCleanup) sandboxCleanup()
       resolve({ stdout, stderr, exitCode: -1, signal: undefined })
     })
 
     child.on('close', (code, sig) => {
       clearTimeout(timer)
       signal?.removeEventListener('abort', onAbort)
+      if (sandboxCleanup) sandboxCleanup()
       resolve({
         stdout: trimBuffer(stdout, maxBuffer),
         stderr: trimBuffer(stderr, maxBuffer),

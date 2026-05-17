@@ -20,6 +20,7 @@ interface Props {
     providers: Record<string, { apiKey: string; baseURL?: string; models?: string[] }>
     defaultProvider?: string
     defaultModel?: string
+    sandboxEnabled?: boolean
     recentWorkspaces: string[]
   } | null
   send: (msg: any) => void
@@ -44,6 +45,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const [editModelsPath, setEditModelsPath] = useState('')        // 编辑中的 models 路径
   const [fetchedModels, setFetchedModels] = useState<string[]>([])
   const [fetching, setFetching] = useState(false)
+  const[sandboxEnabled, setSandboxEnabled] = useState(config?.sandboxEnabled ?? false)
 
   // 自定义提供商表单
   const [customName, setCustomName] = useState('')
@@ -350,6 +352,25 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
               disabled={!customName || !customKey}
               className="w-full py-2 rounded text-xs font-medium text-white disabled:opacity-40"
               style={{ backgroundColor: 'var(--crai-accent)' }}>添加</button>
+          </div>
+        </div>
+
+        {/* ── OS 沙箱开关 ── */}
+        <div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs font-medium" style={{ color: 'var(--crai-fg-secondary)' }}>OS 沙箱</div>
+              <div className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>启用后 bash 命令在 sandbox-exec (macOS) / bwrap (Linux) 中执行</div>
+            </div>
+            <button
+              onClick={() => {
+                const next = !sandboxEnabled
+                setSandboxEnabled(next)
+                send({ type: 'config:set', config: { sandboxEnabled: next } })
+              }}
+              className={'relative w-10 h-5 rounded-full transition-colors ' + (sandboxEnabled ? 'bg-green-500' : 'bg-gray-400')}>
+              <span className={'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ' + (sandboxEnabled ? 'translate-x-5' : 'translate-x-0')} />
+            </button>
           </div>
         </div>
       </div>

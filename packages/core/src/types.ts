@@ -243,7 +243,7 @@ export interface AppVariant {
 }
 
 export interface ProviderConfig {
-  apiKey: string
+  apiKey?: string
   baseURL?: string
   models?: string[]
   /** 获取模型列表的 API 路径。默认 /models。 */
@@ -258,6 +258,8 @@ export interface GlobalConfig {
   toolProvider?: string
   /** 工具调用专用模型名。未设置时使用 defaultModel。 */
   toolModel?: string
+  /** shell 命令执行是否启用 OS 沙箱隔离。默认 false。 */
+  sandboxEnabled?: boolean
   recentWorkspaces: string[]
 }
 

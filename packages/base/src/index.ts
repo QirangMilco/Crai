@@ -10,3 +10,6 @@ export {
   resolveAllowedPath, getPathArg, validateToolPaths,
 } from './path'
 export { ConsoleLogger } from './logger'
+export { sanitizeText, sanitizeParts } from './pii-guard'
+export { createSandbox, wrapCommand } from './sandbox'
+export type { SandboxOptions, SandboxProvider, SandboxWrappedCommand } from './sandbox'

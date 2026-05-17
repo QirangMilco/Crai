@@ -8,6 +8,7 @@
  */
 import type { Extension } from '@crai/core'
 import { HOOKS } from '@crai/core'
+import { sanitizeParts } from '@crai/base'
 
 /** 创建持久化 extension。 */
 export function createPersistenceExtension(): Extension {
@@ -22,7 +23,14 @@ export function createPersistenceExtension(): Extension {
 
         await storage.updateSession(session)
         for (const msg of messages) {
-          await storage.appendMessage(session.id, msg)
+          // 保存前脱敏 PII
+          const { parts, hits } = sanitizeParts(msg.parts ?? [])
+          if (hits.length > 0) {
+            ;(ctx as any).logger?.info?.(
+              `[pii-guard] 已脱敏 ${hits.length} 类敏感信息: ${hits.join(', ')}`
+            )
+          }
+          await storage.appendMessage(session.id, { ...msg, parts })
         }
         return { continue: true }
       })
