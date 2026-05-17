@@ -81,14 +81,31 @@ export class ConfigManager implements ConfigStore {
     try {
       const raw = await readFile(this.globalConfigPath, 'utf-8')
       this.global = { ...DEFAULT_GLOBAL_CONFIG, ...JSON.parse(raw) }
-    } catch {
-      this.global = { ...DEFAULT_GLOBAL_CONFIG }
-      await this.saveGlobal()
+      console.log(`[config] 已加载配置: ${this.globalConfigPath} (${Object.keys(this.global.providers).length} 个 provider, ${this.global.recentWorkspaces.length} 个工作区)`)
+    } catch (err) {
+      // 文件不存在或解析失败时用默认值，但不覆盖现有文件（避免误删已有配置）
+      if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+        // 文件不存在：首次启动，写入默认配置
+        this.global = { ...DEFAULT_GLOBAL_CONFIG }
+        await this.saveGlobal()
+        console.log(`[config] 首次启动，已创建默认配置: ${this.globalConfigPath}`)
+      } else {
+        // 文件存在但解析失败：保留文件不覆盖，仅内存中使用默认值
+        console.error(`[config] 配置加载失败（保留文件）: ${(err as Error).message}`)
+        this.global = { ...DEFAULT_GLOBAL_CONFIG }
+      }
     }
     // 解密所有已保存的 API keys
     for (const name of Object.keys(this.global.providers)) {
       const p = this.global.providers[name]
-      if (p.apiKey) p.apiKey = decrypt(p.apiKey, this._keyDir)
+      if (p.apiKey) {
+        try {
+          p.apiKey = decrypt(p.apiKey, this._keyDir)
+        } catch (decErr) {
+          console.error(`[config] provider "${name}" API key 解密失败: ${(decErr as Error).message}`)
+          delete p.apiKey
+        }
+      }
     }
     this.dirty = false
     return this.global
@@ -105,6 +122,7 @@ export class ConfigManager implements ConfigStore {
     const dir = this._keyDir
     await mkdir(dir, { recursive: true })
     await writeFile(this.globalConfigPath, JSON.stringify(toSave, null, 2), 'utf-8')
+    console.log(`[config] 已保存配置: ${this.globalConfigPath}`)
     this.dirty = false
   }
 
@@ -122,6 +140,8 @@ export class ConfigManager implements ConfigStore {
     delete this.global.providers[name]
     if (this.global.defaultProvider === name) {
       this.global.defaultProvider = Object.keys(this.global.providers)[0]
+      // 切到别的 provider 时清除旧模型的 defaultModel，避免 provider/model 不匹配
+      delete this.global.defaultModel
     }
     this.dirty = true
   }

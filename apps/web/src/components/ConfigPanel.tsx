@@ -82,7 +82,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setEditing(name)
     setEditKey(p.apiKey)
     setEditBaseURL(p.baseURL || firstPartyDefault(name)?.defaultBaseURL || '')
-    setEditModel(config?.defaultModel ?? p.models?.[0] ?? '')
+    setEditModel(p.models?.[0] ?? config?.defaultModel ?? '')
     setEditToolModel(config?.toolModel ?? '')
     setEditModelsPath((p as any).modelsPath ?? '')
     setFetchedModels(p.models ?? [])
@@ -96,8 +96,10 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
       models: fetchedModels.length > 0 ? fetchedModels : undefined,
       modelsPath: editModelsPath || undefined,
     }})
-    // 设置 defaultModel
-    if (editModel) send({ type: 'config:set', config: { defaultModel: editModel } })
+    // 设置 defaultModel（仅当模型确实属于此 provider 时）
+    if (editModel && (fetchedModels.length === 0 || fetchedModels.includes(editModel))) {
+      send({ type: 'config:set', config: { defaultModel: editModel } })
+    }
     // 设置 toolModel（如果不同于 defaultModel）
     if (editToolModel) send({ type: 'config:set', config: { toolModel: editToolModel, toolProvider: editing } })
     // 刷新配置 UI

@@ -308,8 +308,17 @@ async function main() {
     const wsList = await waitFor(m => m.type === 'workspace:list:data')
     const workspaces = wsList.workspaces || []
     if (workspaces.length === 0) {
-      fail('SETUP', '没有可用的工作区')
-      process.exit(1)
+      // 没有工作区：提示用户在 web UI 配好 provider 后再跑
+      log('', '')
+      log('⚠️', '='.repeat(60))
+      log('⚠️', '没有可用的工作区。请先：')
+      log('⚠️', '  1. 打开 http://localhost:5173')
+      log('⚠️', '  2. 在配置面板中添加 provider（Mock 或 DeepSeek/OpenAI）')
+      log('⚠️', '  3. 切换到任意工作区')
+      log('⚠️', '  4. 再重新运行此脚本')
+      log('⚠️', '='.repeat(60))
+      log('', '')
+      process.exit(0)
     }
     console.log('\n📂 可用的工作区:')
     for (let i = 0; i < workspaces.length; i++) {

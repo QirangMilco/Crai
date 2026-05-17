@@ -168,7 +168,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
   }
 
   async function handleClientMessage(ws: WebSocket, msg: ClientMessage): Promise<void> {
-    // ── 不需要 runtime 的消息（配置、工作区，放行通过） ──
+    // ── 不需要 runtime 的消息（配置、工作区，session:list 无 runtime 时也接受），放行通过 ──
     switch (msg.type) {
       case 'config:get':
       case 'config:set':
@@ -179,6 +179,8 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'workspace:switch':
       case 'workspace:config:get':
       case 'workspace:config:set':
+      case 'session:list':
+      case 'dir:browse':
         break
       default: {
         const rt = resolveRuntime()
@@ -219,7 +221,12 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       }
 
       case 'session:list': {
-        const rt = resolveRuntime()!
+        const rt = resolveRuntime()
+        if (!rt) {
+          // 没有 runtime（未配置 provider）时返回空列表而非报错
+          ws.send(JSON.stringify({ type: 'session:list:data', sessions: [] } satisfies ServerMessage))
+          break
+        }
         const sessions = await rt.listSessions()
         ws.send(JSON.stringify({ type: 'session:list:data', sessions } satisfies ServerMessage))
         break

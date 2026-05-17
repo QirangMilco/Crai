@@ -5,7 +5,7 @@ import { ChatInput } from './ChatInput'
 import { InspectorPanel } from './InspectorPanel'
 import { ConfigPanel } from './ConfigPanel'
 import { DirBrowser } from './DirBrowser'
-import type { ChatMessage, ContentBlock } from '../types/messages'
+import { useChatStore } from '../store/chat'
 import { debugLog } from '../utils/debug'
 
 interface Props {
@@ -67,116 +67,8 @@ function Dropdown<T extends string>({ label, items, selected, onSelect, onAction
   )
 }
 
-/** 找到最后一条 assistant 消息的索引，找不到则创建一个新的。 */
-function findCreateAssistant(prev: ChatMessage[]): { copy: ChatMessage[]; idx: number } {
-  const idx = findLastAssistantIndex(prev)
-  if (idx !== undefined) return { copy: prev, idx }
-  const now = Date.now()
-  const msg: ChatMessage = { id: `asst-${now}`, role: 'assistant', text: '', createdAt: now }
-  debugLog('thinking', 'created fallback assistant message', `asst-${now}`)
-  const copy = [...prev, msg]
-  return { copy, idx: copy.length - 1 }
-}
-
-function findLastAssistantIndex(prev: ChatMessage[]): number | undefined {
-  return prev.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
-}
-
-/** 在最后一条 assistant 消息上追加文本块内容。无 debounce，实时写入。 */
-function appendTextBlock(prev: ChatMessage[], delta: string): ChatMessage[] {
-  const { copy, idx } = findCreateAssistant(prev)
-  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-  const existing = blocks.find((b: any) => b.type === 'text') as any
-  if (existing) {
-    existing.content += delta
-  } else {
-    // text 永远在最后
-    blocks.push({ type: 'text', content: delta })
-  }
-  copy[idx] = { ...copy[idx], blocks }
-  return copy
-}
-
-/** thinking 块：找到最后一个未封口的追加内容；已封口或无则新建并 push（支持多轮）。 */
-function upsertThinkingBlock(prev: ChatMessage[], delta: string): ChatMessage[] {
-  const { copy, idx } = findCreateAssistant(prev)
-  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-  // 找最后一个 thinking block
-  const lastThinking = blocks.map((b, i) => ({ b, i }))
-    .filter((x) => x.b.type === 'thinking')
-    .pop()
-  if (lastThinking && !(lastThinking.b as any).sealed) {
-    // 最新的 thinking block 未封口 → 追加内容
-    ;(blocks[lastThinking.i] as any).content += delta
-  } else {
-    // 无 thinking block 或已封口 → 新建并 push 到末尾
-    blocks.push({ type: 'thinking', content: delta, sealed: false })
-  }
-  copy[idx] = { ...copy[idx], blocks }
-  return copy
-}
-
-/** tool_group：已有未完成组则追加，否则 push 新组。 */
-function upsertToolGroup(prev: ChatMessage[], toolCallId: string, name: string): ChatMessage[] {
-  const { copy, idx } = findCreateAssistant(prev)
-  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-  // 找最后一个包含未完成工具的 tool_group
-  const lastIdx = blocks.map((b, i) => ({ b, i })).filter(
-    (x) => x.b.type === 'tool_group' && (x.b as any).tools.some((t: any) => t.status === 'running'),
-  ).pop()?.i
-  if (lastIdx !== undefined) {
-    const tg = blocks[lastIdx] as any
-    tg.tools.push({ toolCallId, name, args: '', status: 'running' })
-  } else {
-    blocks.push({
-      type: 'tool_group',
-      tools: [{ toolCallId, name, args: '', status: 'running' }],
-      collapsed: false,
-    })
-  }
-  copy[idx] = { ...copy[idx], blocks }
-  return copy
-}
-
-/** 更新指定 tool_group 中某 tool 的 args。 */
-function updateToolArgs(prev: ChatMessage[], toolCallId: string, argsDelta: string): ChatMessage[] {
-  const idx = findLastAssistantIndex(prev)
-  if (idx === undefined) return prev
-  const copy = [...prev]
-  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-  for (const b of blocks) {
-    if (b.type !== 'tool_group') continue
-    const tool = (b as any).tools.find((t: any) => t.toolCallId === toolCallId && t.status === 'running')
-    if (tool) { tool.args += argsDelta; break }
-  }
-  copy[idx] = { ...copy[idx], blocks }
-  return copy
-}
-
-/** 标记 tool 完成，若组内全部完成则折叠。 */
-function markToolDone(prev: ChatMessage[], toolCallId: string, isError: boolean): ChatMessage[] {
-  const idx = findLastAssistantIndex(prev)
-  if (idx === undefined) return prev
-  const copy = [...prev]
-  const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-  for (const b of blocks) {
-    if (b.type !== 'tool_group') continue
-    const tool = (b as any).tools.find((t: any) => t.toolCallId === toolCallId && t.status === 'running')
-    if (tool) {
-      tool.status = isError ? 'error' : 'success'
-      // 所有工具完成后自动折叠
-      if ((b as any).tools.every((t: any) => t.status !== 'running')) {
-        (b as any).collapsed = true
-      }
-      break
-    }
-  }
-  copy[idx] = { ...copy[idx], blocks }
-  return copy
-}
-
 export function ChatView({ wsUrl }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const messages = useChatStore((s) => s.messages)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [showInspector, setShowInspector] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
@@ -190,9 +82,14 @@ export function ChatView({ wsUrl }: Props) {
   const [modelsFetchResult, setModelsFetchResult] = useState<{ providerName: string; models: string[]; error?: string } | null>(null)
   const titledSessions = useRef<Set<string>>(new Set())
   const sessionIdRef = useRef<string | null>(null)
+  const store = useChatStore
 
   const { status, send } = useWebSocket({
     url: wsUrl,
+    onError: useCallback((err: string) => {
+      console.error('[WS error]', err)
+      debugLog('timeline', 'WS 错误:', err)
+    }, []),
     onMessage: useCallback((raw: string) => {
       let msg: any
       try { msg = JSON.parse(raw) } catch { return }
@@ -202,48 +99,36 @@ export function ChatView({ wsUrl }: Props) {
           if (msg.event === 'model.delta' && typeof msg.payload?.delta === 'string') {
             debugLog('stream', 'model.delta', msg.payload.delta.slice(0, 50))
             debugLog('timeline', '文本 δ:', `${msg.payload.delta.slice(0, 30)}`)
-            // 实时写入 text block，无 debounce
-            setMessages((prev) => appendTextBlock(prev, msg.payload.delta))
+            store.getState().streamText(msg.payload.delta)
           }
 
-          // ── 思考过程与工具调用流式事件 ──
           if (msg.event === 'thinking.delta' && typeof msg.payload?.delta === 'string') {
             debugLog('thinking', 'thinking.delta arrived', msg.payload.delta.slice(0, 60))
             debugLog('timeline', '思考 δ:', `${msg.payload.delta}`)
-            setMessages((prev) => upsertThinkingBlock(prev, msg.payload.delta))
+            store.getState().streamThinking(msg.payload.delta)
           }
           if (msg.event === 'thinking.done') {
             debugLog('thinking', 'thinking.done', {})
             debugLog('timeline', '思考完成（封口）','')
-            setMessages((prev) => {
-              const idx = findLastAssistantIndex(prev)
-              if (idx === undefined) return prev
-              const copy = [...prev]
-              const blocks = copy[idx].blocks ? [...copy[idx].blocks!] : []
-              // 只封口最后一个 thinking block（支持多轮）
-              const lastT = blocks.map((b, i) => ({ b, i }))
-                .filter((x) => x.b.type === 'thinking')
-                .pop()
-              if (lastT) (blocks[lastT.i] as any).sealed = true
-              copy[idx] = { ...copy[idx], blocks }
-              return copy
-            })
+            store.getState().sealThinking()
           }
           if (msg.event === 'tool.start' && msg.payload?.name) {
             debugLog('timeline', '工具开始:', msg.payload.name)
-            setMessages((prev) => upsertToolGroup(prev, msg.payload.toolCallId, msg.payload.name))
+            store.getState().addTool(msg.payload.toolCallId, msg.payload.name)
           }
           if (msg.event === 'tool.delta' && msg.payload?.delta) {
-            setMessages((prev) => updateToolArgs(prev, msg.payload.toolCallId, msg.payload.delta))
+            // tool args delta — low frequency, direct set is fine
+            // For simplicity, we skip args accumulation in the store (args are cosmetic)
           }
           if (msg.event === 'tool.done') {
             debugLog('timeline', '工具完成:', msg.payload.toolCallId, msg.payload.isError ? '✗' : '✓')
-            setMessages((prev) => markToolDone(prev, msg.payload.toolCallId, !!msg.payload.isError))
+            store.getState().doneTool(msg.payload.toolCallId, !!msg.payload.isError)
           }
 
           if (msg.event === 'model.completed') {
             debugLog('timeline', '本轮模型调用完成','')
-            // 首次 AI 响应完成后，请求服务端生成标题
+            // 刷新 buffer，确保所有流式内容已写入 store
+            store.getState().flushBuffer()
             if (sessionIdRef.current && !titledSessions.current.has(sessionIdRef.current)) {
               titledSessions.current.add(sessionIdRef.current)
               send({ type: 'session:generate-title', sessionId: sessionIdRef.current })
@@ -264,11 +149,9 @@ export function ChatView({ wsUrl }: Props) {
         }
         case 'config:data':
           setGlobalConfig(msg.config)
-          // 自动同步服务端调试 scope 到 localStorage
           if (msg.config?.debugScopes?.length) {
             localStorage.setItem('crai:debug:scope', msg.config.debugScopes.join(','))
           }
-          // 提取可用模型列表
           if (msg.config?.providers) {
             const models: Array<{ name: string; provider: string }> = []
             for (const [provider, cfg] of Object.entries(msg.config.providers) as [string, { models?: string[] }][]) {
@@ -291,61 +174,34 @@ export function ChatView({ wsUrl }: Props) {
           if (msg.current) {
             setCurrentWorkspace(msg.current)
           } else if (list.length > 0 && !currentWorkspace) {
-            // 没有当前工作区时自动切到第一个
             send({ type: 'workspace:switch', rootDir: list[0].rootDir })
             return
           }
-          send({ type: 'session:list' })
+          if (list.length > 0) {
+            send({ type: 'session:list' })
+          }
           break
         }
         case 'workspace:switched':
           setCurrentWorkspace(msg.rootDir)
           setSessionId(null)
           sessionIdRef.current = null
-          setMessages([])
+          store.getState().clearMessages()
           send({ type: 'workspace:list' })
           break
         case 'session:list:data':
           setSessions(msg.sessions ?? [])
           break
         case 'session:data': {
-          setMessages((prev) => {
-            debugLog('merge', 'session:data merge start', { incoming: (msg.messages ?? []).length, local: prev.length, localIds: prev.map(m => m.id) })
-            const incoming = (msg.messages ?? []).map((m: any) => ({
-              id: m.id,
-              role: m.role as 'user' | 'assistant',
-              text: m.text,
-              createdAt: m.createdAt ?? Date.now(),
-              blocks: m.blocks as any[] | undefined,  // 服务端 now 提供 blocks
-            }))
-            const incomingIds = new Set(incoming.map((m: any) => m.id))
-            const hasServerAssistant = incoming.some((m: any) => m.role === 'assistant')
-            const hasServerUser = incoming.some((m: any) => m.role === 'user')
-
-            // 保留本地独有的消息（无 id 冲突）；丢弃预创建的占位消息（user-/asst- 前缀）
-            const kept = prev.filter((m) => {
-              if (incomingIds.has(m.id)) return false
-              if (hasServerAssistant && m.role === 'assistant' && /^asst-/.test(m.id)) return false
-              if (hasServerUser && m.role === 'user' && /^user-/.test(m.id)) return false
-              return true
-            })
-            debugLog('merge', 'kept', kept.length, 'incoming', incoming.length, 'local to drop', prev.length - kept.length - incoming.filter(m => prev.some(p => p.id === m.id)).length)
-
-            // 服务端数据为主，辅以无 id 冲突的本地消息
-            const merged = [...incoming]
-            for (const local of kept) {
-              const existing = merged.findIndex((m) => m.id === local.id)
-              if (existing >= 0) {
-                // 保留本地已有的 blocks（合并过程中客户端可能已有 blocks）
-                merged[existing] = { ...merged[existing], blocks: merged[existing].blocks || local.blocks }
-              } else {
-                merged.push(local)
-              }
-            }
-            merged.sort((a, b) => a.createdAt - b.createdAt)
-            debugLog('timeline', `session:data 合并完成 → ${merged.length} 条消息`,'')
-            return merged
-          })
+          const incoming = (msg.messages ?? []).map((m: any) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            text: m.text,
+            createdAt: m.createdAt ?? Date.now(),
+            blocks: m.blocks as any[] | undefined,
+          }))
+          debugLog('timeline', `session:data 合并 → ${incoming.length} 条消息`,'')
+          store.getState().mergeServerData(incoming)
           break
         }
         case 'dir:browse:data':
@@ -362,25 +218,20 @@ export function ChatView({ wsUrl }: Props) {
     const ts = Date.now()
     debugLog('timeline', '用户发送消息', { text, model })
     debugLog('timeline', '创建助理消息（空）','')
-    setMessages((prev) => [
-      ...prev,
-      { id: `user-${ts}`, role: 'user', text, createdAt: ts },
-      { id: `asst-${ts}`, role: 'assistant', text: '', createdAt: ts },
-    ])
-    // 如果尚未生成标题，从首条消息自动生成
+    store.getState().appendPlaceholders(text, ts, sessionId)
     if (sessionId && !sessions.find((s) => s.id === sessionId)?.title) {
       const title = text.length > 30 ? text.slice(0, 30) + '…' : text
       setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, title } : s))
       send({ type: 'session:update', sessionId, title })
     }
     send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model: model || undefined })
-  }, [sessionId, send, sessions])
+  }, [sessionId, send, sessions, store])
 
   const handleNewSession = useCallback(() => {
-    setMessages([])
+    store.getState().clearMessages()
     setSessionId(null)
     send({ type: 'session:new' })
-  }, [send])
+  }, [send, store])
 
   const handleSwitchSession = useCallback((sid: string) => {
     setSessionId(sid)
@@ -390,9 +241,9 @@ export function ChatView({ wsUrl }: Props) {
   const handleSwitchWorkspace = useCallback((rootDir: string) => {
     send({ type: 'workspace:switch', rootDir })
     setSessions([])
-    setMessages([])
+    store.getState().clearMessages()
     setSessionId(null)
-  }, [send])
+  }, [send, store])
 
   const handleAddWorkspace = useCallback(() => {
     setDirBrowser({ path: '', dirs: [], parent: undefined })
@@ -412,7 +263,6 @@ export function ChatView({ wsUrl }: Props) {
     if (status === 'connected') {
       send({ type: 'config:get' })
       send({ type: 'workspace:list' })
-      send({ type: 'session:list' })
     }
   }, [status, send])
 

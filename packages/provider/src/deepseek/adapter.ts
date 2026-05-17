@@ -354,7 +354,9 @@ function buildDeepSeekBody(
 // ============================================================
 
 function buildDoneResponse(text: string, finishReason: string | null): ModelStreamEvent & { type: 'done' } {
-  const parts: MessagePart[] = text ? [{ type: PART_TYPES.TEXT, text }] : []
+  // 如果文本为空但有思考内容（某些模型把全部回复放 reasoning_content），用思考内容兜底
+  const displayText = text || accumulatedReasoningContent
+  const parts: MessagePart[] = displayText ? [{ type: PART_TYPES.TEXT, text: displayText }] : []
   const toolParts = buildToolCallPartsFromAccumulator()
   parts.push(...toolParts)
 
@@ -372,6 +374,7 @@ function buildDoneResponse(text: string, finishReason: string | null): ModelStre
         createdAt: Date.now(),
         parts,
         // 把本轮捕获的 reasoning_content 存入 metadata，后续轮次回传用
+        // 即使文本从 reasoning 兜底（无独立 content），也必须标记以便 DeepSeek 的 tool-call 回传
         metadata: {
           ...(accumulatedReasoningContent ? { reasoningContent: accumulatedReasoningContent } : undefined),
         },

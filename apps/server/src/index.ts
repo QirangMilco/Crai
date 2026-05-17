@@ -64,15 +64,25 @@ class WorkspaceManager {
   async ensure(rootDir: string): Promise<void> {
     if (this.runtimes.has(rootDir)) return
     const eff = this.config.getEffectiveConfig(this.config.getGlobal(), await this.config.loadWorkspace(rootDir))
-    if (!eff.apiKey) {
+    if (!eff.provider) {
       await this.config.addRecentWorkspace(rootDir)
-      this.log.info(`workspace 已记录: ${rootDir}（无 API key）`)
+      this.log.info(`workspace 已记录: ${rootDir}（无 provider）`)
       return
     }
     const dataDir = this.config.workspaceDataDir(rootDir)
-    const provider = eff.provider === 'deepseek'
-      ? createDeepSeekProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined, logger: this.log })
-      : createOpenAIProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined, logger: this.log })
+
+    this.log.info(`ensure: provider=${eff.provider}, model=${eff.model}, apiKey=${eff.apiKey ? '***' : '(空)'}`)
+
+    // 根据 provider 类型创建对应适配器。Mock 不需要 API key。
+    let provider
+    if (eff.provider === 'deepseek') {
+      provider = createDeepSeekProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined, logger: this.log })
+    } else if (eff.provider === 'mock') {
+      provider = createMockProvider({ logger: this.log })
+    } else {
+      provider = createOpenAIProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined, logger: this.log })
+    }
+
     const runtime = await createRuntime({
       logger: this.log,
       extensions: [
@@ -110,7 +120,7 @@ class WorkspaceManager {
   async sync(): Promise<void> {
     const global = this.config.getGlobal()
     for (const [dir, rt] of this.runtimes) {
-      if (!this.config.getEffectiveConfig(global, await this.config.loadWorkspace(dir)).apiKey) {
+      if (!this.config.getEffectiveConfig(global, await this.config.loadWorkspace(dir)).provider) {
         await rt.dispose(); this.runtimes.delete(dir)
       }
     }

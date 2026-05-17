@@ -102,8 +102,14 @@ async function consumeStream(
       case 'done': {
         const response = event.response
         // 将 thinking 内容附加到 response message 的 parts 中（用于持久化）
+        // 仅在消息已有 text 内容且 thinking 与 text 不同时附加，
+        // 避免出现只有 thinking 的空消息（下游 API 报错）或内容冗余
         if (thinkingAccum) {
-          response.message.parts.push({ type: 'thinking', thinking: thinkingAccum })
+          const hasText = response.message.parts.some((p: any) => p.type === 'text')
+          const textIsThinking = response.message.parts.some((p: any) => p.type === 'text' && p.text === thinkingAccum)
+          if (hasText && !textIsThinking) {
+            response.message.parts.push({ type: 'thinking', thinking: thinkingAccum })
+          }
         }
         return response
       }
