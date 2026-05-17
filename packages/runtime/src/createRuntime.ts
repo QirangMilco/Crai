@@ -429,7 +429,13 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
         })
       }
 
-      const res = await adapter.request({ sessionId: '', turnId: '', model: modelName, context })
+      const res = await adapter.request({
+        sessionId: '',
+        turnId: '',
+        model: modelName,
+        context,
+        settings: context.settings,
+      })
       const text = res.message.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
       return text
     },
