@@ -260,6 +260,12 @@ export interface GlobalConfig {
   toolModel?: string
   /** shell 命令执行是否启用 OS 沙箱隔离。默认 false。 */
   sandboxEnabled?: boolean
+  /** 上下文压缩阈值（0~1）。当前 token 数超过上下文窗口的此比例时触发压缩。默认 0.8。 */
+  compressionThreshold?: number
+  /** 压缩后保留的最近消息 token 数。默认 32000。 */
+  keepRecentTokens?: number
+  /** 用户自定义模型上下文窗口（覆盖已知模型表）。modelName → contextWindow。 */
+  customContextWindows?: Record<string, number>
   recentWorkspaces: string[]
 }
 

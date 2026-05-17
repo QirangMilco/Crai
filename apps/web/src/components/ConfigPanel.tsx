@@ -45,7 +45,14 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const [editModelsPath, setEditModelsPath] = useState('')        // 编辑中的 models 路径
   const [fetchedModels, setFetchedModels] = useState<string[]>([])
   const [fetching, setFetching] = useState(false)
-  const[sandboxEnabled, setSandboxEnabled] = useState(config?.sandboxEnabled ?? false)
+  const [sandboxEnabled, setSandboxEnabled] = useState(config?.sandboxEnabled ?? false)
+  // 压缩阈值（显示为百分比整数，如 80 表示 80%）
+  const defaultThreshold = config?.compressionThreshold != null ? Math.round(config.compressionThreshold * 100) : 80
+  const [compressionThreshold, setCompressionThreshold] = useState(String(defaultThreshold))
+  // 自定义模型上下文窗口
+  const [customWindows, setCustomWindows] = useState<Array<{ model: string; window: string }>>(
+    () => Object.entries(config?.customContextWindows ?? {}).map(([model, window]) => ({ model, window: String(window) }))
+  )
 
   // 自定义提供商表单
   const [customName, setCustomName] = useState('')
@@ -128,6 +135,17 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   function removeProvider(name: string) {
     send({ type: 'config:remove:provider', name })
     if (editing === name) cancelEdit()
+  }
+
+  function saveCustomWindows(entries: Array<{ model: string; window: string }>) {
+    const customContextWindows: Record<string, number> = {}
+    for (const e of entries) {
+      if (e.model && e.window) {
+        const num = parseInt(e.window, 10)
+        if (num > 0) customContextWindows[e.model] = num
+      }
+    }
+    send({ type: 'config:set', config: { customContextWindows } })
   }
 
   function addCustomProvider() {
@@ -370,6 +388,90 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
               }}
               className={'relative w-10 h-5 rounded-full transition-colors ' + (sandboxEnabled ? 'bg-green-500' : 'bg-gray-400')}>
               <span className={'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ' + (sandboxEnabled ? 'translate-x-5' : 'translate-x-0')} />
+            </button>
+          </div>
+        </div>
+
+        {/* ── 上下文压缩 ── */}
+        <div>
+          <div className="text-xs font-medium mb-2" style={{ color: 'var(--crai-fg-secondary)' }}>上下文压缩</div>
+          <div className="space-y-2">
+            <div>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>触发阈值 (%)</span>
+                <span className="text-[9px]" style={{ color: 'var(--crai-fg-tertiary)' }}>超过上下文窗口的此比例时自动压缩</span>
+              </div>
+              <input
+                value={compressionThreshold}
+                onChange={e => {
+                  const v = e.target.value.replace(/[^0-9]/g, '')
+                  setCompressionThreshold(v)
+                  if (v) {
+                    const num = parseInt(v, 10)
+                    if (num >= 1 && num <= 100) {
+                      send({ type: 'config:set', config: { compressionThreshold: num / 100 } })
+                    }
+                  }
+                }}
+                placeholder="80"
+                className="w-24 px-2.5 py-1.5 rounded text-xs outline-none"
+                style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── 自定义模型上下文窗口 ── */}
+        <div>
+          <div className="text-xs font-medium mb-2" style={{ color: 'var(--crai-fg-secondary)' }}>自定义模型上下文窗口</div>
+          <div className="text-[10px] mb-2" style={{ color: 'var(--crai-fg-tertiary)' }}>覆盖已知模型的上下文窗口（token 数，0 = 使用默认）</div>
+          <div className="space-y-1.5">
+            {customWindows.length === 0 && (
+              <div className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>暂无自定义配置</div>
+            )}
+            {customWindows.map((cw, i) => (
+              <div key={i} className="flex gap-1.5 items-center">
+                <input
+                  value={cw.model}
+                  onChange={e => {
+                    const next = [...customWindows]
+                    next[i] = { ...next[i], model: e.target.value }
+                    setCustomWindows(next)
+                  }}
+                  placeholder="模型名"
+                  className="flex-1 px-2 py-1 rounded text-[10px] outline-none"
+                  style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                />
+                <input
+                  value={cw.window}
+                  onChange={e => {
+                    const next = [...customWindows]
+                    next[i] = { ...next[i], window: e.target.value.replace(/[^0-9]/g, '') }
+                    setCustomWindows(next)
+                  }}
+                  placeholder="窗口"
+                  className="w-20 px-2 py-1 rounded text-[10px] outline-none"
+                  style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                />
+                <button
+                  onClick={() => {
+                    const next = customWindows.filter((_, j) => j !== i)
+                    setCustomWindows(next)
+                    saveCustomWindows(next)
+                  }}
+                  className="text-[10px] px-1.5 py-1 rounded"
+                  style={{ color: 'var(--crai-destructive)', border: '1px solid var(--crai-destructive)' }}>
+                  删除
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => {
+                setCustomWindows([...customWindows, { model: '', window: '' }])
+              }}
+              className="text-[10px] px-2 py-1 rounded"
+              style={{ color: 'var(--crai-accent)', border: '1px solid var(--crai-accent)' }}>
+              + 添加模型
             </button>
           </div>
         </div>

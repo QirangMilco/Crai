@@ -17,6 +17,7 @@ import type {
 import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId } from '@crai/core'
+import { guardContext, estimateMessagesTokens } from './context-window'
 import { debugLog, DEBUG_SCOPES } from './debug'
 import { withIdleTimeout, StreamTimeoutError } from './streamGuards'
 
@@ -291,6 +292,17 @@ export async function runTurn(
   }
 
   // ── 工具执行循环 ──
+
+  // 每轮 turn 开始时检查一次上下文。
+  // 不移入循环内重复检查（参考 OpenHanako：初始化时检查 + 客户端手动 compact 事件触发）。
+  const guarded = await guardContext(contextWithTools.messages, '', modelName ?? '', {
+    threshold: 0.8,
+    keepRecentTokens: 32000,
+    logger: deps.logger,
+  })
+  if (guarded.compacted) {
+    contextWithTools = { ...contextWithTools, messages: guarded.messages }
+  }
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const request: ModelRequest = {
