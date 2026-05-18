@@ -82,6 +82,12 @@ export function ChatView({ wsUrl }: Props) {
   const [modelsFetchResult, setModelsFetchResult] = useState<{ providerName: string; models: string[]; error?: string } | null>(null)
   const titledSessions = useRef<Set<string>>(new Set())
   const sessionIdRef = useRef<string | null>(null)
+  const [thinkingLevel, setThinkingLevel] = useState<string>('auto')
+  const [sessionMode, setSessionMode] = useState<string>('ask')
+  const [knownModels, setKnownModels] = useState<Record<string, Record<string, { contextWindow: number; maxOutput?: number }>> | null>(null)
+  const [firstPartyProviders, setFirstPartyProviders] = useState<Array<{ name: string; label: string; defaultBaseURL: string }> | null>(null)
+  const [providerThinkingLevels, setProviderThinkingLevels] = useState<Record<string, string[]> | null>(null)
+  const [defaultThinkingLevels, setDefaultThinkingLevels] = useState<Record<string, string> | null>(null)
   const store = useChatStore
 
   const { status, send } = useWebSocket({
@@ -204,6 +210,11 @@ export function ChatView({ wsUrl }: Props) {
             createdAt: m.createdAt ?? Date.now(),
             blocks: m.blocks as any[] | undefined,
           }))
+          // 从 metadata 恢复思考深度和模式
+          if (msg.metadata) {
+            if (msg.metadata.thinkingLevel) setThinkingLevel(String(msg.metadata.thinkingLevel))
+            if (msg.metadata.mode) setSessionMode(String(msg.metadata.mode))
+          }
           debugLog('timeline', `session:data 合并 → ${incoming.length} 条消息`,'')
           store.getState().mergeServerData(incoming)
           break
@@ -215,27 +226,44 @@ export function ChatView({ wsUrl }: Props) {
           debugLog('title-gen', '收到标题', { sessionId: msg.sessionId, title: msg.title })
           setSessions((prev) => prev.map((s) => s.id === msg.sessionId ? { ...s, title: msg.title } : s))
           break
+        case 'config:known-models:data':
+          setKnownModels(msg.knownModels)
+          setFirstPartyProviders(msg.firstParty)
+          setProviderThinkingLevels(msg.thinkingLevels ?? null)
+          setDefaultThinkingLevels(msg.defaultThinkingLevels ?? null)
+          break
       }
     }, []),
   })
 
   const handleSend = useCallback((text: string, model?: string) => {
     const ts = Date.now()
-    debugLog('timeline', '用户发送消息', { text, model })
+    debugLog('timeline', '用户发送消息', { text, model, thinkingLevel, mode: sessionMode })
     debugLog('timeline', '创建助理消息（空）','')
     store.getState().appendPlaceholders(text, ts, sessionId)
-    if (sessionId && !sessions.find((s) => s.id === sessionId)?.title) {
-      const title = text.length > 30 ? text.slice(0, 30) + '…' : text
-      setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, title } : s))
-      send({ type: 'session:update', sessionId, title })
+    if (sessionId) {
+      // 更新标题（仅第一次）
+      if (!sessions.find((s) => s.id === sessionId)?.title) {
+        const title = text.length > 30 ? text.slice(0, 30) + '…' : text
+        setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, title } : s))
+        send({ type: 'session:update', sessionId, title })
+      }
+      // 同步当前思考深度和模式到 session metadata
+      const meta: Record<string, any> = {}
+      if (thinkingLevel !== 'auto') meta.thinkingLevel = thinkingLevel
+      if (sessionMode !== 'ask') meta.mode = sessionMode
+      // 只在新会话或值变化时发送 metadata
+      // 实际上 session:update 会在前端控件改变时单独发送
     }
-    send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model: model || undefined })
-  }, [sessionId, send, sessions, store])
+    send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model: model || undefined, thinkingLevel, mode: sessionMode })
+  }, [sessionId, send, sessions, store, thinkingLevel, sessionMode])
 
   const handleNewSession = useCallback(() => {
     store.getState().clearMessages()
     setSessionId(null)
     sessionIdRef.current = null
+    setThinkingLevel('auto')
+    setSessionMode('ask')
     send({ type: 'session:new' })
   }, [send, store])
 
@@ -269,6 +297,7 @@ export function ChatView({ wsUrl }: Props) {
   useEffect(() => {
     if (status === 'connected') {
       send({ type: 'config:get' })
+      send({ type: 'config:known-models' })
       send({ type: 'workspace:list' })
     }
   }, [status, send])
@@ -326,10 +355,43 @@ export function ChatView({ wsUrl }: Props) {
       </header>
 
       <MessageList messages={messages} />
-      <ChatInput onSend={handleSend} disabled={status !== 'connected'} models={availableModels} currentModel={currentModel} onModelChange={setCurrentModel} />
+      <ChatInput
+        onSend={handleSend}
+        disabled={status !== 'connected'}
+        models={availableModels}
+        currentModel={currentModel}
+        onModelChange={setCurrentModel}
+        thinkingLevel={thinkingLevel}
+        onThinkingLevelChange={(level) => {
+          setThinkingLevel(level)
+          if (sessionId) send({ type: 'session:update', sessionId, thinkingLevel: level })
+        }}
+        sessionMode={sessionMode}
+        onModeChange={(mode) => {
+          setSessionMode(mode)
+          if (sessionId) send({ type: 'session:update', sessionId, mode })
+        }}
+        providerThinkingLevels={
+          (() => {
+            if (!providerThinkingLevels) return undefined
+            const provider = availableModels.find((m) => m.name === currentModel)?.provider
+            if (!provider) return undefined
+            const levels = providerThinkingLevels[provider]
+            if (!levels) return undefined
+            // 转为 { value: label } 格式，label 用硬编码标签（也可抽到服务端）
+            const labelMap: Record<string, string> = { off: '关', auto: '自动', low: '低', medium: '中', high: '高', max: '最高', xhigh: '极高' }
+            const result: Record<string, string> = {}
+            for (const l of levels) {
+              result[l] = labelMap[l] ?? l
+            }
+            return result
+          })()
+        }
+        defaultThinkingLevels={defaultThinkingLevels ?? undefined}
+      />
 
       {showInspector && <InspectorPanel onClose={() => setShowInspector(false)} />}
-      {showConfig && <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} />}
+      {showConfig && <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />}
       {dirBrowser && <DirBrowser data={dirBrowser} onNavigate={handleDirNavigate} onSelect={handleDirSelect} onClose={() => setDirBrowser(null)} />}
     </div>
   )

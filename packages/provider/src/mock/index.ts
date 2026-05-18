@@ -18,6 +18,7 @@ export function createMockProvider(options: MockProviderOptions = {}): Extension
       for (const modelName of MOCK_MODELS) {
         ctx.registry.models.register(modelName, adapter)
       }
+      ctx.registry.thinkingLevels.register('mock', ['off', 'auto', 'low', 'medium', 'high', 'xhigh', 'max'])
     },
   }
 }

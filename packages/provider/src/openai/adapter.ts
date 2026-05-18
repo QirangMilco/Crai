@@ -248,6 +248,15 @@ function buildOpenAIBody(
   if (request.settings?.temperature !== undefined) body.temperature = request.settings.temperature
   if (request.settings?.maxTokens !== undefined) body.max_tokens = request.settings.maxTokens
 
+  // ── Thinking / reasoning ──
+  const tl = (request.settings as any)?.thinkingLevel
+  if (tl === 'off') {
+    // off: 不传任何 reasoning 参数
+  } else if (tl === 'low' || tl === 'medium' || tl === 'high') {
+    // OpenAI o-series 支持 reasoning_effort
+    body.reasoning_effort = tl
+  }
+
   return body
 }
 

@@ -15,6 +15,10 @@ export interface PromptMessage {
   text: string
   model?: string
   provider?: string
+  /** 思考深度级别，用于新 session 初始化或在 prompt 时覆盖。 */
+  thinkingLevel?: string
+  /** 会话模式，用于新 session 初始化或在 prompt 时覆盖。 */
+  mode?: string
 }
 
 /** 客户端请求创建新 session。 */
@@ -94,11 +98,15 @@ export interface SessionLoadMessage {
   sessionId: string
 }
 
-/** 客户端请求更新 session 元数据（如标题）。 */
+/** 客户端请求更新 session 元数据（如标题、模式、思考深度）。 */
 export interface SessionUpdateMessage {
   type: 'session:update'
   sessionId: string
   title?: string
+  /** 会话权限模式：operate / ask / read_only。 */
+  mode?: string
+  /** 思考深度级别：off / auto / low / medium / high / xhigh。 */
+  thinkingLevel?: string
 }
 
 /** 客户端请求浏览指定路径的目录结构（只返回子目录，不含文件）。 */
@@ -114,6 +122,11 @@ export interface SessionGenerateTitleMessage {
   sessionId: string
 }
 
+/** 客户端请求获取已知模型信息和第一方 provider 列表。 */
+export interface ConfigKnownModelsMessage {
+  type: 'config:known-models'
+}
+
 export type ClientMessage =
   | PromptMessage
   | SessionNewMessage
@@ -127,6 +140,7 @@ export type ClientMessage =
   | ConfigSetProviderMessage
   | ConfigRemoveProviderMessage
   | ConfigFetchModelsMessage
+  | ConfigKnownModelsMessage
   | WorkspaceListMessage
   | WorkspaceSwitchMessage
   | WorkspaceConfigGetMessage
@@ -207,6 +221,8 @@ export interface SessionDataMessage {
   type: 'session:data'
   sessionId: string
   messages: Array<{ id: string; role: string; text: string; createdAt: number; blocks?: any[] }>
+  /** session 元数据，含 thinkingLevel、mode 等。 */
+  metadata?: Record<string, unknown>
 }
 
 export type ServerMessage =
@@ -223,6 +239,7 @@ export type ServerMessage =
   | SessionDataMessage
   | DirBrowseDataMessage
   | SessionTitleMessage
+  | ConfigKnownModelsDataMessage
 
 /** 目录浏览响应。 */
 
@@ -244,4 +261,17 @@ export interface DirBrowseDataMessage {
   parent?: string
   /** 错误信息。 */
   error?: string
+}
+
+/** 已知模型与第一方 provider 信息响应。 */
+export interface ConfigKnownModelsDataMessage {
+  type: 'config:known-models:data'
+  /** 第一方 provider 列表。 */
+  firstParty: Array<{ name: string; label: string; defaultBaseURL: string }>
+  /** 已知模型窗口数据。provider → model → { contextWindow, maxOutput? }。 */
+  knownModels: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>
+  /** Provider 声明的思考深度列表。provider → string[]。 */
+  thinkingLevels?: Record<string, string[]>
+  /** 各 provider 的默认思考深度。provider → level。 */
+  defaultThinkingLevels?: Record<string, string>
 }

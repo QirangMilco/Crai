@@ -104,6 +104,7 @@ export function createTrackedRegistries(
 ): RuntimeRegistries {
   return {
     models: createTrackedRegistry(registries.models, tracker),
+    thinkingLevels: createTrackedRegistry(registries.thinkingLevels, tracker),
     tools: createTrackedRegistry(registries.tools, tracker),
     storages: createTrackedRegistry(registries.storages, tracker),
     caches: createTrackedRegistry(registries.caches, tracker),
@@ -137,6 +138,7 @@ export function createRegistry<T>(): Registry<T> {
 export function createRuntimeRegistries(): RuntimeRegistries {
   return {
     models: createRegistry<ModelAdapter>(),
+    thinkingLevels: createRegistry<string[]>(),
     tools: createRegistry<ToolProvider>(),
     storages: createRegistry<StorageAdapter>(),
     caches: createRegistry<CacheAdapter>(),

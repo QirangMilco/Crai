@@ -17,6 +17,7 @@ import type {
 import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId } from '@crai/core'
+import type { PermissionMode } from '@crai/core'
 import { guardContext, estimateMessagesTokens } from '@crai/base'
 import type { Summarizer } from '@crai/base'
 import { debugLog, DEBUG_SCOPES } from './debug'
@@ -303,7 +304,7 @@ export async function runTurn(
     }
     const safetyResult: any = await deps.hooks.run(
       HOOKS.TOOL_SAFETY_CHECK,
-      { session, toolCall: tc, definition: def, mode: PERMISSION_MODES.ASK },
+      { session, toolCall: tc, definition: def, mode: (session.metadata?.mode as PermissionMode) ?? PERMISSION_MODES.ASK },
       { runtime },
     )
     if (safetyResult?.stop) {
@@ -365,7 +366,12 @@ export async function runTurn(
         ...contextWithTools,
         messages: contextWithTools.messages,
       },
+      settings: {
+        thinkingLevel: (session.metadata?.thinkingLevel as string | undefined) ?? 'auto',
+      },
     }
+    const tl = (session.metadata?.thinkingLevel as string | undefined) ?? 'auto'
+    debugLog('thinking', 'turnRunner settings', { sessionId: session.id, thinkingLevel: tl, metadata: session.metadata, round }, deps.logger)
 
     const preparedRequest = await deps.hooks.run(
       HOOKS.MODEL_REQUEST_BEFORE,

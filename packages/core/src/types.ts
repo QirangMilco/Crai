@@ -16,9 +16,10 @@ import type {
   TrustLevel,
   ObservationType,
   MessageRole,
+  ThinkingLevel,
 } from './constants'
 
-export type { ToolSafetyLevel, PermissionMode, PermissionKind, MemoryScope, TrustLevel, ObservationType, MessageRole }
+export type { ToolSafetyLevel, PermissionMode, PermissionKind, MemoryScope, TrustLevel, ObservationType, MessageRole, ThinkingLevel }
 
 export type ID = string
 export type Timestamp = number

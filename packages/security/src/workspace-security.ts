@@ -53,7 +53,6 @@ export interface WorkspaceSecurityOptions {
 
 export function createWorkspaceSecurity(options: WorkspaceSecurityOptions): Extension {
   const rootDir = options.rootDir
-  const mode = options.mode ?? PERMISSION_MODES.ASK
   const askHandler = options.askHandler
   const yoloMode = options.yoloMode ?? false
 
@@ -85,12 +84,13 @@ export function createWorkspaceSecurity(options: WorkspaceSecurityOptions): Exte
       ctx.hooks.on(
         HOOKS.TOOL_SAFETY_CHECK,
         async (value: any) => {
-          const { definition: def, toolCall: tc } = value as {
+          const { definition: def, toolCall: tc, mode } = value as {
             session: any
             toolCall: { name: string; arguments: Record<string, unknown> }
             definition: ToolDefinition
             mode: PermissionMode
           }
+          const checkMode = mode ?? PERMISSION_MODES.ASK
           const level = def.safetyLevel ?? TOOL_SAFETY_LEVELS.SAFE
           const args = tc.arguments as Record<string, unknown> ?? {}
 
@@ -100,14 +100,20 @@ export function createWorkspaceSecurity(options: WorkspaceSecurityOptions): Exte
             if (pathError) {
               return { stop: true as const, reason: pathError.reason }
             }
+            // safe 模式下 RESTRICTED 工具也被拦截
+            if (level === TOOL_SAFETY_LEVELS.RESTRICTED && checkMode === PERMISSION_MODES.SAFE) {
+              return { stop: true as const, reason: `修改工具 "${def.name}" 在只读模式下被禁止` }
+            }
             return
           }
 
-          // dangerous
-          if (level === TOOL_SAFETY_LEVELS.DANGEROUS) {
-            if (mode === PERMISSION_MODES.SAFE) {
-              return { stop: true as const, reason: `危险工具 "${def.name}" 在 safe 模式下被禁止` }
+          // safe 模式（只读）：拦截所有 dangerous 工具
+          if (checkMode === PERMISSION_MODES.SAFE) {
+            if (level === TOOL_SAFETY_LEVELS.DANGEROUS) {
+              return { stop: true as const, reason: `危险工具 "${def.name}" 在只读模式下被禁止` }
             }
+          }
+          if (level === TOOL_SAFETY_LEVELS.DANGEROUS) {
 
             // 检测敏感命令
             let sensitive = false
@@ -125,7 +131,7 @@ export function createWorkspaceSecurity(options: WorkspaceSecurityOptions): Exte
               return // 自动放行
             }
 
-            if (mode === PERMISSION_MODES.ASK && askHandler) {
+            if (checkMode === PERMISSION_MODES.ASK && askHandler) {
               const allowed = await askHandler({
                 toolName: def.name,
                 args,

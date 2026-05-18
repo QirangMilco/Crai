@@ -19,6 +19,7 @@ import { createWsTransport } from '@crai/transport-ws'
 import type { AppVariant } from '@crai/core'
 import { ConfigManager } from '@crai/config'
 import { EVENTS } from '@crai/core'
+import { KNOWN_MODELS } from '@crai/core'
 import type { Extension } from '@crai/core'
 import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
@@ -48,6 +49,13 @@ function createEventForwarder(wsId: string, f: (wsId: string, evt: string, paylo
 }
 
 // ── Workspace 管理器 ──
+
+// ── 第一方 provider 元数据 ──
+
+const FIRST_PARTY_PROVIDERS: ReadonlyArray<{ name: string; label: string; defaultBaseURL: string }> = [
+  { name: 'deepseek', label: 'DeepSeek', defaultBaseURL: 'https://api.deepseek.com' },
+  { name: 'openai', label: 'OpenAI', defaultBaseURL: 'https://api.openai.com/v1' },
+]
 
 class WorkspaceManager {
   private runtimes = new Map<string, RuntimeHandle>()
@@ -88,6 +96,26 @@ class WorkspaceManager {
       extensions: [
         provider,
         ...(VARIANT === 'dev' ? [createMockProvider({ logger: this.log })] : []),
+        // 预注册工具模型对应的 provider（如 workspace 用 mock 但工具模型用 deepseek）
+        ...(() => {
+          const global = this.config.getGlobal()
+          const toolModel = global.toolModel
+          if (!toolModel) return []
+          const si = toolModel.indexOf('/')
+          if (si < 0) return []
+          const toolProvider = toolModel.slice(0, si)
+          const toolModelName = toolModel.slice(si + 1)
+          // 如果工具模型的 provider 与 workspace 主 provider 相同，不需要重复注册
+          if (toolProvider === eff.provider) return []
+          // 工具模型的 provider 已在全局配置中找到
+          const pcfg = global.providers[toolProvider]
+          if (!pcfg?.apiKey) return []
+          this.log.info(`预注册工具模型: ${toolModel}`)
+          if (toolProvider === 'deepseek') {
+            return [createDeepSeekProvider({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, models: [toolModelName], logger: this.log })]
+          }
+          return [createOpenAIProvider({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, models: [toolModelName], logger: this.log })]
+        })(),
         createFileStorage({ baseDir: dataDir }),
         createPersistenceExtension(),
         createFsTools({ rootDir, snapshotsDir: resolve(dataDir, 'snapshots') }),
@@ -219,6 +247,38 @@ async function main() {
           log.info(`获取到 ${result.models.length} 个模型`)
         }
         return result
+      },
+      onConfigKnownModels: async () => {
+        // 从活跃 runtime 收集 provider 声明的思考深度
+        const thinkingLevels: Record<string, string[]> = {}
+        for (const dir of gWorkspaces?.list() ?? []) {
+          const rt = gWorkspaces?.getRuntime(dir)
+          if (!rt) continue
+          for (const entry of (rt as any).registries?.thinkingLevels?.list() ?? []) {
+            if (!thinkingLevels[entry.name]) {
+              thinkingLevels[entry.name] = entry.value
+            }
+          }
+        }
+        return {
+          firstParty: [...FIRST_PARTY_PROVIDERS],
+          knownModels: (() => {
+            const result: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>> = {}
+            for (const [provider, models] of Object.entries(KNOWN_MODELS)) {
+              result[provider] = {}
+              for (const [model, info] of Object.entries(models)) {
+                result[provider][model] = { contextWindow: info.contextWindow, maxOutput: info.maxOutput }
+              }
+            }
+            return result
+          })(),
+          thinkingLevels,
+          defaultThinkingLevels: {
+            deepseek: 'high',
+            openai: 'medium',
+            mock: 'auto',
+          },
+        }
       },
       onWorkspaceList: async () => {
         const active = new Set(gWorkspaces?.list() ?? [])

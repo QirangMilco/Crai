@@ -42,5 +42,6 @@ export const DEBUG_SCOPES = {
   MIDDLEWARE: 'middleware',
   API: 'api',
   TITLE_GEN: 'title-gen',
+  THINKING: 'thinking',
   ALL: 'all',
 } as const

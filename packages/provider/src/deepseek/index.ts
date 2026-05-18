@@ -39,6 +39,8 @@ export function createDeepSeekProvider(options: DeepSeekProviderOptions): Extens
         // 注册 provider:modelName 别名，防止不同 provider 同名模型冲突
         ctx.registry.models.register(`${EXTENSION_NAME}:${modelName}`, adapter)
       }
+      // 声明思考深度（DeepSeek 只支持 off/high/max）
+      ctx.registry.thinkingLevels.register(EXTENSION_NAME, ['off', 'high', 'max'])
     },
   }
 }

@@ -66,7 +66,7 @@ export class MockDeepSeekAdapter implements ModelAdapter {
     }
 
     if (userText === '消息测试') {
-      yield* this.mockStream()
+      yield* this.mockStream(request)
     } else if (userText === '复杂多轮测试') {
       yield* this.mockFirstRound()
     } else {
@@ -90,10 +90,14 @@ export class MockDeepSeekAdapter implements ModelAdapter {
   }
 
   /** 基本测试：思考 → 3个工具 → 文本。 */
-  private async *mockStream(): AsyncIterable<ModelStreamEvent> {
-    const thinking = '好的，用户发来一条测试消息，我需要模拟思考过程。首先理解用户需求，然后规划要调用的工具，最后生成回复。'
-    yield* emitChars(thinking, 60, STREAM_EVENT_TYPES.THINKING_DELTA)
-    yield { type: STREAM_EVENT_TYPES.THINKING_DONE as any }
+  private async *mockStream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
+    const tl = (request.settings as any)?.thinkingLevel
+    const thinkingEnabled = tl !== 'off'
+    if (thinkingEnabled) {
+      const thinking = '好的，用户发来一条测试消息，我需要模拟思考过程。首先理解用户需求，然后规划要调用的工具，最后生成回复。'
+      yield* emitChars(thinking, 60, STREAM_EVENT_TYPES.THINKING_DELTA)
+      yield { type: STREAM_EVENT_TYPES.THINKING_DONE as any }
+    }
 
     const text = '这是 mock 测试的回复内容。以下是当前目录的文件列表信息，以及 README 文件的概要内容，供你参考。'
     const tools: Array<{ id: string; name: string; args: Record<string, unknown> }> = []

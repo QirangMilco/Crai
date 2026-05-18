@@ -147,6 +147,10 @@ export const MESSAGE_PART_TYPES = {
   TOOL_CALL: 'tool-call',
 } as const
 
+/** 思考深度级别。参考 OpenHanako 的 session-thinking-level.js。 */
+export const THINKING_LEVELS = ['off', 'auto', 'low', 'medium', 'high', 'xhigh'] as const
+export type ThinkingLevel = typeof THINKING_LEVELS[number]
+
 /** ModelStreamEvent 判别式。所有 provider 实现流式响应时都应引用此常量。 */
 export const STREAM_EVENT_TYPES = {
   TEXT_START: 'text-start',

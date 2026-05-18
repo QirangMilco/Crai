@@ -34,6 +34,8 @@ export function createOpenAIProvider(options: OpenAIProviderOptions): Extension 
         ctx.registry.models.register(modelName, adapter)
         ctx.registry.models.register(`${EXTENSION_NAME}:${modelName}`, adapter)
       }
+      // OpenAI 支持 off/low/medium/high
+      ctx.registry.thinkingLevels.register(EXTENSION_NAME, ['off', 'low', 'medium', 'high'])
     },
   }
 }

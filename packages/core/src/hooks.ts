@@ -262,6 +262,8 @@ export interface SessionPipeline {
 
 export interface RuntimeRegistries {
   models: Registry<ModelAdapter>
+  /** Provider/extension → 支持的思考深度列表。由 provider extension 在 setup() 中注册。 */
+  thinkingLevels: Registry<string[]>
   tools: Registry<ToolProvider>
   storages: Registry<StorageAdapter>
   caches: Registry<CacheAdapter>
@@ -367,6 +369,8 @@ export interface RuntimeHandle {
   createSession(input?: Metadata, sessionId?: ID): Promise<Session>
   stopSession(sessionId: ID, messages?: Message[]): Promise<void>
   getSession(sessionId: ID): Promise<Session | undefined>
+  /** 更新内存中的 session 元数据。用于 session:update 等非 prompt 场景同步 metadata。 */
+  updateSession(session: Session): Promise<void>
   listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>>
   listMessages(sessionId: ID): Promise<Message[]>
   loadExtension(ext: Extension): Promise<void>
@@ -391,6 +395,10 @@ export interface PromptOptions {
   provider?: string
   /** 工具模型。格式：provider/model。用于标题生成、对话摘要等辅助 LLM 调用。未设置时使用 model。 */
   toolModel?: string
+  /** 思考深度级别，覆盖 session.metadata.thinkingLevel。 */
+  thinkingLevel?: string
+  /** 会话模式，覆盖 session.metadata.mode。 */
+  mode?: string
   /** 上下文压缩阈值（0~1）。覆盖全局配置的 compressionThreshold。 */
   compressionThreshold?: number
   /** 压缩后保留的最近消息 token 数。覆盖全局配置的 keepRecentTokens。 */

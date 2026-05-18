@@ -19,6 +19,12 @@ export interface WsTransportHandlers {
   onConfigSetProvider?: (name: string, config: ProviderConfig) => void | Promise<void>
   onConfigRemoveProvider?: (name: string) => void | Promise<void>
   onConfigFetchModels?: (providerName: string) => Promise<{ models: string[]; error?: string }>
+  /** 返回已知模型信息和第一方 provider 列表。 */
+  onConfigKnownModels?: () => Promise<{
+    firstParty: Array<{ name: string; label: string; defaultBaseURL: string }>
+    knownModels: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>
+    thinkingLevels: Record<string, string[]>
+  }>
   onWorkspaceList?: () => Array<{ rootDir: string; config: WorkspaceConfig }> | Promise<Array<{ rootDir: string; config: WorkspaceConfig }>>
   onWorkspaceSwitch?: (rootDir: string) => Promise<{ model: string; provider: string }>
   onWorkspaceConfigGet?: (rootDir: string) => WorkspaceConfig | Promise<WorkspaceConfig>
@@ -175,6 +181,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'config:set:provider':
       case 'config:remove:provider':
       case 'config:fetch:models':
+      case 'config:known-models':
       case 'workspace:list':
       case 'workspace:switch':
       case 'workspace:config:get':
@@ -207,6 +214,9 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         } else {
           opts.sessionId = sessionId
         }
+        // 在 prompt 中携带思考深度和模式
+        if (msg.thinkingLevel !== undefined) opts.thinkingLevel = msg.thinkingLevel
+        if (msg.mode !== undefined) opts.mode = msg.mode
         // 模型格式：provider/model（如 "deepseek/deepseek-v4-flash"），兼容无前缀的裸名
         if (msg.model) {
           const slashIdx = msg.model.indexOf('/')
@@ -268,6 +278,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'session:load': {
         const rt = resolveRuntime()!
         const raw = await rt.listMessages(msg.sessionId)
+        const session = await rt.getSession(msg.sessionId)
         // 将内部 Message（parts 格式）转为客户端格式，含 blocks
         const messages = raw
           .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
@@ -278,7 +289,12 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             createdAt: m.createdAt,
             blocks: m.role === 'assistant' ? buildBlocksFromParts(m.parts) : undefined,
           }))
-        ws.send(JSON.stringify({ type: 'session:data', sessionId: msg.sessionId, messages } satisfies ServerMessage))
+        ws.send(JSON.stringify({
+          type: 'session:data',
+          sessionId: msg.sessionId,
+          messages,
+          metadata: session?.metadata,
+        } satisfies ServerMessage))
         break
       }
 
@@ -356,12 +372,21 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         const rt = resolveRuntime()!
         const session = await rt.getSession(msg.sessionId)
         if (session) {
-          const updated = { ...session, title: msg.title ?? session.title, updatedAt: Date.now() }
-          logger?.info(`已更新 session ${msg.sessionId} 标题: ${(msg.title ?? '(清空)').slice(0, 40)}`)
+          const metadata = { ...session.metadata }
+          if (msg.thinkingLevel !== undefined) metadata.thinkingLevel = msg.thinkingLevel
+          if (msg.mode !== undefined) metadata.mode = msg.mode
+          const updated = { ...session, title: msg.title ?? session.title, metadata, updatedAt: Date.now() }
+          const changed = []
+          if (msg.title !== undefined) changed.push(`标题: ${(msg.title ?? '(清空)').slice(0, 40)}`)
+          if (msg.thinkingLevel !== undefined) changed.push(`思考深度: ${msg.thinkingLevel}`)
+          if (msg.mode !== undefined) changed.push(`模式: ${msg.mode}`)
+          logger?.info(`已更新 session ${msg.sessionId}: ${changed.join(', ')}`)
           // 通过 runtime 的内部存储持久化标题
           const storages = (rt as any).registries?.storages?.list()
           const storage = storages?.[0]?.value
           if (storage) await storage.updateSession(updated)
+          // 同步更新 runtime 内存中的 session
+          await rt.updateSession(updated)
         }
         const sessions = await rt.listSessions()
         ws.send(JSON.stringify({ type: 'session:list:data', sessions } satisfies ServerMessage))
@@ -407,6 +432,13 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         if (!handlers?.onConfigFetchModels) { ws.send(JSON.stringify({ type: 'error', message: 'model fetching not available' } satisfies ServerMessage)); break }
         const result = await handlers.onConfigFetchModels(msg.providerName)
         ws.send(JSON.stringify({ type: 'config:models:data', providerName: msg.providerName, ...result } satisfies ServerMessage))
+        break
+      }
+
+      case 'config:known-models': {
+        if (!handlers?.onConfigKnownModels) { ws.send(JSON.stringify({ type: 'error', message: 'known models not available' } satisfies ServerMessage)); break }
+        const data = await handlers.onConfigKnownModels()
+        ws.send(JSON.stringify({ type: 'config:known-models:data', ...data } satisfies ServerMessage))
         break
       }
 

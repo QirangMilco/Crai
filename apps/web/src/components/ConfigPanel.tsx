@@ -8,20 +8,10 @@
  */
 import { useState, useCallback, useEffect } from 'react'
 
-// ── 预设 first-party 提供商 ──
-
-const FIRST_PARTY = [
-  { name: 'deepseek', label: 'DeepSeek', defaultBaseURL: 'https://api.deepseek.com' },
-  { name: 'openai', label: 'OpenAI', defaultBaseURL: 'https://api.openai.com/v1' },
-] as const
-
-// 已知模型上下文窗口（简单查找，与 core 中 known-models.ts 保持同步）
-function getModelContextWindow(provider: string, model: string): number | undefined {
-  const known: Record<string, Record<string, number>> = {
-    deepseek: { 'deepseek-v4-flash': 1048576, 'deepseek-v3': 1048576, 'deepseek-reasoner': 65536 },
-    openai: { 'gpt-4o': 131072, 'gpt-4o-mini': 131072, 'gpt-4-turbo': 131072, 'gpt-4': 8192 },
-  }
-  return known[provider]?.[model]
+// 由服务端 knownModels prop 提供，见 config:known-models 协议。
+// 不再硬编码。
+function getModelContextWindow(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>): number | undefined {
+  return knownModels?.[provider]?.[model]?.contextWindow
 }
 
 interface Props {
@@ -38,6 +28,10 @@ interface Props {
   modelsFetchResult?: { providerName: string; models: string[]; error?: string } | null
   /** 清除模型结果（组件已消费后调用）。 */
   onClearModelsResult?: () => void
+  /** 已知模型窗口数据，由服务端提供。 */
+  knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>
+  /** 第一方 provider 列表，由服务端提供。 */
+  firstParty?: Array<{ name: string; label: string; defaultBaseURL: string }>
 }
 
 function maskKey(key: string): string {
@@ -45,7 +39,7 @@ function maskKey(key: string): string {
   return key.slice(0, 4) + '…' + key.slice(-4)
 }
 
-export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearModelsResult }: Props) {
+export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearModelsResult, knownModels, firstParty }: Props) {
   const [editing, setEditing] = useState<string | null>(null)     // 展开编辑的 provider name
   const [editKey, setEditKey] = useState('')                      // 编辑中的 API key
   const [editBaseURL, setEditBaseURL] = useState('')              // 编辑中的 base URL
@@ -96,12 +90,12 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
 
   // 判断是否是预设提供商
   const isFirstParty = useCallback((name: string) => {
-    return FIRST_PARTY.some((fp) => fp.name === name) || (name === 'mock' && isDev)
-  }, [isDev])
+    return (firstParty ?? []).some((fp) => fp.name === name) || (name === 'mock' && isDev)
+  }, [firstParty, isDev])
 
   const firstPartyDefault = useCallback((name: string) => {
-    return FIRST_PARTY.find((fp) => fp.name === name)
-  }, [])
+    return (firstParty ?? []).find((fp) => fp.name === name)
+  }, [firstParty])
 
   function startEdit(name: string) {
     const p = providers[name] ?? { apiKey: '', baseURL: '' }
@@ -164,11 +158,11 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   }
 
   // 合并预设 + 自定义 provider 列表
-  const firstParty = isDev
-    ? [...FIRST_PARTY, { name: 'mock', label: 'Mock（测试）', defaultBaseURL: '' }]
-    : FIRST_PARTY
+  const knownFirstParty = isDev
+    ? [...(firstParty ?? []), { name: 'mock', label: 'Mock（测试）', defaultBaseURL: '' }]
+    : (firstParty ?? [])
   const providerEntries = [
-    ...firstParty.map((fp) => ({
+    ...knownFirstParty.map((fp) => ({
       name: fp.name,
       label: fp.label,
       configured: !!providers[fp.name],
@@ -298,7 +292,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                 }
                                 send({ type: 'config:set', config: { customContextWindows: cleaned } })
                               }}
-                              placeholder={getModelContextWindow(entry.name, m) ? String(getModelContextWindow(entry.name, m)) : '128000'}
+                              placeholder={getModelContextWindow(entry.name, m, knownModels) ? String(getModelContextWindow(entry.name, m, knownModels)) : '128000'}
                               className="w-14 px-1 py-0.5 rounded text-[9px] outline-none text-center"
                               style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}
                               title="上下文窗口（token）"

@@ -312,6 +312,10 @@ function buildDeepSeekBody(
 
   // ── Thinking mode 决策 ──
   const thinking = shouldEnableThinking(request)
+  debugLog(DEBUG_SCOPES.THINKING, 'buildDeepSeekBody', {
+    thinkingLevel: (request.settings as any)?.thinkingLevel,
+    thinking,
+  })
   const maxTokens = request.settings?.maxTokens
 
   if (thinking) {

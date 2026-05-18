@@ -20,6 +20,23 @@ export interface ModelInfo {
   maxOutput?: number
   /** 是否支持 thinking mode。 */
   thinking?: boolean
+  /**
+   * 支持的思考深度列表。
+   * 未设置时使用 provider 默认值；provider 也未设置时使用全局默认（全部级别）。
+   * 适配器收到外部 thinkingLevel 后自行转换为 provider 内部参数。
+   */
+  supportedThinkingLevels?: string[]
+}
+
+/**
+ * 各 provider 默认支持的思考深度列表。
+ * 模型未定义 supportedThinkingLevels 时继承 provider 默认值。
+ */
+export const PROVIDER_DEFAULT_THINKING_LEVELS: Record<string, string[]> = {
+  'deepseek': ['off', 'high', 'max'],
+  'openai':   ['off', 'low', 'medium', 'high'],
+  'anthropic': ['off', 'high', 'xhigh'],
+  'mock':     ['off', 'auto', 'low', 'medium', 'high', 'xhigh'],
 }
 
 /** Provider → model name → info */
@@ -34,8 +51,8 @@ const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
   'deepseek-v4-pro':   { contextWindow: 1048576, thinking: true },
   'deepseek-v3':       { contextWindow: 1048576, thinking: true },
   'deepseek-reasoner': { contextWindow: 65536, thinking: true },
-  'deepseek-chat':     { contextWindow: 32768 },
-  'deepseek-coder':    { contextWindow: 16384 },
+  'deepseek-chat':     { contextWindow: 32768, supportedThinkingLevels: ['off'] },
+  'deepseek-coder':    { contextWindow: 16384, supportedThinkingLevels: ['off'] },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -207,4 +224,16 @@ export function getKnownProviders(): string[] {
 export function getKnownModels(provider: string): string[] {
   const byProvider = KNOWN_MODELS[provider.toLowerCase()]
   return byProvider ? Object.keys(byProvider) : []
+}
+
+/**
+ * 获取模型支持的思考深度列表。
+ * 优先级：模型级定义 > provider 默认值 > 全部级别。
+ */
+export function getSupportedThinkingLevels(provider: string, model: string): string[] {
+  const info = getModelInfo(provider, model)
+  if (info?.supportedThinkingLevels) return info.supportedThinkingLevels
+  const providerDefault = PROVIDER_DEFAULT_THINKING_LEVELS[provider.toLowerCase()]
+  if (providerDefault) return providerDefault
+  return ['off', 'auto', 'low', 'medium', 'high', 'xhigh', 'max']
 }

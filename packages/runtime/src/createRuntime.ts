@@ -270,6 +270,18 @@ async function handlePrompt(
   const toolModel = promptOptions?.toolModel ?? modelName
   const compressionThreshold = promptOptions?.compressionThreshold
   const compressionKeepTokens = promptOptions?.compressionKeepTokens
+  // prompt 级别的 thinkingLevel 覆盖 session.metadata
+  const thinkingLevel = promptOptions?.thinkingLevel
+  if (thinkingLevel) {
+    const updatedMeta = { ...session.metadata, thinkingLevel }
+    session = { ...session, metadata: updatedMeta }
+    deps.sessions.update(session)
+  }
+  const mode = promptOptions?.mode
+  if (mode && session.metadata?.mode !== mode) {
+    if (!session.metadata) session = { ...session, metadata: {} }
+    ;(session as any).metadata!.mode = mode
+  }
   const inputText = typeof input === 'string' ? input : (input as any)?.text
   deps.traceCollector?.note(`prompt — ${JSON.stringify(inputText ?? input)}`)
   const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel, compressionThreshold, compressionKeepTokens)
@@ -401,6 +413,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     createSession: (input, sessionId) => handleCreateSession(deps, runtime, input, sessionId),
     stopSession: (sessionId, messages) => handleStopSession(deps, runtime, sessionId, messages),
     getSession: async (sessionId) => deps.sessions.get(sessionId) ?? undefined,
+    updateSession: async (session) => deps.sessions.update(session),
     listSessions: async () => {
       const storages = deps.registries.storages.list()
       const storage = storages[0]?.value

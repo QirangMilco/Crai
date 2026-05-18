@@ -84,6 +84,8 @@ export interface ModelRequest {
   settings?: {
     temperature?: number
     maxTokens?: number
+    /** 思考深度级别。off / auto / low / medium / high / xhigh。 */
+    thinkingLevel?: string
     /**
      * Provider 私有参数。核心只透传，由具体的 ModelAdapter 自行解释。
      * 当一个参数被多个 provider 支持后，应提升为 settings 的一等字段。
