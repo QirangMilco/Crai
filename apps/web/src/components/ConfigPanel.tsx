@@ -15,6 +15,15 @@ const FIRST_PARTY = [
   { name: 'openai', label: 'OpenAI', defaultBaseURL: 'https://api.openai.com/v1' },
 ] as const
 
+// 已知模型上下文窗口（简单查找，与 core 中 known-models.ts 保持同步）
+function getModelContextWindow(provider: string, model: string): number | undefined {
+  const known: Record<string, Record<string, number>> = {
+    deepseek: { 'deepseek-v4-flash': 1048576, 'deepseek-v3': 1048576, 'deepseek-reasoner': 65536 },
+    openai: { 'gpt-4o': 131072, 'gpt-4o-mini': 131072, 'gpt-4-turbo': 131072, 'gpt-4': 8192 },
+  }
+  return known[provider]?.[model]
+}
+
 interface Props {
   config: {
     providers: Record<string, { apiKey: string; baseURL?: string; models?: string[] }>
@@ -41,18 +50,19 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const [editKey, setEditKey] = useState('')                      // 编辑中的 API key
   const [editBaseURL, setEditBaseURL] = useState('')              // 编辑中的 base URL
   const [editModel, setEditModel] = useState('')                  // 编辑中的 default model
-  const [editToolModel, setEditToolModel] = useState('')          // 编辑中的 tool model
   const [editModelsPath, setEditModelsPath] = useState('')        // 编辑中的 models 路径
   const [fetchedModels, setFetchedModels] = useState<string[]>([])
   const [fetching, setFetching] = useState(false)
+  // 每个模型的上下文窗口覆盖（从已保存配置读取）
+  const [editContextWindows, setEditContextWindows] = useState<Record<string, string>>(
+    () => Object.fromEntries(
+      Object.entries(config?.customContextWindows ?? {}).map(([k, v]) => [k, String(v)])
+    )
+  )
   const [sandboxEnabled, setSandboxEnabled] = useState(config?.sandboxEnabled ?? false)
   // 压缩阈值（显示为百分比整数，如 80 表示 80%）
   const defaultThreshold = config?.compressionThreshold != null ? Math.round(config.compressionThreshold * 100) : 80
   const [compressionThreshold, setCompressionThreshold] = useState(String(defaultThreshold))
-  // 自定义模型上下文窗口
-  const [customWindows, setCustomWindows] = useState<Array<{ model: string; window: string }>>(
-    () => Object.entries(config?.customContextWindows ?? {}).map(([model, window]) => ({ model, window: String(window) }))
-  )
 
   // 自定义提供商表单
   const [customName, setCustomName] = useState('')
@@ -62,6 +72,13 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
 
   const providers = config?.providers ?? {}
   const isDev = (config as any)?.variant === 'dev'
+
+  // 从所有 provider 收集模型列表
+  const allModelOptions = Object.entries(providers).flatMap(([provider, p]) =>
+    (p.models ?? []).map(m => ({ provider, model: m, label: `${provider}/${m}` }))
+  )
+  // 当前选中的工具模型（格式：provider/model）
+  const [editToolModel, setEditToolModel] = useState(config?.toolModel ?? '')
 
   // 处理服务端返回的模型列表
   useEffect(() => {
@@ -92,7 +109,6 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setEditKey(p.apiKey)
     setEditBaseURL(p.baseURL || firstPartyDefault(name)?.defaultBaseURL || '')
     setEditModel(p.models?.[0] ?? config?.defaultModel ?? '')
-    setEditToolModel(config?.toolModel ?? '')
     setEditModelsPath((p as any).modelsPath ?? '')
     setFetchedModels(p.models ?? [])
   }
@@ -105,12 +121,10 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
       models: fetchedModels.length > 0 ? fetchedModels : undefined,
       modelsPath: editModelsPath || undefined,
     }})
-    // 设置 defaultModel（仅当模型确实属于此 provider 时）
+    // 设置 defaultModel（格式：provider/model）
     if (editModel && (fetchedModels.length === 0 || fetchedModels.includes(editModel))) {
-      send({ type: 'config:set', config: { defaultModel: editModel } })
+      send({ type: 'config:set', config: { defaultModel: `${editing}/${editModel}` } })
     }
-    // 设置 toolModel（如果不同于 defaultModel）
-    if (editToolModel) send({ type: 'config:set', config: { toolModel: editToolModel, toolProvider: editing } })
     // 刷新配置 UI
     send({ type: 'config:get' })
     setEditing(null)
@@ -121,7 +135,6 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setEditKey('')
     setEditBaseURL('')
     setEditModel('')
-    setEditToolModel('')
     setFetchedModels([])
   }
 
@@ -135,17 +148,6 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   function removeProvider(name: string) {
     send({ type: 'config:remove:provider', name })
     if (editing === name) cancelEdit()
-  }
-
-  function saveCustomWindows(entries: Array<{ model: string; window: string }>) {
-    const customContextWindows: Record<string, number> = {}
-    for (const e of entries) {
-      if (e.model && e.window) {
-        const num = parseInt(e.window, 10)
-        if (num > 0) customContextWindows[e.model] = num
-      }
-    }
-    send({ type: 'config:set', config: { customContextWindows } })
   }
 
   function addCustomProvider() {
@@ -273,14 +275,35 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
                         {fetchedModels.length > 0 ? fetchedModels.map((m) => (
-                          <button key={m} onClick={() => setEditModel(m)}
-                            className="text-[10px] px-2 py-0.5 rounded transition-colors"
-                            style={{
-                              backgroundColor: editModel === m ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
-                              color: editModel === m ? '#fff' : 'var(--crai-fg)',
-                            }}>
-                            {m}
-                          </button>
+                          <div key={m} className="flex items-center gap-1">
+                            <button onClick={() => setEditModel(m)}
+                              className="text-[10px] px-2 py-0.5 rounded transition-colors whitespace-nowrap"
+                              style={{
+                                backgroundColor: editModel === m ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
+                                color: editModel === m ? '#fff' : 'var(--crai-fg)',
+                              }}>
+                              {m}
+                            </button>
+                            <input
+                              value={editContextWindows[`${editing}/${m}`] ?? ''}
+                              onChange={e => {
+                                const v = e.target.value.replace(/[^0-9]/g, '')
+                                setEditContextWindows(prev => ({ ...prev, [`${editing}/${m}`]: v }))
+                              }}
+                              onBlur={() => {
+                                const cleaned: Record<string, number> = {}
+                                for (const [k, val] of Object.entries(editContextWindows)) {
+                                  const n = parseInt(val, 10)
+                                  if (n > 0) cleaned[k] = n
+                                }
+                                send({ type: 'config:set', config: { customContextWindows: cleaned } })
+                              }}
+                              placeholder={getModelContextWindow(entry.name, m) ? String(getModelContextWindow(entry.name, m)) : '128000'}
+                              className="w-14 px-1 py-0.5 rounded text-[9px] outline-none text-center"
+                              style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}
+                              title="上下文窗口（token）"
+                            />
+                          </div>
                         )) : entry.configured ? (
                           <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>
                             {entry.models.length > 0 ? '点击模型选择' : '点击"获取模型列表"'}
@@ -289,38 +312,6 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                           <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>
                             请先保存 API key
                           </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 工具模型选择 */}
-                    <div>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>工具模型（用于工具调用）</span>
-                        <span className="text-[9px]" style={{ color: 'var(--crai-fg-tertiary)' }}>未设置时使用默认模型</span>
-                      </div>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {fetchedModels.length > 0 ? (
-                          <>
-                            <button onClick={() => setEditToolModel('')}
-                              className="text-[10px] px-2 py-0.5 rounded transition-colors"
-                              style={{
-                                backgroundColor: !editToolModel ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
-                                color: !editToolModel ? '#fff' : 'var(--crai-fg)',
-                              }}>同默认模型</button>
-                            {fetchedModels.map((m) => (
-                              <button key={m} onClick={() => setEditToolModel(m)}
-                                className="text-[10px] px-2 py-0.5 rounded transition-colors"
-                                style={{
-                                  backgroundColor: editToolModel === m ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
-                                  color: editToolModel === m ? '#fff' : 'var(--crai-fg)',
-                                }}>
-                                {m}
-                              </button>
-                            ))}
-                          </>
-                        ) : (
-                          <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>请先获取模型列表</span>
                         )}
                       </div>
                     </div>
@@ -421,59 +412,24 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
           </div>
         </div>
 
-        {/* ── 自定义模型上下文窗口 ── */}
+        {/* ── 工具模型 ── */}
         <div>
-          <div className="text-xs font-medium mb-2" style={{ color: 'var(--crai-fg-secondary)' }}>自定义模型上下文窗口</div>
-          <div className="text-[10px] mb-2" style={{ color: 'var(--crai-fg-tertiary)' }}>覆盖已知模型的上下文窗口（token 数，0 = 使用默认）</div>
-          <div className="space-y-1.5">
-            {customWindows.length === 0 && (
-              <div className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>暂无自定义配置</div>
-            )}
-            {customWindows.map((cw, i) => (
-              <div key={i} className="flex gap-1.5 items-center">
-                <input
-                  value={cw.model}
-                  onChange={e => {
-                    const next = [...customWindows]
-                    next[i] = { ...next[i], model: e.target.value }
-                    setCustomWindows(next)
-                  }}
-                  placeholder="模型名"
-                  className="flex-1 px-2 py-1 rounded text-[10px] outline-none"
-                  style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
-                />
-                <input
-                  value={cw.window}
-                  onChange={e => {
-                    const next = [...customWindows]
-                    next[i] = { ...next[i], window: e.target.value.replace(/[^0-9]/g, '') }
-                    setCustomWindows(next)
-                  }}
-                  placeholder="窗口"
-                  className="w-20 px-2 py-1 rounded text-[10px] outline-none"
-                  style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
-                />
-                <button
-                  onClick={() => {
-                    const next = customWindows.filter((_, j) => j !== i)
-                    setCustomWindows(next)
-                    saveCustomWindows(next)
-                  }}
-                  className="text-[10px] px-1.5 py-1 rounded"
-                  style={{ color: 'var(--crai-destructive)', border: '1px solid var(--crai-destructive)' }}>
-                  删除
-                </button>
-              </div>
+          <div className="text-xs font-medium mb-2" style={{ color: 'var(--crai-fg-secondary)' }}>工具模型</div>
+          <div className="text-[10px] mb-1.5" style={{ color: 'var(--crai-fg-tertiary)' }}>用于标题生成、对话摘要等辅助任务。不设置时使用对话默认模型。</div>
+          <select
+            value={editToolModel}
+            onChange={e => {
+              const val = e.target.value
+              setEditToolModel(val)
+              send({ type: 'config:set', config: { toolModel: val || undefined } })
+            }}
+            className="w-full px-2.5 py-1.5 rounded text-xs outline-none"
+            style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}>
+            <option value="">使用默认模型</option>
+            {allModelOptions.map(opt => (
+              <option key={opt.label} value={opt.label}>{opt.label}</option>
             ))}
-            <button
-              onClick={() => {
-                setCustomWindows([...customWindows, { model: '', window: '' }])
-              }}
-              className="text-[10px] px-2 py-1 rounded"
-              style={{ color: 'var(--crai-accent)', border: '1px solid var(--crai-accent)' }}>
-              + 添加模型
-            </button>
-          </div>
+          </select>
         </div>
       </div>
 

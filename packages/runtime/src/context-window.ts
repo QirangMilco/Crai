@@ -359,6 +359,12 @@ export async function guardContext(
         logger?.info?.(
           `[context] AI 压缩完成: ${result.currentTokens} → ${afterTokens} token`
         )
+        logger?.debug?.(
+          `[context] 摘要内容: ${(summaryText.length > 200 ? summaryText.slice(0, 200) + '…' : summaryText)}`
+        )
+        logger?.debug?.(
+          `[context] 保留 ${keepMessages.length} 条消息 (${keepMessages.filter(m => m.role === 'user').length} user, ${keepMessages.filter(m => m.role === 'assistant').length} asst)，末轮预览: ${keepMessages.filter(m => m.role === 'user').pop()?.parts?.filter(p => p.type === 'text').map(p => (p as any).text).join('').slice(0, 80) ?? ''}`
+        )
         return {
           messages: truncated,
           compacted: true,
@@ -373,13 +379,16 @@ export async function guardContext(
   }
 
   // 回退：硬截断（分轮感知）
-  const { truncated, removedCount, tokensBefore, tokensAfter } = hardTruncate(
+  const { truncated, removedCount, tokensBefore, tokensAfter, summary } = hardTruncate(
     messages,
     options?.keepRecentTokens,
   )
 
   logger?.info?.(
     `[context] 硬截断完成: 移除 ${removedCount} 条消息 (${tokensBefore} → ${tokensAfter} token)`
+  )
+  logger?.debug?.(
+    `[context] 摘要: ${summary.slice(0, 150)}`
   )
 
   return {

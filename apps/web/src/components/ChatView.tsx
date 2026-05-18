@@ -127,11 +127,13 @@ export function ChatView({ wsUrl }: Props) {
 
           if (msg.event === 'model.completed') {
             debugLog('timeline', '本轮模型调用完成','')
-            // 刷新 buffer，确保所有流式内容已写入 store
             store.getState().flushBuffer()
             if (sessionIdRef.current && !titledSessions.current.has(sessionIdRef.current)) {
               titledSessions.current.add(sessionIdRef.current)
+              debugLog('title-gen', '发送 session:generate-title', sessionIdRef.current)
               send({ type: 'session:generate-title', sessionId: sessionIdRef.current })
+            } else {
+              debugLog('title-gen', '跳过生成', { sessionId: sessionIdRef.current, alreadyTitled: titledSessions.current.has(sessionIdRef.current ?? '') })
             }
           }
           break
@@ -151,6 +153,8 @@ export function ChatView({ wsUrl }: Props) {
           setGlobalConfig(msg.config)
           if (msg.config?.debugScopes?.length) {
             localStorage.setItem('crai:debug:scope', msg.config.debugScopes.join(','))
+            console.log('[crai:debug] 已激活 scope:', msg.config.debugScopes.join(', '))
+            console.log('[crai:debug] 如需手动调试，在控制台执行: localStorage.setItem(\'crai:debug:scope\', \'thinking,stream,timeline,merge\')')
           }
           if (msg.config?.providers) {
             const models: Array<{ name: string; provider: string }> = []
@@ -208,6 +212,7 @@ export function ChatView({ wsUrl }: Props) {
           setDirBrowser({ path: msg.path, dirs: msg.dirs, parent: msg.parent, error: msg.error })
           break
         case 'session:title':
+          debugLog('title-gen', '收到标题', { sessionId: msg.sessionId, title: msg.title })
           setSessions((prev) => prev.map((s) => s.id === msg.sessionId ? { ...s, title: msg.title } : s))
           break
       }
@@ -230,11 +235,13 @@ export function ChatView({ wsUrl }: Props) {
   const handleNewSession = useCallback(() => {
     store.getState().clearMessages()
     setSessionId(null)
+    sessionIdRef.current = null
     send({ type: 'session:new' })
   }, [send, store])
 
   const handleSwitchSession = useCallback((sid: string) => {
     setSessionId(sid)
+    sessionIdRef.current = sid
     send({ type: 'session:load', sessionId: sid })
   }, [send])
 

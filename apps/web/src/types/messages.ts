@@ -33,8 +33,8 @@ export interface ConfigDataMsg {
   type: 'config:data'
   config: {
     providers: Record<string, { apiKey: string; baseURL?: string; models?: string[] }>
-    defaultProvider?: string
     defaultModel?: string
+    toolModel?: string
     recentWorkspaces: string[]
     /** 服务端变体配置中的调试 scope 列表，自动同步到前端。 */
     debugScopes?: string[]

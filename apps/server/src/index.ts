@@ -214,7 +214,7 @@ async function main() {
       onWorkspaceSwitch: async (dir) => {
         await gWorkspaces?.ensure(dir)
         const eff = config.getEffectiveConfig(config.getGlobal(), await config.loadWorkspace(dir))
-        return { model: eff.model, provider: eff.provider }
+        return { model: `${eff.provider}/${eff.model}`, provider: eff.provider }
       },
       onWorkspaceConfigGet: async (rootDir) => config.loadWorkspace(rootDir || process.cwd()),
       onWorkspaceConfigSet: async (rootDir, cfg) => { await config.saveWorkspace(rootDir || process.cwd(), cfg); gWorkspaces?.sync() },

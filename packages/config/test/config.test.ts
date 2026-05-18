@@ -90,27 +90,26 @@ describe('ConfigManager', () => {
     it('loadGlobal 读取已有配置', async () => {
       const data: GlobalConfig = {
         providers: { openai: { apiKey: 'sk-test', models: ['gpt-4'] } },
-        defaultProvider: 'openai',
-        defaultModel: 'gpt-4',
+        defaultModel: 'openai/gpt-4',
         recentWorkspaces: ['/home/user/proj'],
-      }
+      } as GlobalConfig
       const { mkdirSync, writeFileSync } = await import('node:fs')
       mkdirSync(globalDir(tmpDir), { recursive: true })
       writeFileSync(mgr.globalConfigPath, JSON.stringify(data), 'utf-8')
 
       const loaded = await mgr.loadGlobal()
-      assert.strictEqual(loaded.defaultProvider, 'openai')
+      assert.strictEqual(loaded.defaultModel, 'openai/gpt-4')
       assert.strictEqual(loaded.providers.openai.apiKey, 'sk-test')
     })
 
     it('saveGlobal 写入文件后再加载一致', async () => {
       const cfg = await mgr.loadGlobal()
       cfg.providers.deepseek = { apiKey: 'ds-key', models: ['deepseek-chat'] }
-      cfg.defaultProvider = 'deepseek'
+      cfg.defaultModel = 'deepseek/deepseek-chat'
       await mgr.saveGlobal()
 
       const reloaded = await mgr.loadGlobal()
-      assert.strictEqual(reloaded.defaultProvider, 'deepseek')
+      assert.strictEqual(reloaded.defaultModel, 'deepseek/deepseek-chat')
       assert.strictEqual(reloaded.providers.deepseek.apiKey, 'ds-key')
     })
   })
@@ -125,15 +124,15 @@ describe('ConfigManager', () => {
       assert.strictEqual(mgr.getGlobal().providers.openai.apiKey, 'sk-xxx')
     })
 
-    it('添加第一个 provider 时自动设为 defaultProvider', () => {
-      mgr.setProvider('openai', { apiKey: 'sk-xxx' })
-      assert.strictEqual(mgr.getGlobal().defaultProvider, 'openai')
+    it('添加第一个 provider 时自动设 defaultModel', () => {
+      mgr.setProvider('openai', { apiKey: 'sk-xxx', models: ['gpt-4'] })
+      assert.strictEqual(mgr.getGlobal().defaultModel, 'openai/gpt-4')
     })
 
-    it('后续添加不修改 defaultProvider', () => {
-      mgr.setProvider('openai', { apiKey: 'sk-xxx' })
-      mgr.setProvider('deepseek', { apiKey: 'ds-xxx' })
-      assert.strictEqual(mgr.getGlobal().defaultProvider, 'openai')
+    it('后续添加不修改 defaultModel', () => {
+      mgr.setProvider('openai', { apiKey: 'sk-xxx', models: ['gpt-4'] })
+      mgr.setProvider('deepseek', { apiKey: 'ds-xxx', models: ['deepseek-chat'] })
+      assert.strictEqual(mgr.getGlobal().defaultModel, 'openai/gpt-4')
     })
 
     it('removeProvider 删除 provider', () => {
@@ -142,11 +141,12 @@ describe('ConfigManager', () => {
       assert.strictEqual(mgr.getGlobal().providers.openai, undefined)
     })
 
-    it('删除 defaultProvider 后自动切换到下一个', () => {
-      mgr.setProvider('openai', { apiKey: 'sk-xxx' })
-      mgr.setProvider('deepseek', { apiKey: 'ds-xxx' })
+    it('删除 provider 后清除对应的 defaultModel', () => {
+      mgr.setProvider('openai', { apiKey: 'sk-xxx', models: ['gpt-4'] })
+      mgr.setProvider('deepseek', { apiKey: 'ds-xxx', models: ['deepseek-chat'] })
       mgr.removeProvider('openai')
-      assert.strictEqual(mgr.getGlobal().defaultProvider, 'deepseek')
+      // defaultModel 从 "openai/gpt-4" 被清除
+      assert.strictEqual(mgr.getGlobal().defaultModel, undefined)
     })
   })
 
@@ -163,20 +163,21 @@ describe('ConfigManager', () => {
       assert.strictEqual(eff.model, '')
     })
 
-    it('使用 defaultProvider 对应的 provider', () => {
+    it('使用 defaultModel 的 provider 前缀', () => {
       const eff = mgr.getEffectiveConfig(
         {
           providers: { openai: { apiKey: 'sk-xxx', models: ['gpt-4'] } },
-          defaultProvider: 'openai',
+          defaultModel: 'openai/gpt-4',
           recentWorkspaces: [],
         },
         {},
       )
       assert.strictEqual(eff.apiKey, 'sk-xxx')
       assert.strictEqual(eff.provider, 'openai')
+      assert.strictEqual(eff.model, 'gpt-4')
     })
 
-    it('没有 defaultProvider 时使用第一个 provider', () => {
+    it('没有 defaultModel 时使用第一个 provider 的第一个 model', () => {
       const eff = mgr.getEffectiveConfig(
         {
           providers: { deepseek: { apiKey: 'ds-xxx', models: ['deepseek-chat'] } },
@@ -185,13 +186,15 @@ describe('ConfigManager', () => {
         {},
       )
       assert.strictEqual(eff.apiKey, 'ds-xxx')
+      assert.strictEqual(eff.provider, 'deepseek')
+      assert.strictEqual(eff.model, 'deepseek-chat')
     })
 
-    it('defaultModel 优先于 provider.models[0]', () => {
+    it('defaultModel 中 model 部分优先于 provider.models[0]', () => {
       const eff = mgr.getEffectiveConfig(
         {
           providers: { openai: { apiKey: 'sk-xxx', models: ['gpt-4', 'gpt-4o'] } },
-          defaultModel: 'gpt-4o',
+          defaultModel: 'openai/gpt-4o',
           recentWorkspaces: [],
         },
         {},

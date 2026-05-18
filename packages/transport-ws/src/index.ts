@@ -195,13 +195,48 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'prompt': {
         const rt = resolveRuntime()!
         const opts: any = {}
-        if (msg.sessionId) opts.sessionId = msg.sessionId
-        else if (currentSessionId) opts.sessionId = currentSessionId
-        if (msg.model) opts.model = msg.model
+        // 先确保 session 存在，再开始流式任务。
+        // 这样 session:id 能在 streaming 事件到达客户端之前送达，
+        // 避免 model.completed 到达时 sessionIdRef 仍为 null。
+        const sessionId = msg.sessionId || currentSessionId
+        if (!sessionId) {
+          const newSession = await rt.createSession()
+          currentSessionId = newSession.id
+          opts.sessionId = currentSessionId
+          ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
+        } else {
+          opts.sessionId = sessionId
+        }
+        // 模型格式：provider/model（如 "deepseek/deepseek-v4-flash"），兼容无前缀的裸名
+        if (msg.model) {
+          const slashIdx = msg.model.indexOf('/')
+          if (slashIdx >= 0) {
+            opts.provider = msg.model.slice(0, slashIdx)
+            opts.model = msg.model.slice(slashIdx + 1)
+          } else {
+            opts.model = msg.model
+          }
+        }
         if (msg.provider) opts.provider = msg.provider
+        // 从全局配置读取工具模型（格式：provider/model）
+        try {
+          const cfg = handlers?.onConfigGet ? await handlers.onConfigGet() : undefined
+          if (cfg) {
+            const tm = (cfg as any).toolModel
+            if (tm) {
+              const si = tm.indexOf('/')
+              opts.toolProvider = si >= 0 ? tm.slice(0, si) : undefined
+              opts.toolModel = si >= 0 ? tm.slice(si + 1) : tm
+            }
+          }
+        } catch { /* 静默 */ }
         const result = await rt.prompt({ type: 'text', text: msg.text }, opts)
-        currentSessionId = result.session.id
-        ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
+        if (!sessionId) {
+          // 新 session 的 session:id 已在上面发送，这里不需要重复发
+          // 但需要更新 currentSessionId（已在上面设置）
+        } else {
+          currentSessionId = result.session.id
+        }
         break
       }
 
@@ -261,18 +296,28 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         debugLog(DEBUG_SCOPES.TITLE_GEN, 'start', { sessionId: msg.sessionId, messagesFound: !!userMsg }, logger)
         if (!userMsg) { ws.send(JSON.stringify({ type: 'error', message: 'no messages to summarize' } satisfies ServerMessage)); break }
 
-        // 查找工具模型配置
+        // 查找工具模型配置（格式：provider/model）
         let toolModel: string | undefined
+        let toolProvider: string | undefined
         try {
           const cfg = handlers?.onConfigGet ? await handlers.onConfigGet() : undefined
           if (cfg) {
-            toolModel = (cfg as any).toolModel ?? (cfg as any).defaultModel ?? undefined
+            const tm = (cfg as any).toolModel ?? (cfg as any).defaultModel ?? undefined
+            if (tm) {
+              const si = tm.indexOf('/')
+              if (si >= 0) {
+                toolProvider = tm.slice(0, si)
+                toolModel = tm.slice(si + 1)
+              } else {
+                toolModel = tm
+              }
+            }
           }
         } catch { /* 静默回退到默认模型 */ }
-        debugLog(DEBUG_SCOPES.TITLE_GEN, 'model', { toolModel }, logger)
+        debugLog(DEBUG_SCOPES.TITLE_GEN, 'model', { toolModel, toolProvider }, logger)
 
         try {
-          debugLog(DEBUG_SCOPES.TITLE_GEN, 'calling', { model: toolModel ?? '(default)' }, logger)
+          debugLog(DEBUG_SCOPES.TITLE_GEN, 'calling', { model: toolModel, provider: toolProvider }, logger)
           const title = await rt.callModel(
             [
               { role: 'user', content: userMsg.slice(0, 500) },
@@ -281,6 +326,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             {
               system: '用一句简短的话概括这个对话的主题。直接输出标题，不要前缀，不要引号，不要标点结尾。15字以内。',
               model: toolModel,
+              provider: toolProvider,
               temperature: 0.3,
               maxTokens: 50,
               utility: true,

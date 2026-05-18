@@ -31,6 +31,7 @@ export type KnownModelsMap = Record<string, Record<string, ModelInfo>>
 
 const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
   'deepseek-v4-flash': { contextWindow: 1048576, thinking: true },
+  'deepseek-v4-pro':   { contextWindow: 1048576, thinking: true },
   'deepseek-v3':       { contextWindow: 1048576, thinking: true },
   'deepseek-reasoner': { contextWindow: 65536, thinking: true },
   'deepseek-chat':     { contextWindow: 32768 },
@@ -42,20 +43,20 @@ const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const OPENAI_MODELS: Record<string, ModelInfo> = {
-  'gpt-4o':           { contextWindow: 128000, maxOutput: 16384 },
-  'gpt-4o-2024-08-06': { contextWindow: 128000, maxOutput: 16384 },
-  'gpt-4o-mini':       { contextWindow: 128000, maxOutput: 16384 },
-  'gpt-4-turbo':       { contextWindow: 128000, maxOutput: 4096 },
+  'gpt-4o':           { contextWindow: 131072, maxOutput: 16384 },
+  'gpt-4o-2024-08-06': { contextWindow: 131072, maxOutput: 16384 },
+  'gpt-4o-mini':       { contextWindow: 131072, maxOutput: 16384 },
+  'gpt-4-turbo':       { contextWindow: 131072, maxOutput: 4096 },
   'gpt-4':             { contextWindow: 8192,   maxOutput: 4096 },
   'gpt-4-32k':         { contextWindow: 32768,  maxOutput: 4096 },
   'gpt-3.5-turbo':     { contextWindow: 16384,  maxOutput: 4096 },
   'gpt-3.5-turbo-16k': { contextWindow: 16384,  maxOutput: 4096 },
 
   // o 系列
-  'o1':         { contextWindow: 200000, maxOutput: 100000 },
-  'o1-mini':    { contextWindow: 128000, maxOutput: 65536 },
-  'o1-preview': { contextWindow: 128000, maxOutput: 32768 },
-  'o3-mini':    { contextWindow: 200000, maxOutput: 100000 },
+  'o1':         { contextWindow: 204800, maxOutput: 102400 },
+  'o1-mini':    { contextWindow: 131072, maxOutput: 65536 },
+  'o1-preview': { contextWindow: 131072, maxOutput: 32768 },
+  'o3-mini':    { contextWindow: 204800, maxOutput: 102400 },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -63,13 +64,13 @@ const OPENAI_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const ANTHROPIC_MODELS: Record<string, ModelInfo> = {
-  'claude-3-5-sonnet-20241022': { contextWindow: 200000, maxOutput: 8192 },
-  'claude-3-5-haiku-20241022':  { contextWindow: 200000, maxOutput: 8192 },
-  'claude-3-opus-20240229':     { contextWindow: 200000, maxOutput: 4096 },
-  'claude-3-sonnet-20240229':   { contextWindow: 200000, maxOutput: 4096 },
-  'claude-3-haiku-20240307':    { contextWindow: 200000, maxOutput: 4096 },
-  'claude-4-opus':              { contextWindow: 200000, maxOutput: 8192, thinking: true },
-  'claude-4-sonnet':            { contextWindow: 200000, maxOutput: 8192, thinking: true },
+  'claude-3-5-sonnet-20241022': { contextWindow: 204800, maxOutput: 8192 },
+  'claude-3-5-haiku-20241022':  { contextWindow: 204800, maxOutput: 8192 },
+  'claude-3-opus-20240229':     { contextWindow: 204800, maxOutput: 4096 },
+  'claude-3-sonnet-20240229':   { contextWindow: 204800, maxOutput: 4096 },
+  'claude-3-haiku-20240307':    { contextWindow: 204800, maxOutput: 4096 },
+  'claude-4-opus':              { contextWindow: 204800, maxOutput: 8192, thinking: true },
+  'claude-4-sonnet':            { contextWindow: 204800, maxOutput: 8192, thinking: true },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -101,11 +102,11 @@ const LLAMA_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const MISTRAL_MODELS: Record<string, ModelInfo> = {
-  'mistral-large':       { contextWindow: 128000 },
+  'mistral-large':       { contextWindow: 131072 },
   'mistral-medium':      { contextWindow: 32768 },
   'mistral-small':       { contextWindow: 32768 },
-  'codestral':           { contextWindow: 256000 },
-  'ministral-8b':        { contextWindow: 128000 },
+  'codestral':           { contextWindow: 262144 },
+  'ministral-8b':        { contextWindow: 131072 },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -148,10 +149,11 @@ export const DEFAULT_KEEP_RECENT_TOKENS = 32000
  * 4. 返回 undefined（调用方使用默认值）
  */
 export function getModelInfo(provider: string, model: string, customWindows?: Record<string, number>): ModelInfo | undefined {
-  // 自定义上下文窗口优先级最高
+  // 自定义上下文窗口优先级最高：先按 provider:model 查，再按裸名查
   if (customWindows) {
-    const custom = customWindows[model]
-    if (custom !== undefined) return { contextWindow: custom }
+    const compositeKey = `${provider}:${model}`
+    if (customWindows[compositeKey] !== undefined) return { contextWindow: customWindows[compositeKey] }
+    if (customWindows[model] !== undefined) return { contextWindow: customWindows[model] }
   }
 
   const byProvider = KNOWN_MODELS[provider.toLowerCase()]

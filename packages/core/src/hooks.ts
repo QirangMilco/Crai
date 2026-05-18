@@ -389,6 +389,8 @@ export interface PromptOptions {
   sessionId?: ID
   model?: string
   provider?: string
+  /** 工具模型。格式：provider/model。用于标题生成、对话摘要等辅助 LLM 调用。未设置时使用 model。 */
+  toolModel?: string
   metadata?: Metadata
   signal?: AbortSignal
 }

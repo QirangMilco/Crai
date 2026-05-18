@@ -18,11 +18,58 @@ import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext }
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId } from '@crai/core'
 import { guardContext, estimateMessagesTokens } from './context-window'
+import type { Summarizer } from './context-window'
 import { debugLog, DEBUG_SCOPES } from './debug'
 import { withIdleTimeout, StreamTimeoutError } from './streamGuards'
 
 /** 单次 turn 中工具调用的最大轮次，防止无限循环。 */
 const MAX_TOOL_ROUNDS = 10
+
+/**
+ * 从 RuntimeHandle.callModel 创建 AI 摘要回调。
+ * Snow-CLI 模式：AI 摘要优先，失败时回退硬截断。
+ */
+function createSummarizerFromRuntime(rt: RuntimeHandle, toolModel?: string): Summarizer {
+  return async (removedMessages) => {
+    const lines: string[] = []
+    for (const m of removedMessages) {
+      if (m.role !== 'user' && m.role !== 'assistant') continue
+      const role = m.role === 'user' ? '用户' : 'AI'
+      for (const p of m.parts) {
+        if (p.type === 'text') lines.push(`${role}: ${(p as TextPart).text}`)
+      }
+    }
+    if (lines.length === 0) return null
+    // toolModel 格式: "provider/model"，解析出 provider 和 model 分别传给 callModel
+    let tmProvider: string | undefined
+    let tmModel: string | undefined
+    if (toolModel) {
+      const si = toolModel.indexOf('/')
+      if (si >= 0) {
+        tmProvider = toolModel.slice(0, si)
+        tmModel = toolModel.slice(si + 1)
+      } else {
+        tmModel = toolModel
+      }
+    }
+    try {
+      const result = await rt.callModel(
+        [{ role: 'user' as const, content: lines.join('\n') }],
+        {
+          model: tmModel,
+          provider: tmProvider,
+          system: '用简短的话概括以上对话内容。保留技术要点和关键决策。直接输出摘要，不要前缀。',
+          temperature: 0.3,
+          maxTokens: 200,
+          utility: true,
+        },
+      )
+      return result || null
+    } catch {
+      return null
+    }
+  }
+}
 
 /** 最小 turn 运行结果。只返回调度结果，不做持久化。 */
 export interface TurnRunResult {
@@ -192,6 +239,7 @@ export async function runTurn(
   runtime: RuntimeHandle,
   deps: TurnRunnerDeps,
   modelName?: string,
+  toolModel?: string,
 ): Promise<TurnRunResult> {
   const turnId = createId('turn')
 
@@ -299,6 +347,8 @@ export async function runTurn(
     threshold: 0.8,
     keepRecentTokens: 32000,
     logger: deps.logger,
+    // Snow-CLI 模式：AI 摘要优先，失败时硬截断回退
+    summarize: runtime ? createSummarizerFromRuntime(runtime, toolModel) : undefined,
   })
   if (guarded.compacted) {
     contextWithTools = { ...contextWithTools, messages: guarded.messages }

@@ -261,9 +261,10 @@ async function handlePrompt(
   }
 
   const modelName = promptOptions?.model ?? getFirstModel(deps.registries.models)
+  const toolModel = promptOptions?.toolModel ?? modelName
   const inputText = typeof input === 'string' ? input : (input as any)?.text
   deps.traceCollector?.note(`prompt — ${JSON.stringify(inputText ?? input)}`)
-  const result = await runTurn(input, session, runtime, turnDeps, modelName)
+  const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel)
 
   return {
     session: result.session,
@@ -406,7 +407,10 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       const models = deps.registries.models.list()
       const modelName = opts?.model ?? models[0]?.name
       if (!modelName) throw new Error('No model available')
-      const adapter = deps.registries.models.get(modelName)
+      // 优先用 provider:modelName 查找，防止同名模型冲突
+      let adapter = opts?.provider
+        ? (deps.registries.models.get(`${opts.provider}:${modelName}`) ?? deps.registries.models.get(modelName))
+        : deps.registries.models.get(modelName)
       if (!adapter) throw new Error(`Model "${modelName}" not found`)
 
       const context: any = {

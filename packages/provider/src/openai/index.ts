@@ -32,6 +32,7 @@ export function createOpenAIProvider(options: OpenAIProviderOptions): Extension 
       const adapter = new OpenAIAdapter(adapterOptions)
       for (const modelName of models) {
         ctx.registry.models.register(modelName, adapter)
+        ctx.registry.models.register(`${EXTENSION_NAME}:${modelName}`, adapter)
       }
     },
   }

@@ -134,15 +134,18 @@ export class ConfigManager implements ConfigStore {
 
   setProvider(name: string, config: ProviderConfig): void {
     this.global.providers[name] = config
-    if (!this.global.defaultProvider) this.global.defaultProvider = name
+    // 第一个添加的 provider 自动设为默认
+    if (!this.global.defaultModel) {
+      const firstModel = config.models?.[0]
+      this.global.defaultModel = firstModel ? `${name}/${firstModel}` : `${name}/`
+    }
     this.dirty = true
   }
 
   removeProvider(name: string): void {
     delete this.global.providers[name]
-    if (this.global.defaultProvider === name) {
-      this.global.defaultProvider = Object.keys(this.global.providers)[0]
-      // 切到别的 provider 时清除旧模型的 defaultModel，避免 provider/model 不匹配
+    // 如果删除的是 defaultModel 对应的 provider，清空 defaultModel
+    if (this.global.defaultModel?.startsWith(`${name}/`)) {
       delete this.global.defaultModel
     }
     this.dirty = true
@@ -183,12 +186,32 @@ export class ConfigManager implements ConfigStore {
     global: GlobalConfig,
     _workspace: WorkspaceConfig,
   ): { apiKey: string; baseURL?: string; model: string; provider: string } {
-    const providerName = global.defaultProvider ?? Object.keys(global.providers)[0]
+    // defaultModel 格式: "provider/model" (如 "deepseek/deepseek-v4-flash")
+    // 兼容旧格式: "model" 或 "" — 自动补上第一个/默认 provider 的前缀
+    let modelStr = global.defaultModel ?? ''
+    let providerName: string
+    let model: string
+
+    const slashIdx = modelStr.indexOf('/')
+    if (slashIdx >= 0) {
+      // 新格式: provider/model
+      providerName = modelStr.slice(0, slashIdx)
+      model = modelStr.slice(slashIdx + 1)
+    } else if (modelStr) {
+      // 旧格式: 只有 model 名（无 provider 前缀），用第一个 provider
+      providerName = Object.keys(global.providers)[0] ?? ''
+      model = modelStr
+    } else {
+      // 未配置 defaultModel：用第一个 provider 的第一个 model
+      providerName = Object.keys(global.providers)[0] ?? ''
+      model = global.providers[providerName]?.models?.[0] ?? ''
+    }
+
     const provider = providerName ? global.providers[providerName] : undefined
     return {
       apiKey: provider?.apiKey ?? '',
       baseURL: provider?.baseURL,
-      model: global.defaultModel ?? provider?.models?.[0] ?? '',
+      model,
       provider: providerName ?? '',
     }
   }

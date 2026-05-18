@@ -252,11 +252,9 @@ export interface ProviderConfig {
 
 export interface GlobalConfig {
   providers: Record<string, ProviderConfig>
-  defaultProvider?: string
+  /** 默认模型。格式：provider/model（如 "deepseek/deepseek-v4-flash"）。替代 defaultProvider + defaultModel 两个字段。 */
   defaultModel?: string
-  /** 工具调用专用模型（小模型）。未设置时使用 defaultModel。 */
-  toolProvider?: string
-  /** 工具调用专用模型名。未设置时使用 defaultModel。 */
+  /** 工具调用/摘要专用模型。格式：provider/model。未设置时使用 defaultModel。 */
   toolModel?: string
   /** shell 命令执行是否启用 OS 沙箱隔离。默认 false。 */
   sandboxEnabled?: boolean

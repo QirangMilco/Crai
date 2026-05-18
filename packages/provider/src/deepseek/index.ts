@@ -36,6 +36,8 @@ export function createDeepSeekProvider(options: DeepSeekProviderOptions): Extens
       const adapter = new DeepSeekAdapter(adapterOptions)
       for (const modelName of models) {
         ctx.registry.models.register(modelName, adapter)
+        // 注册 provider:modelName 别名，防止不同 provider 同名模型冲突
+        ctx.registry.models.register(`${EXTENSION_NAME}:${modelName}`, adapter)
       }
     },
   }
