@@ -13,3 +13,10 @@ export { ConsoleLogger } from './logger'
 export { sanitizeText, sanitizeParts } from './pii-guard'
 export { createSandbox, wrapCommand } from './sandbox'
 export type { SandboxOptions, SandboxProvider, SandboxWrappedCommand } from './sandbox'
+
+// 上下文窗口管理与压缩
+export { guardContext, hardTruncate, checkContext, estimateTokens, estimateTokensAccurate, estimateMessagesTokens, estimateMessageTokens, generateSummary } from './context-window'
+export type { Summarizer, CompactionGuardOptions, GuardContextResult, ContextCheckResult } from './context-window'
+
+// 流空闲超时守卫
+export { StreamTimeoutError, withIdleTimeout } from './stream-guards'

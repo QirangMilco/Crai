@@ -1,5 +1,5 @@
 /**
- * @crai/runtime — Stream 空闲超时守卫
+ * @crai/base — Stream 空闲超时守卫
  *
  * 包装 AsyncIterable，如果指定时间内没有新事件到达，抛出 StreamTimeoutError。
  * 参考 snow-cli 的 streamGuards.ts。

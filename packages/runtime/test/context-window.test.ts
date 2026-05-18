@@ -104,7 +104,7 @@ describe('checkContext', () => {
 
   it('窗口从已知模型获取', () => {
     const result = checkContext([textMsg('user', 'hi')], 'openai', 'gpt-4o', 0.8)
-    assert.equal(result.effectiveWindow, Math.floor(128000 * 0.9))
+    assert.equal(result.effectiveWindow, Math.floor(131072 * 0.9))
   })
 
   it('自定义阈值控制', () => {

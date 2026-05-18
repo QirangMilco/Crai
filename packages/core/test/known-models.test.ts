@@ -40,7 +40,7 @@ describe('getModelInfo', () => {
     // "claude-3-5-sonnet" 匹配 anthropic
     const info = getModelInfo('', 'claude-3-5-sonnet-20241022')
     assert.ok(info)
-    assert.equal(info!.contextWindow, 200000)
+    assert.equal(info!.contextWindow, 204800)
   })
 
   it('未知模型返回 undefined', () => {
@@ -57,7 +57,7 @@ describe('getModelInfo', () => {
 
 describe('getContextWindow', () => {
   it('已知模型返回正确窗口', () => {
-    assert.equal(getContextWindow('openai', 'gpt-4o'), 128000)
+    assert.equal(getContextWindow('openai', 'gpt-4o'), 131072)
     assert.equal(getContextWindow('deepseek', 'deepseek-reasoner'), 65536)
   })
 
@@ -73,7 +73,7 @@ describe('getContextWindow', () => {
 describe('getMaxOutput', () => {
   it('已知模型的 maxOutput', () => {
     assert.equal(getMaxOutput('openai', 'gpt-4o'), 16384)
-    assert.equal(getMaxOutput('openai', 'o1'), 100000)
+    assert.equal(getMaxOutput('openai', 'o1'), 102400)
   })
 
   it('无 maxOutput 的模型使用默认', () => {

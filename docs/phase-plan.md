@@ -13,32 +13,32 @@
 - **在 Runtime 层建立 Session 生命周期中的记忆事件/钩子触发点**
 
 ### 交付物
-- `@crai/core`
-- `@crai/runtime`
-- `@crai/core`（含 defineExtension）
-- 基础本地 TS 加载器
-- 一个最小的运行时入口点
-- 扩展权限声明支持
-- **Extension API 基础：两级权限模型（restricted / full-access）、register() 自动清理**
-- **EventBus SKIP 链实现**
-- **记忆类型定义 (`MemoryEntry`, `MemoryScope`, `MemoryProvenance`)**
-- **记忆适配器契约 (`MemoryAdapter`)**
-- **Session 记忆事件触发点 (`session:beforeStart`, `session:afterStop`)**
-- **安全类型定义 (`ToolSafetyLevel`, `PermissionMode`, `SandboxScope`)**
-- **权限适配器契约 (`PermissionAdapter`)**
-- **默认危险命令列表与匹配器**
-- **权限模式运行时切换**
+- ✓ `@crai/core`
+- ✓ `@crai/runtime`
+- ✓ `@crai/base`（含 defineExtension）
+- ✓ 基础本地 TS 加载器
+- ✓ 一个最小的运行时入口点
+- ✓ 扩展权限声明支持
+- ✓ **Extension API 基础：两级权限模型（restricted / full-access）、register() 自动清理**
+- ✓ **EventBus SKIP 链实现**
+- ✓ **记忆类型定义 (`MemoryEntry`, `MemoryScope`, `MemoryProvenance`)**
+- ○ **记忆适配器契约 (`MemoryAdapter`)**（类型待定义）
+- ○ **Session 记忆事件触发点 (`session:beforeStart`, `session:afterStop`)**（钩子已就绪，未集成记忆策略）
+- ✓ **安全类型定义 (`ToolSafetyLevel`, `PermissionMode`, `SandboxScope`)**
+- ✓ **权限适配器契约 (`PermissionAdapter`)**
+- ✓ **默认危险命令列表与匹配器**
+- ✓ **权限模式运行时切换**
 
 ### 验收标准
-- 运行时可以在没有 UI 的情况下启动
-- 运行时可以创建一个 Session
-- 运行时可以处理一个 Prompt 流程
-- 运行时可以加载和卸载一个扩展
-- 运行时可以触发核心事件 (Core events)
-- 扩展加载可以在设置前咨询声明的权限
-- **每个 ToolDefinition 必须携带 safetyLevel 声明**
-- **dangerous 级工具在 safe 模式下被直接拒绝**
-- **dangerous 级工具在 ask 模式下触发 permission 事件**
+- ✓ 运行时可以在没有 UI 的情况下启动
+- ✓ 运行时可以创建一个 Session
+- ✓ 运行时可以处理一个 Prompt 流程
+- ✓ 运行时可以加载和卸载一个扩展
+- ✓ 运行时可以触发核心事件 (Core events)
+- ✓ 扩展加载可以在设置前咨询声明的权限
+- ✓ **每个 ToolDefinition 必须携带 safetyLevel 声明**
+- ✓ **dangerous 级工具在 safe 模式下被直接拒绝**
+- ✓ **dangerous 级工具在 ask 模式下触发 permission 事件**
 
 ## Phase 2: 产品集成层 (Product Integration Layer)
 
@@ -51,20 +51,20 @@
 - **实现完整的记忆策略（独立 extension）**
 
 ### 交付物
-- Web 传输层
-- CLI 或瘦客户端传输层
-- 改进的存储适配器实现
-- 基础命令支持
-- **完整的记忆策略：MemoryBuilder → HybridRetriever → ContextInjector → Consolidation**
-- **分层 Token 预算上下文注入机制**
+- ✓ Web 传输层（`@crai/transport-ws` + `apps/web` + `apps/server`）
+- ✓ CLI 或瘦客户端传输层（`@crai/cli-repl`、`@crai/transport-cli`）
+- ✓ 改进的存储适配器实现（`@crai/storage-fs` + 持久化 hook）
+- ✓ 基础命令支持（`/session`、`/model`）
+- ○ **完整的记忆策略：MemoryBuilder → HybridRetriever → ContextInjector → Consolidation**
+- ○ **分层 Token 预算上下文注入机制**
 
 ### 验收标准
-- 运行时可以通过至少一个外部传输层工作
-- 扩展可以注册命令和钩子
-- 持久化可以重放基础 Session 历史
-- **Session 结束时自动生成摘要并持久化**
-- **Session 启动时自动注入历史记忆到上下文**
-- **记忆检索支持混合模式（语义/关键词/结构化）**
+- ✓ 运行时可以通过至少一个外部传输层工作（WebSocket）
+- ✓ 扩展可以注册命令和钩子
+- ✓ 持久化可以重放基础 Session 历史
+- ○ **Session 结束时自动生成摘要并持久化**
+- ○ **Session 启动时自动注入历史记忆到上下文**
+- ○ **记忆检索支持混合模式（语义/关键词/结构化）**
 
 ## Phase 3: 加固与规模化 (Hardening and Scale)
 

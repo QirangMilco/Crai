@@ -17,10 +17,10 @@ import type {
 import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId } from '@crai/core'
-import { guardContext, estimateMessagesTokens } from './context-window'
-import type { Summarizer } from './context-window'
+import { guardContext, estimateMessagesTokens } from '@crai/base'
+import type { Summarizer } from '@crai/base'
 import { debugLog, DEBUG_SCOPES } from './debug'
-import { withIdleTimeout, StreamTimeoutError } from './streamGuards'
+import { withIdleTimeout, StreamTimeoutError } from '@crai/base'
 
 /** 单次 turn 中工具调用的最大轮次，防止无限循环。 */
 const MAX_TOOL_ROUNDS = 10

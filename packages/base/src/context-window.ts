@@ -1,5 +1,5 @@
 /**
- * @crai/runtime — 上下文窗口管理与压缩
+ * @crai/base — 上下文窗口管理与压缩
  *
  * 改进跟踪：
  * - Token 估算：tiktoken 优先（Snow-CLI 模式），字符近似回退
