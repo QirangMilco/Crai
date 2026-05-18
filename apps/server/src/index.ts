@@ -7,7 +7,7 @@
  */
 import { createRuntime } from '@crai/runtime'
 import type { RuntimeHandle } from '@crai/core'
-import { createOpenAIProvider, createDeepSeekProvider, createMockProvider, listModels } from '@crai/provider'
+import { createOpenAIProvider, createDeepSeekProvider, createMockProvider, listModels, DeepSeekAdapter, OpenAIAdapter } from '@crai/provider'
 import { ConsoleLogger, createSandbox } from '@crai/base'
 import { createFileStorage } from '@crai/storage-fs'
 import { createPersistenceExtension } from '@crai/persistence'
@@ -105,6 +105,20 @@ class WorkspaceManager {
         createWorkspaceSecurity({ rootDir, mode: 'ask', askHandler: async () => true }),
         createEventForwarder(rootDir, this.onEvent),
       ],
+      onModelNotFound: async (modelName, provider) => {
+        if (!provider) return undefined
+        const global = this.config.getGlobal()
+        const pcfg = global.providers[provider]
+        if (!pcfg?.apiKey) return undefined
+        this.log.info(`惰性注册模型: ${provider}/${modelName}`)
+        if (provider === 'deepseek') {
+          return new DeepSeekAdapter({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, logger: this.log })
+        }
+        if (provider === 'mock') {
+          return undefined // mock 模型应该在 runtime 启动时已注册
+        }
+        return new OpenAIAdapter({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, logger: this.log })
+      },
     })
     this.runtimes.set(rootDir, runtime)
     await this.config.addRecentWorkspace(rootDir)

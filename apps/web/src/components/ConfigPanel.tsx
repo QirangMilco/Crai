@@ -400,7 +400,11 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                   if (v) {
                     const num = parseInt(v, 10)
                     if (num >= 1 && num <= 100) {
-                      send({ type: 'config:set', config: { compressionThreshold: num / 100 } })
+                      send({ type: 'config:set', config: {
+                        compressionThreshold: num / 100,
+                        // 阈值调低时同步缩小 keepRecentTokens，否则硬截断永远不移除
+                        keepRecentTokens: Math.min(32000, Math.max(500, Math.round(30000 * (num / 80))))
+                      } })
                     }
                   }
                 }}

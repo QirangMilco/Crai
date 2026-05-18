@@ -391,6 +391,10 @@ export interface PromptOptions {
   provider?: string
   /** 工具模型。格式：provider/model。用于标题生成、对话摘要等辅助 LLM 调用。未设置时使用 model。 */
   toolModel?: string
+  /** 上下文压缩阈值（0~1）。覆盖全局配置的 compressionThreshold。 */
+  compressionThreshold?: number
+  /** 压缩后保留的最近消息 token 数。覆盖全局配置的 keepRecentTokens。 */
+  compressionKeepTokens?: number
   metadata?: Metadata
   signal?: AbortSignal
 }

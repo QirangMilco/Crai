@@ -240,6 +240,8 @@ export async function runTurn(
   deps: TurnRunnerDeps,
   modelName?: string,
   toolModel?: string,
+  compressionThreshold?: number,
+  compressionKeepTokens?: number,
 ): Promise<TurnRunResult> {
   const turnId = createId('turn')
 
@@ -344,8 +346,8 @@ export async function runTurn(
   // 每轮 turn 开始时检查一次上下文。
   // 不移入循环内重复检查（参考 OpenHanako：初始化时检查 + 客户端手动 compact 事件触发）。
   const guarded = await guardContext(contextWithTools.messages, '', modelName ?? '', {
-    threshold: 0.8,
-    keepRecentTokens: 32000,
+    threshold: compressionThreshold ?? 0.8,
+    keepRecentTokens: compressionKeepTokens ?? 32000,
     logger: deps.logger,
     // Snow-CLI 模式：AI 摘要优先，失败时硬截断回退
     summarize: runtime ? createSummarizerFromRuntime(runtime, toolModel) : undefined,

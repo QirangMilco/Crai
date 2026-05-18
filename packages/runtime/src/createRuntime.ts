@@ -72,6 +72,12 @@ export interface RuntimeOptions {
    * CLI 注入 readline question，GUI 注入弹窗。
    */
   requestUserInput?(question: string, options?: string[]): Promise<string>
+  /**
+   * 当 callModel 查找模型失败时回调。
+   * 可在回调中动态创建并返回 ModelAdapter，runtime 会自动注册到模型表中以备后续使用。
+   * 返回 undefined 表示无法提供此模型。
+   */
+  onModelNotFound?(modelName: string, provider?: string): Promise<ModelAdapter | undefined>
 }
 
 // ── 内部类型 ──────────────────────────────────────
@@ -262,9 +268,11 @@ async function handlePrompt(
 
   const modelName = promptOptions?.model ?? getFirstModel(deps.registries.models)
   const toolModel = promptOptions?.toolModel ?? modelName
+  const compressionThreshold = promptOptions?.compressionThreshold
+  const compressionKeepTokens = promptOptions?.compressionKeepTokens
   const inputText = typeof input === 'string' ? input : (input as any)?.text
   deps.traceCollector?.note(`prompt — ${JSON.stringify(inputText ?? input)}`)
-  const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel)
+  const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel, compressionThreshold, compressionKeepTokens)
 
   return {
     session: result.session,
@@ -411,6 +419,15 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       let adapter = opts?.provider
         ? (deps.registries.models.get(`${opts.provider}:${modelName}`) ?? deps.registries.models.get(modelName))
         : deps.registries.models.get(modelName)
+      // 惰性注册：模型不存在时通过回调动态创建
+      if (!adapter && options?.onModelNotFound) {
+        const newAdapter = await options.onModelNotFound(modelName, opts?.provider)
+        if (newAdapter) {
+          adapter = newAdapter
+          if (opts?.provider) deps.registries.models.register(`${opts.provider}:${modelName}`, newAdapter)
+          deps.registries.models.register(modelName, newAdapter)
+        }
+      }
       if (!adapter) throw new Error(`Model "${modelName}" not found`)
 
       const context: any = {

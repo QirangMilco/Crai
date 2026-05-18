@@ -218,16 +218,14 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           }
         }
         if (msg.provider) opts.provider = msg.provider
-        // 从全局配置读取工具模型（格式：provider/model）
+        // 从全局配置读取工具模型（原始格式：provider/model，如 "deepseek/deepseek-v4-flash"）
         try {
           const cfg = handlers?.onConfigGet ? await handlers.onConfigGet() : undefined
           if (cfg) {
-            const tm = (cfg as any).toolModel
-            if (tm) {
-              const si = tm.indexOf('/')
-              opts.toolProvider = si >= 0 ? tm.slice(0, si) : undefined
-              opts.toolModel = si >= 0 ? tm.slice(si + 1) : tm
-            }
+            if ((cfg as any).toolModel) opts.toolModel = (cfg as any).toolModel
+            // 压缩阈值和保留 token 数
+            if ((cfg as any).compressionThreshold != null) opts.compressionThreshold = (cfg as any).compressionThreshold
+            if ((cfg as any).keepRecentTokens != null) opts.compressionKeepTokens = (cfg as any).keepRecentTokens
           }
         } catch { /* 静默 */ }
         const result = await rt.prompt({ type: 'text', text: msg.text }, opts)
