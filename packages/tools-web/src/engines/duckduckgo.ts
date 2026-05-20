@@ -31,8 +31,14 @@ function parseDuckDuckGoLiteResults(html: string, maxResults: number): SearchRes
   const links: Array<{ url: string; title: string }> = []
   let match: RegExpExecArray | null
   while ((match = linkRegex.exec(html)) !== null) {
+    let url = match[1].trim()
+    // 解码 DuckDuckGo 的跳转 URL（snow-cli 模式）
+    if (url.includes('uddg=')) {
+      const uddgMatch = url.match(/uddg=([^&]+)/)
+      if (uddgMatch?.[1]) url = decodeURIComponent(uddgMatch[1])
+    }
     links.push({
-      url: match[1].trim(),
+      url,
       title: match[2].replace(/<[^>]+>/g, '').trim(),
     })
   }
