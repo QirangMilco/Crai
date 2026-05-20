@@ -23,6 +23,7 @@ import { encrypt, decrypt } from './crypto'
 
 export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
   providers: {},
+  sandboxEnabled: true,
   recentWorkspaces: [],
 }
 
