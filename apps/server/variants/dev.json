@@ -12,7 +12,7 @@
     "maxBackups": 3,
     "scopes": {
       "server": ["context", "thinking"],
-      "client": ["timeline"]
+      "client": ["timeline", "tools"]
     }
   }
 }

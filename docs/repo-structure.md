@@ -19,6 +19,7 @@ packages/
   runtime/             运行时内核
   config/              配置管理（全局 + 工作区 + 变体）
   cli-repl/            交互式 CLI REPL
+  extension-sdk/       Extension 开发 SDK
   loader-ts/           TS 扩展加载器
   persistence/         会话持久化
   provider/            LLM provider
@@ -97,7 +98,7 @@ docs/
 - 路径校验（resolveAllowedPath）
 - 敏感命令检测（可配置 JSON，scope/disable）
 - `createWorkspaceSecurity` extension（tool:safetyCheck hook）
-- YOLO 模式（操作模式下敏感命令仍弹确认）
+- execute 模式（操作模式下敏感命令仍弹确认）
 
 ### 3.10 `packages/tools-fs`
 - fs_read（hashline 锚点）

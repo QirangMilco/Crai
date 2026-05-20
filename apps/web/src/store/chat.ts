@@ -10,6 +10,7 @@
 
 import { create } from 'zustand'
 import type { ChatMessage } from '../types/messages'
+import { debugLog } from '../utils/debug'
 
 // ── Stream Buffer（模块级，不触发 React 订阅） ──────────
 
@@ -20,6 +21,7 @@ const _sb = {
   thinking: '',
   flushedAt: 0,
   flushTimer: null as ReturnType<typeof setTimeout> | null,
+  forceNewTextBlock: false,
 }
 
 function flushNow(set: any) {
@@ -46,13 +48,21 @@ function flushNow(set: any) {
       }
     }
 
-    // ── Text ──
+    // ── 文本 ──
     if (text) {
-      const textIdx = blocks.findIndex((b) => b.type === 'text')
-      if (textIdx >= 0) {
-        blocks[textIdx] = { ...blocks[textIdx], content: (blocks[textIdx] as any).content + text }
-      } else {
+      if (_sb.forceNewTextBlock) {
+        // addTool 后：push 新 text block（不追加到已有），重置 flag
         blocks.push({ type: 'text', content: text })
+        _sb.forceNewTextBlock = false
+      } else {
+        // 追加到最后一个 text block（防止前序 block 被误追加）
+        const textIdx = [...blocks].reverse().findIndex((b) => b.type === 'text')
+        if (textIdx >= 0) {
+          const realIdx = blocks.length - 1 - textIdx
+          blocks[realIdx] = { ...blocks[realIdx], content: (blocks[realIdx] as any).content + text }
+        } else {
+          blocks.push({ type: 'text', content: text })
+        }
       }
     }
 
@@ -104,7 +114,7 @@ export interface ChatStore {
   addTool: (toolCallId: string, name: string) => void
 
   /** 标记工具完成。 */
-  doneTool: (toolCallId: string, isError: boolean) => void
+  doneTool: (toolCallId: string, isError: boolean, summary?: string) => void
 
   /** 合并服务端 session:data。 */
   mergeServerData: (incoming: ChatMessage[]) => void
@@ -159,7 +169,9 @@ export const useChatStore = create<ChatStore>((set) => ({
   },
 
   addTool: (toolCallId: string, name: string) => {
+    debugLog('tools', 'addTool:', { toolCallId, name })
     flushNow(set)
+    _sb.forceNewTextBlock = true
     set((s) => {
       const idx = findLastAssistantIndex(s.messages)
       if (idx === undefined) return s
@@ -188,8 +200,9 @@ export const useChatStore = create<ChatStore>((set) => ({
     })
   },
 
-  doneTool: (toolCallId: string, isError: boolean) => {
+  doneTool: (toolCallId: string, isError: boolean, summary?: string) => {
     flushNow(set) // 先 flush 保证 blocks 是最新状态
+    debugLog('tools', 'doneTool:', { toolCallId, isError, summary })
     set((s) => {
       const idx = findLastAssistantIndex(s.messages)
       if (idx === undefined) return s
@@ -200,10 +213,7 @@ export const useChatStore = create<ChatStore>((set) => ({
         const tg = b as any
         const tIdx = tg.tools.findIndex((t: any) => t.toolCallId === toolCallId && t.status === 'running')
         if (tIdx >= 0) {
-          tg.tools[tIdx] = { ...tg.tools[tIdx], status: isError ? 'error' : 'success' } as any
-          if (tg.tools.every((t: any) => t.status !== 'running')) {
-            tg.collapsed = true
-          }
+          tg.tools[tIdx] = { ...tg.tools[tIdx], status: isError ? 'error' : 'success', summary } as any
           break
         }
       }
@@ -228,13 +238,23 @@ export const useChatStore = create<ChatStore>((set) => ({
         return true
       })
 
-      // 服务端数据为主，保留本地 blocks
+      // 服务端数据为主。当服务端消息含 blocks 时，用服务端 blocks 覆盖本地（
+      // 参考 OpenHanako 模式：服务端从 parts 重建 blocks，顺序权威）
       const merged = [...incoming]
       for (const local of s.messages) {
         if (!local.blocks?.length) continue
         const existingIdx = merged.findIndex((m) => m.id === local.id)
         if (existingIdx >= 0) {
-          merged[existingIdx] = { ...merged[existingIdx], blocks: local.blocks }
+          const serverMsg = merged[existingIdx]
+          // 只有当消息还在流式进行中（blocks 不完整时）保留本地 blocks；
+          // session:data 中的 blocks 由服务端从 parts 重建，顺序正确
+          if (serverMsg.text !== undefined && !local.text) {
+            // 正在流式、服务端还未收到完整 blocks → 保留本地
+            merged[existingIdx] = { ...serverMsg, blocks: local.blocks }
+          } else {
+            // 服务端 blocks 已就绪 → 使用服务端 blocks
+            merged[existingIdx] = { ...serverMsg, blocks: serverMsg.blocks || local.blocks }
+          }
         }
       }
       for (const local of kept) {

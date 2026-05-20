@@ -110,7 +110,7 @@ Crai 在设计上积极参考并吸收多个优秀开源项目的工程实践：
 - **[CloudWeGo/Eino](file:///Users/qirang/Documents/Projects/Crai/refs/eino)**：借鉴其组件抽象、中间件模式、检查点机制以及**中断/恢复（interrupt/resume）模式**，用于增强内核的治理能力和**人机确认流程**。
 - **[pi-mono](file:///Users/qirang/Documents/Projects/Crai/refs/pi-mono)**：借鉴其极简的 Agent 循环设计与 Provider 适配层抽象；以及**扩展级安全门（permission-gate / protected-paths）** 和 **OS 级沙箱（sandbox-exec/bubblewrap）** 实现。
 - **[reasonix](file:///Users/qirang/Documents/Projects/Crai/refs/reasonix)**：借鉴其以缓存为中心的语义索引与状态持久化机制，三层记忆作用域（user/project/session）设计；以及**文件系统沙箱（rootDir 强制校验 + 路径遍历检测 + 读写字节上限）**。
-- **[crystalagents](file:///Users/qirang/Documents/Projects/Crai/refs/crystalagents)**：借鉴其优雅的前端交互风格与高性能 Markdown 渲染实现；以及**三级权限模式（safe/ask/allow-all）、危险命令黑名单（DANGEROUS_COMMANDS）、工作空间级 permissions.json 配置**。
+- **[crystalagents](file:///Users/qirang/Documents/Projects/Crai/refs/crystalagents)**：借鉴其优雅的前端交互风格与高性能 Markdown 渲染实现；以及**三级权限模式（safe/ask/allow-all）、危险命令黑名单（DANGEROUS_COMMANDS）、工作空间级 permissions.json 配置**。Crai 的前端架构已决定采用 CrystalAgents 的 activities 模式作为长期路线，详见 [frontend-architecture.md](frontend-architecture.md)。
 - **[snow-cli](file:///Users/qirang/Documents/Projects/Crai/refs/snow-cli)**：借鉴其完善的 MCP 集成、LSP 支持以及工具确认流（Tool Confirmation Flow）的交互设计；以及**自毁命令检测（防止 agent 杀掉自身进程）和技能级 allowed-tools 白名单**。
 - **[SimpleMem](file:///Users/qirang/Documents/Projects/Crai/refs/SimpleMem)**：借鉴其三阶段记忆流水线（语义压缩 → 混合检索 → 答案生成）、多视图索引模型（语义/词汇/符号三层）、跨会话记忆生命周期管理以及 Token 预算分层上下文注入策略。
 

@@ -215,7 +215,7 @@ export interface EventMap {
   "thinking.done": { session: Session; turnId: ID }
   "tool.start": { session: Session; turnId: ID; toolCallId: ID; name: string }
   "tool.delta": { session: Session; turnId: ID; toolCallId: ID; delta: string }
-  "tool.done": { session: Session; turnId: ID; toolCallId: ID; name: string; isError?: boolean }
+  "tool.done": { session: Session; turnId: ID; toolCallId: ID; name: string; isError?: boolean; summary?: string }
 
   // Memory events
   "session.memoryInjected": { session: Session; bundle: ContextBundle }

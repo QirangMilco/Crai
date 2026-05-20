@@ -200,3 +200,71 @@ workspace-A runtime 触发 turn.started
   → WebSocket broadcast({ type: 'event', event: 'turn.started', payload: { workspaceId: 'workspace-A', ... } })
   → 客户端当前 workspaceId 匹配 → 渲染；不匹配 → 静默过滤
 ```
+
+## 11. 最小端到端示例 (Minimal End-to-End Example)
+
+以下是一个最小运行时示例应当支持的行为序列，用于验证内核是否精简、端到端流程是否完整。
+
+### 11.1 行为
+
+- 启动运行时
+- 注册一个模型适配器
+- 注册一个存储适配器
+- 加载一个扩展
+- 创建一个 Session
+- 处理一个 Prompt
+- 触发生命周期事件
+- 干净地卸载扩展
+
+### 11.2 期望事件序列
+
+一个简单的快乐路径应当产生类似于以下的序列：
+
+```txt
+runtime.started
+session.created
+input.received
+turn.started
+context.built
+model.requested
+model.completed
+tool.requested
+tool.completed
+message.appended
+turn.completed
+runtime.stopped
+```
+
+### 11.3 期望观测数据
+
+- Session ID
+- Turn ID
+- 触发的事件
+- 任何工具调用
+- 最终响应
+
+## 12. 错误与恢复 (Error & Recovery)
+
+### 12.1 模型失败
+
+如果模型请求失败：当前 Turn 应当失败，触发 `turn.failed`，部分消息保留供诊断。错误作为 `RuntimeError` 抛出。
+
+### 12.2 工具失败
+
+如果工具执行失败或超时：触发 `tool.failed`，当前 Turn 根据工具结果和钩子策略继续或失败。
+
+### 12.3 扩展失败
+
+如果扩展在加载或设置期间抛出异常：停止加载该扩展，记录错误事件。除非是致命错误，运行时继续运行。
+
+### 12.4 持久化失败
+
+运行时清晰地报告错误，Turn 不静默成功。运行时可以保留内存状态，但持久化恢复应当是显式的。
+
+### 12.5 恢复原则
+
+- 宁愿让当前 Turn 失败，也不要隐藏错误
+- 保留部分状态以供诊断
+- 将重试策略保留在核心默认值之外（通过 Middleware 实现）
+- 对于确定性错误不自动重试
+- 使用结构化的 `RuntimeError` 值，保留原始原因

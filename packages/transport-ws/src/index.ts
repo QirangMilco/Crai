@@ -117,31 +117,41 @@ export function browseDir(inputPath?: string): { path: string; dirs: string[]; p
 /** 从 MessagePart[] 重建前端所用的 ContentBlock[]。 */
 function buildBlocksFromParts(parts: any[]): any[] {
   const blocks: any[] = []
-  // 1) thinking parts → sealed thinking blocks（按顺序，支持多轮）
-  for (const p of parts) {
-    if (p.type === 'thinking') {
-      blocks.push({ type: 'thinking', content: p.thinking, sealed: true })
+  // 按 parts 原始顺序遍历，保持 text 和 tool_group 的交错
+  let currentToolGroup: any = null
+
+  function flushToolGroup() {
+    if (currentToolGroup) {
+      blocks.push(currentToolGroup)
+      currentToolGroup = null
     }
   }
-  // 2) tool-call parts → 一个 tool_group
-  const toolCalls = parts.filter((p: any) => p.type === 'tool-call')
-  if (toolCalls.length > 0) {
-    blocks.push({
-      type: 'tool_group',
-      tools: toolCalls.map((p: any) => ({
+
+  for (const p of parts) {
+    if (p.type === 'thinking') {
+      flushToolGroup()
+      blocks.push({ type: 'thinking', content: p.thinking, sealed: true })
+    } else if (p.type === 'text') {
+      flushToolGroup()
+      blocks.push({ type: 'text', content: p.text })
+    } else if (p.type === 'tool-call') {
+      if (!currentToolGroup) {
+        currentToolGroup = {
+          type: 'tool_group',
+          tools: [],
+          collapsed: false,
+        }
+      }
+      currentToolGroup.tools.push({
         toolCallId: p.toolCallId,
         name: p.name,
         args: typeof p.arguments === 'object' ? JSON.stringify(p.arguments) : String(p.arguments ?? ''),
         status: 'success',
-      })),
-      collapsed: true,
-    })
+      })
+    }
   }
-  // 3) text parts → 一个 text block
-  const texts = parts.filter((p: any) => p.type === 'text').map((p: any) => p.text)
-  if (texts.length > 0) {
-    blocks.push({ type: 'text', content: texts.join('\n') })
-  }
+  flushToolGroup()
+
   return blocks
 }
 

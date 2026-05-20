@@ -132,7 +132,12 @@ export function ChatView({ wsUrl }: Props) {
           }
           if (msg.event === 'tool.done') {
             debugLog('timeline', '工具完成:', msg.payload.toolCallId, msg.payload.isError ? '✗' : '✓')
-            store.getState().doneTool(msg.payload.toolCallId, !!msg.payload.isError)
+            debugLog('tools', 'tool.done', msg.payload)
+            store.getState().doneTool(msg.payload.toolCallId, !!msg.payload.isError, msg.payload.summary)
+          }
+          if (msg.event === 'tool.blocked') {
+            debugLog('tools', '工具被拦截:', msg.payload.toolCallId, msg.payload.name, msg.payload.reason)
+            store.getState().doneTool(msg.payload.toolCallId, true, msg.payload.reason)
           }
 
           if (msg.event === 'model.completed') {

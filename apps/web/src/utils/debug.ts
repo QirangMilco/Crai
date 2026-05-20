@@ -28,6 +28,7 @@ export const DEBUG_SCOPES = {
   MERGE: 'merge',
   TIMELINE: 'timeline',
   TITLE_GEN: 'title-gen',
+  TOOLS: 'tools',
   ALL: 'all',
 } as const
 

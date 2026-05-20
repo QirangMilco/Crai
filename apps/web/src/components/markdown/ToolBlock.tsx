@@ -6,6 +6,7 @@ interface ToolCall {
   name: string
   args: string
   status: 'running' | 'success' | 'error'
+  summary?: string
 }
 
 interface Props {
@@ -68,6 +69,9 @@ export const ToolGroupBlock = memo(function ToolGroupBlock({ tools, collapsed, s
   const [localCollapsed, setLocalCollapsed] = useState(collapsed)
   useEffect(() => {
     if (collapsed && !localCollapsed) debugLog('timeline', '工具组自动折叠', '')
+    if (localCollapsed !== collapsed) {
+      debugLog('tools', '折叠状态变化:', { from: localCollapsed, to: collapsed })
+    }
     setLocalCollapsed(collapsed)
   }, [collapsed])
   const toggle = useCallback(() => setLocalCollapsed((v) => !v), [])
@@ -129,6 +133,14 @@ const ToolIndicator = memo(function ToolIndicator({ tool }: { tool: ToolCall }) 
   const label = TOOL_LABELS[tool.name] ?? tool.name
   const detail = extractToolDetail(tool.name, tool.args)
   const done = tool.status !== 'running'
+  // 检测退出码：summary 中有 [退出码: N] 且 N !== 0 视为失败
+  const exitCodeMatch = done && tool.summary?.match(/\[退出码:\s*(-?\d+)\]/)
+  const hasExitError = done && (tool.status === 'error' || (exitCodeMatch && exitCodeMatch[1] !== '0'))
+
+  // 在开发模式下输出工具渲染信息
+  if (tool.status === 'running') {
+    debugLog('tools', '渲染运行中的工具:', { name: tool.name, id: tool.toolCallId })
+  }
 
   return (
     <div
@@ -151,7 +163,7 @@ const ToolIndicator = memo(function ToolIndicator({ tool }: { tool: ToolCall }) 
         height: 6,
         borderRadius: '50%',
         backgroundColor: done
-          ? (tool.status === 'success' ? 'var(--crai-tool-success)' : 'var(--crai-tool-error)')
+          ? hasExitError ? 'var(--crai-tool-error)' : 'var(--crai-tool-success)'
           : 'var(--crai-accent)',
         opacity: done ? 1 : 0.5,
         flexShrink: 0,
@@ -170,9 +182,23 @@ const ToolIndicator = memo(function ToolIndicator({ tool }: { tool: ToolCall }) 
             {detail.text}
           </span>
         )}
+        {done && tool.summary && (
+          <span style={{
+            fontSize: 'calc(var(--crai-tool-font-size, 14px) * 0.85)',
+            color: 'var(--crai-fg-tertiary)',
+            maxWidth: 300,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            marginLeft: 4,
+            opacity: 0.6,
+          }}>
+            → {tool.summary}
+          </span>
+        )}
       </span>
       {!done && <span style={{ display: 'inline-block', width: 4, height: 4, borderRadius: '50%', background: 'currentColor', opacity: 0.6, animation: 'crai-think-pulse 1.4s ease-in-out infinite' }} />}
-      {done && <span>{tool.status === 'success' ? '✓' : '✗'}</span>}
+      {done && <span>{hasExitError ? '✗' : '✓'}</span>}
     </div>
   )
 })

@@ -15,9 +15,9 @@
 
 > 以下实体按实现状态标记:✓ = 已实现,○ = 已设计但未实现(未来阶段)
 
-### 2.1 Workspace ○
+### 2.1 Workspace ✓
 
-Workspace 是顶级项目容器。它在核心 API 草案中是可选的,但如果 Crai 管理多个项目或环境,它应该存在于产品层。
+Workspace 是顶级项目容器。已在 `apps/server` 中实现（WorkspaceManager）。
 
 建议字段:
 ```ts
@@ -40,9 +40,9 @@ Session 是对话和工具活动的主要运行时容器。
 - Session 元数据 (Metadata) 应当保持精简且具有描述性
 - Session 应当足以从存储中重建上下文
 
-### 2.3 Turn ○
+### 2.3 Turn ✓
 
-Turn 是 Session 内部的一次"请求/响应"执行周期。
+Turn 是 Session 内部的一次"请求/响应"执行周期。turnRunner 通过 `runTurn()` 执行，`turnId` 在各事件中传递。
 
 建议字段:
 ```ts

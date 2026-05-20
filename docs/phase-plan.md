@@ -15,7 +15,7 @@
 ### 交付物
 - ✓ `@crai/core`
 - ✓ `@crai/runtime`
-- ✓ `@crai/base`（含 defineExtension）
+- ✓ `@crai/core`（含 defineExtension）
 - ✓ 基础本地 TS 加载器
 - ✓ 一个最小的运行时入口点
 - ✓ 扩展权限声明支持
@@ -55,6 +55,7 @@
 - ✓ CLI 或瘦客户端传输层（`@crai/cli-repl`、`@crai/transport-cli`）
 - ✓ 改进的存储适配器实现（`@crai/storage-fs` + 持久化 hook）
 - ✓ 基础命令支持（`/session`、`/model`）
+- △ 前端架构切换到 CrystalAgents activities 路线，参见 [frontend-architecture.md](frontend-architecture.md)
 - ○ **完整的记忆策略：MemoryBuilder → HybridRetriever → ContextInjector → Consolidation**
 - ○ **分层 Token 预算上下文注入机制**
 

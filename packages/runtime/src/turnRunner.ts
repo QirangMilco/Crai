@@ -213,7 +213,12 @@ async function executeOneTool(
   try {
     const result = await handler.execute(execRequest, execCtx)
     await deps.emitEvent(EVENTS.TOOL_COMPLETED, { session, result })
-    await deps.emitEvent(EVENTS.TOOL_DONE, { session, turnId, toolCallId: toolCall.toolCallId, name: toolCall.name })
+    // 提取简短摘要（最多 120 字符）供前端显示
+    const summary = result.content?.slice(0, 1).map(p => {
+      const t = (p as any)?.text ?? ''
+      return t.length > 120 ? t.slice(0, 120) + '…' : t
+    }).filter(Boolean).join(' | ') || undefined
+    await deps.emitEvent(EVENTS.TOOL_DONE, { session, turnId, toolCallId: toolCall.toolCallId, name: toolCall.name, summary })
     await deps.hooks.run(HOOKS.TOOL_AFTER, { session, result }, { runtime: undefined as any })
     return result
   } catch (cause) {
@@ -224,7 +229,7 @@ async function executeOneTool(
       content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `执行出错: ${(cause as Error).message}` }],
     }
     await deps.emitEvent(EVENTS.TOOL_FAILED, { session, result: errResult })
-    await deps.emitEvent(EVENTS.TOOL_DONE, { session, turnId, toolCallId: toolCall.toolCallId, name: toolCall.name, isError: true })
+    await deps.emitEvent(EVENTS.TOOL_DONE, { session, turnId, toolCallId: toolCall.toolCallId, name: toolCall.name, isError: true, summary: (cause as Error).message })
     return errResult
   }
 }
