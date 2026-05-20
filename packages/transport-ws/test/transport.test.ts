@@ -45,6 +45,7 @@ function mockRuntime(): RuntimeHandle {
     async stopSession() {},
     async getSession(id: string) { return sessions.get(id) },
     async updateSession(session: Session) { sessions.set(session.id, session) },
+    async deleteSession(id: string) { sessions.delete(id) },
     async listMessages() { return [] },
     async callModel(messages: any, opts?: any) { return 'test response' },
     async loadExtension() {},

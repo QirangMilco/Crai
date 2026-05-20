@@ -119,6 +119,10 @@ function inputToMessage(input: RuntimeInput, sessionId: string): Message {
 }
 
 /** 消费流式事件，发 delta 事件，返回完整 response。Adapter 的 done 事件已包含 tool-call parts。 */
+function makeActivityId(): string {
+  return createId('act')
+}
+
 async function consumeStream(
   stream: AsyncIterable<ModelStreamEvent>,
   session: Session,
@@ -128,26 +132,61 @@ async function consumeStream(
 ): Promise<ModelResponse> {
   const startedTools = new Set<string>()
   let thinkingAccum = ''  // 积累 thinking 内容，用于持久化
+  let thinkingActivityId: string | undefined
   for await (const event of stream) {
     switch (event.type) {
       case 'text-delta':
         await emitEvent(EVENTS.MODEL_DELTA, { session, turnId, delta: event.delta })
         break
       case 'thinking-delta':
+        if (!thinkingActivityId) {
+          thinkingActivityId = makeActivityId()
+          await emitEvent(EVENTS.ACTIVITY_START, {
+            session, turnId,
+            activity: {
+              id: thinkingActivityId,
+              type: 'thinking',
+              status: 'running',
+              timestamp: Date.now(),
+            },
+          })
+        }
         thinkingAccum += event.delta
         debugLog(DEBUG_SCOPES.MIDDLEWARE, `consumeStream: thinking-delta (${event.delta.substring(0, 60)})`, { sessionId: session.id }, logger)
-        await emitEvent(EVENTS.THINKING_DELTA, { session, turnId, delta: event.delta })
+        await emitEvent(EVENTS.ACTIVITY_DELTA, { session, turnId, activityId: thinkingActivityId!, delta: event.delta })
         break
       case 'thinking-done':
         debugLog(DEBUG_SCOPES.MIDDLEWARE, 'consumeStream: thinking-done', { sessionId: session.id }, logger)
-        await emitEvent(EVENTS.THINKING_DONE, { session, turnId })
+        if (thinkingActivityId) {
+          await emitEvent(EVENTS.ACTIVITY_DONE, {
+            session, turnId,
+            activity: {
+              id: thinkingActivityId,
+              type: 'thinking',
+              status: 'completed',
+              content: thinkingAccum,
+              timestamp: Date.now(),
+            },
+          })
+          thinkingActivityId = undefined
+        }
         break
       case 'tool-call-delta':
         if (!startedTools.has(event.toolCallId)) {
           startedTools.add(event.toolCallId)
-          await emitEvent(EVENTS.TOOL_START, { session, turnId, toolCallId: event.toolCallId, name: event.name })
+          // 使用 tool-{toolCallId} 作为 activity ID，与 executeOneTool 的 activity.done 一致
+          await emitEvent(EVENTS.ACTIVITY_START, {
+            session, turnId,
+            activity: {
+              id: `tool-${event.toolCallId}`,
+              type: 'tool',
+              status: 'running',
+              toolName: event.name,
+              toolCallId: event.toolCallId,
+              timestamp: Date.now(),
+            },
+          })
         }
-        await emitEvent(EVENTS.TOOL_DELTA, { session, turnId, toolCallId: event.toolCallId, delta: event.argsDelta })
         break
       case 'done': {
         const response = event.response
@@ -159,6 +198,24 @@ async function consumeStream(
           const textIsThinking = response.message.parts.some((p: any) => p.type === 'text' && p.text === thinkingAccum)
           if (hasText && !textIsThinking) {
             response.message.parts.push({ type: 'thinking', thinking: thinkingAccum })
+          }
+        }
+        // 流结束后，向已发射的 tool activity 补充完整参数
+        for (const p of response.message.parts) {
+          if (p.type === 'tool-call') {
+            const tc = p as ToolCallPart
+            await emitEvent(EVENTS.ACTIVITY_START, {
+              session, turnId,
+              activity: {
+                id: `tool-${tc.toolCallId}`,
+                type: 'tool',
+                status: 'running',
+                toolName: tc.name,
+                toolCallId: tc.toolCallId,
+                toolInput: tc.arguments as Record<string, unknown>,
+                timestamp: Date.now(),
+              },
+            })
           }
         }
         return response
@@ -218,7 +275,19 @@ async function executeOneTool(
       const t = (p as any)?.text ?? ''
       return t.length > 120 ? t.slice(0, 120) + '…' : t
     }).filter(Boolean).join(' | ') || undefined
-    await deps.emitEvent(EVENTS.TOOL_DONE, { session, turnId, toolCallId: toolCall.toolCallId, name: toolCall.name, summary })
+    await deps.emitEvent(EVENTS.ACTIVITY_DONE, {
+      session, turnId,
+      activity: {
+        id: `tool-${toolCall.toolCallId}`,
+        type: 'tool',
+        status: result.isError ? 'error' : 'completed',
+        toolName: toolCall.name,
+        toolCallId: toolCall.toolCallId,
+        toolInput: toolCall.arguments as Record<string, unknown> | undefined,
+        content: summary,
+        timestamp: Date.now(),
+      },
+    })
     await deps.hooks.run(HOOKS.TOOL_AFTER, { session, result }, { runtime: undefined as any })
     return result
   } catch (cause) {
@@ -229,7 +298,19 @@ async function executeOneTool(
       content: [{ type: MESSAGE_PART_TYPES.TEXT, text: `执行出错: ${(cause as Error).message}` }],
     }
     await deps.emitEvent(EVENTS.TOOL_FAILED, { session, result: errResult })
-    await deps.emitEvent(EVENTS.TOOL_DONE, { session, turnId, toolCallId: toolCall.toolCallId, name: toolCall.name, isError: true, summary: (cause as Error).message })
+    await deps.emitEvent(EVENTS.ACTIVITY_DONE, {
+      session, turnId,
+      activity: {
+        id: `tool-${toolCall.toolCallId}`,
+        type: 'tool',
+        status: 'error',
+        toolName: toolCall.name,
+        toolCallId: toolCall.toolCallId,
+        content: (cause as Error).message,
+        error: (cause as Error).message,
+        timestamp: Date.now(),
+      },
+    })
     return errResult
   }
 }
@@ -305,6 +386,7 @@ export async function runTurn(
     const def = defMap.get(tc.name)
     if (!def) {
       await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 未注册` })
+      await deps.emitEvent(EVENTS.ACTIVITY_DONE, { session, turnId, activity: { id: `tool-${tc.toolCallId}`, type: 'tool', status: 'error', toolName: tc.name, toolCallId: tc.toolCallId, error: `工具 "${tc.name}" 未注册`, timestamp: Date.now() } })
       return { tc, execResult: makeErrResult(tc, `工具 "${tc.name}" 未注册`) }
     }
     const safetyResult: any = await deps.hooks.run(
@@ -314,6 +396,7 @@ export async function runTurn(
     )
     if (safetyResult?.stop) {
       await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: safetyResult.reason ?? '权限拒绝' })
+      await deps.emitEvent(EVENTS.ACTIVITY_DONE, { session, turnId, activity: { id: `tool-${tc.toolCallId}`, type: 'tool', status: 'error', toolName: tc.name, toolCallId: tc.toolCallId, error: safetyResult.reason ?? '权限拒绝', timestamp: Date.now() } })
       return { tc, execResult: makeErrResult(tc, `权限拒绝: ${safetyResult.reason ?? '工具调用被安全策略阻止'}`) }
     }
     const handler = deps.resolveTool ? await deps.resolveTool(tc.name) : undefined
@@ -322,6 +405,7 @@ export async function runTurn(
     }, deps.logger)
     if (!handler) {
       await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 无 handler` })
+      await deps.emitEvent(EVENTS.ACTIVITY_DONE, { session, turnId, activity: { id: `tool-${tc.toolCallId}`, type: 'tool', status: 'error', toolName: tc.name, toolCallId: tc.toolCallId, error: `工具 "${tc.name}" 无 handler`, timestamp: Date.now() } })
       return { tc, execResult: makeErrResult(tc, `工具 "${tc.name}" 无 handler`) }
     }
     const execResult = await executeOneTool(handler, tc, session, deps, turnId)

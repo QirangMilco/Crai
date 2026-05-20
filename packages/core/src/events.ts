@@ -1,4 +1,4 @@
-import type { Artifact, ContextBundle, ID, MemoryEntry, Metadata, Message, Observation, PermissionCheckRequest, PermissionDecision, Session, SessionSummary, TextPart, ImagePart, ToolCallPart, ToolSafetyLevel, SandboxScope } from './types'
+import type { ActivityItem, Artifact, ContextBundle, ID, MemoryEntry, Metadata, Message, Observation, PermissionCheckRequest, PermissionDecision, Session, SessionSummary, TextPart, ImagePart, ToolCallPart, ToolSafetyLevel, SandboxScope } from './types'
 
 /** 事件只表达“发生了什么”，不直接承担业务逻辑。 */
 export interface CoreEvent<TType extends string = string, TPayload = unknown> {
@@ -56,6 +56,11 @@ export interface EventMap {
   'tool.start': { session: Session; turnId: ID; toolCallId: ID; name: string }
   'tool.delta': { session: Session; turnId: ID; toolCallId: ID; delta: string }
   'tool.done': { session: Session; turnId: ID; toolCallId: ID; name: string; isError?: boolean; summary?: string }
+
+  // ── Activity 事件（统一 thinking/tool 的状态机，参见 frontend-architecture.md） ──
+  'activity.start': { session: Session; turnId: ID; activity: ActivityItem }
+  'activity.delta': { session: Session; turnId: ID; activityId: ID; delta: string }
+  'activity.done': { session: Session; turnId: ID; activity: ActivityItem }
 }
 
 export type RuntimeInput =

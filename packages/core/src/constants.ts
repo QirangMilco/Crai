@@ -32,6 +32,11 @@ export const EVENTS = {
   TOOL_START: 'tool.start',
   TOOL_DELTA: 'tool.delta',
   TOOL_DONE: 'tool.done',
+
+  // ── Activity 事件（统一 thinking/tool 的状态机） ──
+  ACTIVITY_START: 'activity.start',
+  ACTIVITY_DELTA: 'activity.delta',
+  ACTIVITY_DONE: 'activity.done',
 } as const
 
 export const HOOKS = {

@@ -106,6 +106,11 @@ export interface SessionNewMsg {
   system?: string
 }
 
+export interface SessionDeleteMsg {
+  type: 'session:delete'
+  sessionId: string
+}
+
 export interface SessionListMsg {
   type: 'session:list'
 }
@@ -140,7 +145,7 @@ export interface DirBrowseDataMsg {
   error?: string
 }
 
-export type ClientMsg = PromptMsg | SessionNewMsg | SessionLoadMsg | SessionUpdateMsg | SessionGenerateTitleMsg | DirBrowseMsg | ResolveInputMsg | SessionListMsg |
+export type ClientMsg = PromptMsg | SessionNewMsg | SessionDeleteMsg | SessionLoadMsg | SessionUpdateMsg | SessionGenerateTitleMsg | DirBrowseMsg | ResolveInputMsg | SessionListMsg |
   ConfigGetMsg | ConfigSetMsg | ConfigSetProviderMsg | ConfigRemoveProviderMsg | ConfigFetchModelsMsg |
   WorkspaceListMsg | WorkspaceSwitchMsg | WorkspaceConfigGetMsg | WorkspaceConfigSetMsg
 
@@ -156,12 +161,27 @@ export interface WorkspaceSwitchMsg { type: 'workspace:switch'; rootDir: string 
 export interface WorkspaceConfigGetMsg { type: 'workspace:config:get' }
 export interface WorkspaceConfigSetMsg { type: 'workspace:config:set'; config: { provider?: string; model?: string; security?: { mode?: string } } }
 
-// ── 内容块类型（流式渲染用） ──
+// ── 活动项（CrystalAgents 模式） ──
 
-export type ContentBlock =
-  | { type: 'thinking'; content: string; sealed: boolean }
-  | { type: 'tool_group'; tools: Array<{ toolCallId: string; name: string; args: string; status: 'running' | 'success' | 'error' }>; collapsed: boolean }
-  | { type: 'text'; content: string }
+export interface ActivityItem {
+  id: string
+  type: 'thinking' | 'tool' | 'status' | 'plan'
+  status: 'pending' | 'running' | 'completed' | 'error' | 'backgrounded'
+  toolName?: string
+  toolCallId?: string
+  toolInput?: Record<string, unknown>
+  /** 内容：thinking 的文本 / tool 的结果摘要 */
+  content?: string
+  /** 模型在调工具之前说的话（CrystalAgents 模式：intent 而非文本正文） */
+  intent?: string
+  displayName?: string
+  error?: string
+  elapsedSeconds?: number
+  isBackground?: boolean
+  parentId?: string
+  depth?: number
+  timestamp: number
+}
 
 // ── 内部消息模型 ──
 
@@ -170,6 +190,6 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   text: string
   createdAt: number
-  /** 流式内容块：思考、工具调用等，按展示顺序渲染。 */
-  blocks?: ContentBlock[]
+  /** 活动列表（与文本分离渲染）。 */
+  activities?: ActivityItem[]
 }

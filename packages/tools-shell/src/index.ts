@@ -127,7 +127,7 @@ export function createShellTools(options: ShellToolsOptions): Extension {
               maxOutput,
             )
 
-            const isError = result.exitCode !== 0 && !output
+            const isError = result.exitCode !== 0
             const exitInfo = result.exitCode !== 0 ? `\n[退出码: ${result.exitCode}]` : ''
 
             return {

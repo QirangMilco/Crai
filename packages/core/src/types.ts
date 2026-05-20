@@ -101,6 +101,40 @@ export interface ToolCallPart {
   arguments: Record<string, unknown>
 }
 
+// ── Activity（活动，统一 thinking/tool 的状态机模型） ──
+
+/**
+ * 活动类型。thinking 和 tool 统一用同一状态机管理。
+ * 参考 CrystalAgents 的 ActivityItem 设计。
+ */
+export type ActivityType = 'thinking' | 'tool' | 'status' | 'plan'
+export type ActivityStatus = 'pending' | 'running' | 'completed' | 'error' | 'backgrounded'
+
+export interface ActivityItem {
+  id: ID
+  type: ActivityType
+  status: ActivityStatus
+  toolName?: string
+  toolCallId?: ID
+  toolInput?: Record<string, unknown>
+  /** 内容：thinking 的文本内容 / tool 的结果输出 */
+  content?: string
+  /** 模型说明"为什么调这个工具"，即调工具之前生成的文本（CrystalAgents 模式） */
+  intent?: string
+  /** 人类可读的工具名 */
+  displayName?: string
+  /** 错误信息 */
+  error?: string
+  /** 后台任务已运行秒数 */
+  elapsedSeconds?: number
+  isBackground?: boolean
+  /** 子 agent 的父活动 ID */
+  parentId?: ID
+  /** 嵌套层级 */
+  depth?: number
+  timestamp: Timestamp
+}
+
 /** 思考内容部分，用于持久化 view 层展示的 thinking block。由 consumeStream 自动附加。 */
 export interface ThinkingPart {
   type: 'thinking'

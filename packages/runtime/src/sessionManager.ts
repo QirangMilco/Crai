@@ -29,6 +29,11 @@ export class SessionManager {
     this.sessions.set(session.id, session)
   }
 
+  /** 从内存中删除 session。 */
+  delete(sessionId: string): void {
+    this.sessions.delete(sessionId)
+  }
+
   async listMessages(_sessionId: string) {
     return []
   }

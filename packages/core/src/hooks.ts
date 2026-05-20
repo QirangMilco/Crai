@@ -373,6 +373,8 @@ export interface RuntimeHandle {
   updateSession(session: Session): Promise<void>
   listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>>
   listMessages(sessionId: ID): Promise<Message[]>
+  /** 删除 session 及其所有消息。 */
+  deleteSession(sessionId: ID): Promise<void>
   loadExtension(ext: Extension): Promise<void>
   unloadExtension(name: string): Promise<void>
   dispose(): Promise<void>

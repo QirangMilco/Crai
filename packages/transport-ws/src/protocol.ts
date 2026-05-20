@@ -39,6 +39,11 @@ export interface SessionListMessage {
   type: 'session:list'
 }
 
+export interface SessionDeleteMessage {
+  type: 'session:delete'
+  sessionId: string
+}
+
 /** 客户端请求获取全局配置。 */
 export interface ConfigGetMessage {
   type: 'config:get'
@@ -131,6 +136,7 @@ export type ClientMessage =
   | PromptMessage
   | SessionNewMessage
   | SessionUpdateMessage
+  | SessionDeleteMessage
   | ResolveInputMessage
   | SessionLoadMessage
   | SessionGenerateTitleMessage

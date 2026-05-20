@@ -3,6 +3,7 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import { InspectorPanel } from './InspectorPanel'
+import { SessionPanel } from './SessionPanel'
 import { ConfigPanel } from './ConfigPanel'
 import { DirBrowser } from './DirBrowser'
 import { useChatStore } from '../store/chat'
@@ -92,6 +93,7 @@ export function ChatView({ wsUrl }: Props) {
   const [pendingConfirm, setPendingConfirm] = useState<{ id: string; question: string; options?: string[]; meta?: Record<string, unknown> } | null>(null)
   // 本会话已自动批准的 tools（不再弹确认）
   const sessionApprovedTools = useRef<Set<string>>(new Set())
+  const [showSessionPanel, setShowSessionPanel] = useState(false)
   const store = useChatStore
 
   const { status, send } = useWebSocket({
@@ -112,32 +114,28 @@ export function ChatView({ wsUrl }: Props) {
             store.getState().streamText(msg.payload.delta)
           }
 
-          if (msg.event === 'thinking.delta' && typeof msg.payload?.delta === 'string') {
-            debugLog('thinking', 'thinking.delta arrived', msg.payload.delta.slice(0, 60))
-            debugLog('timeline', '思考 δ:', `${msg.payload.delta}`)
-            store.getState().streamThinking(msg.payload.delta)
+          // ── Activity 事件（CrystalAgents 路线，替代 tool.* / thinking.*） ──
+          if (msg.event === 'activity.start' && msg.payload?.activity) {
+            const a = msg.payload.activity
+            debugLog('tools', '活动开始:', a.id, a.type, a.toolName || '')
+            store.getState().addActivity({
+              id: a.id,
+              type: a.type,
+              status: 'running',
+              toolName: a.toolName,
+              toolCallId: a.toolCallId,
+              intent: a.intent,
+              toolInput: a.toolInput,
+            })
           }
-          if (msg.event === 'thinking.done') {
-            debugLog('thinking', 'thinking.done', {})
-            debugLog('timeline', '思考完成（封口）','')
-            store.getState().sealThinking()
+          if (msg.event === 'activity.delta' && msg.payload?.delta) {
+            const { activityId, delta } = msg.payload
+            store.getState().updateActivity(activityId, delta)
           }
-          if (msg.event === 'tool.start' && msg.payload?.name) {
-            debugLog('timeline', '工具开始:', msg.payload.name)
-            store.getState().addTool(msg.payload.toolCallId, msg.payload.name)
-          }
-          if (msg.event === 'tool.delta' && msg.payload?.delta) {
-            // tool args delta — low frequency, direct set is fine
-            // For simplicity, we skip args accumulation in the store (args are cosmetic)
-          }
-          if (msg.event === 'tool.done') {
-            debugLog('timeline', '工具完成:', msg.payload.toolCallId, msg.payload.isError ? '✗' : '✓')
-            debugLog('tools', 'tool.done', msg.payload)
-            store.getState().doneTool(msg.payload.toolCallId, !!msg.payload.isError, msg.payload.summary)
-          }
-          if (msg.event === 'tool.blocked') {
-            debugLog('tools', '工具被拦截:', msg.payload.toolCallId, msg.payload.name, msg.payload.reason)
-            store.getState().doneTool(msg.payload.toolCallId, true, msg.payload.reason)
+          if (msg.event === 'activity.done' && msg.payload?.activity) {
+            const a = msg.payload.activity
+            debugLog('tools', '活动完成:', a.id, a.status, a.content?.slice(0, 60))
+            store.getState().completeActivity(a.id, a.status, a.content, a.error, a.toolInput)
           }
 
           if (msg.event === 'model.completed') {
@@ -222,7 +220,7 @@ export function ChatView({ wsUrl }: Props) {
             role: m.role as 'user' | 'assistant',
             text: m.text,
             createdAt: m.createdAt ?? Date.now(),
-            blocks: m.blocks as any[] | undefined,
+            activities: m.activities as any[] | undefined,
           }))
           // 从 metadata 恢复思考深度和模式
           if (msg.metadata) {
@@ -231,6 +229,11 @@ export function ChatView({ wsUrl }: Props) {
           }
           debugLog('timeline', `session:data 合并 → ${incoming.length} 条消息`,'')
           store.getState().mergeServerData(incoming)
+          break
+        }
+        case 'error': {
+          debugLog('tools', '服务端错误:', msg.message)
+          store.getState().appendSystemMessage(`⚠ ${msg.message}`)
           break
         }
         case 'dir:browse:data':
@@ -281,11 +284,21 @@ export function ChatView({ wsUrl }: Props) {
     send({ type: 'session:new' })
   }, [send, store])
 
+  const handleDeleteSession = useCallback((sid: string) => {
+    send({ type: 'session:delete', sessionId: sid })
+    if (sid === sessionId) {
+      store.getState().clearMessages()
+      setSessionId(null)
+      sessionIdRef.current = null
+    }
+  }, [send, sessionId, store])
+
   const handleSwitchSession = useCallback((sid: string) => {
+    store.getState().clearMessages()
     setSessionId(sid)
     sessionIdRef.current = sid
     send({ type: 'session:load', sessionId: sid })
-  }, [send])
+  }, [send, store])
 
   const handleSwitchWorkspace = useCallback((rootDir: string) => {
     send({ type: 'workspace:switch', rootDir })
@@ -329,18 +342,20 @@ export function ChatView({ wsUrl }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Dropdown
-            label="会话"
-            items={sessions.map((s) => ({
-              id: s.id,
-              display: s.title ? `${s.title.slice(0, 16)}…` : s.id.slice(0, 12),
-              active: s.id === sessionId,
-            }))}
-            selected={sessionId}
-            onSelect={handleSwitchSession}
-            onAction={handleNewSession}
-            actionLabel="+ 新会话"
-          />
+          <button
+            onClick={() => setShowSessionPanel(true)}
+            style={{
+              background: 'none',
+              border: '1px solid var(--crai-border)',
+              borderRadius: 6,
+              padding: '4px 10px',
+              color: 'var(--crai-fg)',
+              fontSize: 13,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}>
+            会话 ({sessions.length})
+          </button>
           <Dropdown
             label={currentWorkspace ? currentWorkspace.split('/').pop()! : '工作区'}
             items={workspaces.map((w) => ({
@@ -494,6 +509,16 @@ export function ChatView({ wsUrl }: Props) {
       {showInspector && <InspectorPanel onClose={() => setShowInspector(false)} />}
       {showConfig && <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />}
       {dirBrowser && <DirBrowser data={dirBrowser} onNavigate={handleDirNavigate} onSelect={handleDirSelect} onClose={() => setDirBrowser(null)} />}
+      {showSessionPanel && (
+        <SessionPanel
+          sessions={sessions}
+          currentSessionId={sessionId}
+          onSelect={handleSwitchSession}
+          onNew={handleNewSession}
+          onDelete={handleDeleteSession}
+          onClose={() => setShowSessionPanel(false)}
+        />
+      )}
     </div>
   )
 }

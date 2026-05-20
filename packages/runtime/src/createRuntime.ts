@@ -419,6 +419,12 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       const storage = storages[0]?.value
       return storage ? storage.listSessions() : []
     },
+    deleteSession: async (sessionId) => {
+      const storages = deps.registries.storages.list()
+      const storage = storages[0]?.value
+      if (storage) await storage.deleteSession(sessionId)
+      deps.sessions.delete(sessionId)
+    },
     listMessages: async (sessionId) => {
       const storages = deps.registries.storages.list()
       const storage = storages[0]?.value

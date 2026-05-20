@@ -6,29 +6,17 @@
 
 ## 数据模型
 
-### 当前（待迁移）
-
-```typescript
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  text: string
-  createdAt: number
-  blocks?: ContentBlock[]  // text, thinking, tool_group 交错
-}
-```
-
-### 目标（CrystalAgents 路线）
+### 当前（Phase 1+2 完成后）
 
 ```typescript
 interface ActivityItem {
   id: string
-  type: 'tool' | 'thinking' | 'status' | 'plan'
+  type: 'thinking' | 'tool' | 'status' | 'plan'
   status: 'pending' | 'running' | 'completed' | 'error' | 'backgrounded'
   toolName?: string
   toolCallId?: string
   toolInput?: Record<string, unknown>
-  content?: string          // 输出/结果文本
+  content?: string          // thinking 文本 / tool 结果摘要
   intent?: string           // 模型说明"为什么调这个工具"
   displayName?: string      // 人类可读的工具名
   toolDisplayMeta?: { icon?: string; color?: string }
@@ -40,59 +28,66 @@ interface ActivityItem {
   timestamp: number
 }
 
-interface AssistantResponse {
-  text: string              // 纯文本回复（Markdown 渲染）
-  isStreaming: boolean
-  activities: ActivityItem[]
-}
-
-// 消息结构
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
+  text: string              // 纯文本（流式累积 + Markdown 渲染）
   createdAt: number
-  // assistant 消息：
-  text?: string             // text content（新结构）
-  isStreaming?: boolean
-  activities?: ActivityItem[]
-  // 兼容旧 blocks（迁移过渡期）
-  blocks?: ContentBlock[]
+  activities?: ActivityItem[]  // 活动列表（与文本分离渲染）
+  blocks?: ContentBlock[]      // 仅旧 session 回放兼容
 }
 ```
 
-## 阶段计划
+### 目标（远期）
 
-### Phase 1：协议层（transport-ws）
+```typescript
+// blocks 字段完全移除，所有旧 session 数据通过 parts 重建 activities
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  text: string
+  createdAt: number
+  activities?: ActivityItem[]
+}
+```
 
-- [ ] 新增 `activity:*` 事件类型，替代 `tool.*` + `thinking.*`：
-  - `activity.start` → 取代 `tool.start` + `thinking.delta` 的开始
-  - `activity.delta` → 活动内容增量（thinking 或 tool 中间输出）
-  - `activity.done` → 取代 `tool.done`
-  - `activity.error` → 取代 `tool.blocked` / `tool.error`
-- [ ] `session:data` 中携带 `activities` 数组（覆盖本地流式 activities）
-- [ ] 过渡期：服务端同时发送新旧两套事件，前端按 feature flag 选择
+## 阶段完成状态
 
-### Phase 2：前端 Store
+### Phase 1 ✅ 协议层（transport-ws + turnRunner）
 
-- [ ] `ChatMessage` 支持 `activities` 字段
-- [ ] 新增 store actions：`addActivity` / `updateActivity` / `completeActivity` / `errorActivity`
-- [ ] 移除 blocks 中 tool_group 的增删逻辑（或逐步废弃）
-- [ ] `ActivityItem` 状态管理：支持 backgrounded 状态、elapsed 计时器
+- [x] 核心类型：`ActivityItem` / `ActivityType` / `ActivityStatus` 加入 `@crai/core/types.ts`
+- [x] 事件类型：`activity.start` / `activity.delta` / `activity.done` 加入 EventMap
+- [x] turnRunner 发射 activity.* 事件（同时保留旧生命周期事件 TOOL_REQUESTED/COMPLETED/FAILED）
+- [x] `buildActivitiesFromParts` 函数用于 session:data 重建
+- [x] `session:data` 中携带 `activities` 数组
 
-### Phase 3：前端 UI
+### Phase 2 ✅ 前端 Store + 渲染
 
-- [ ] `ActivityTimeline` 组件：左侧边线 + 活动列表
-- [ ] `ActivityRow` 组件：图标 + 名称 + 状态 + 意图文本 + 展开详情
+- [x] `ChatMessage.activities` 字段
+- [x] Store actions：`addActivity` / `updateActivity` / `completeActivity`
+- [x] 文本流式写入 `msg.text`，不再使用 blocks
+- [x] 移除旧 action：`streamThinking` / `sealThinking` / `addTool` / `doneTool`
+- [x] 移除旧 ChatView handler：`thinking.*` / `tool.*`
+- [x] `ActivityTimeline` + `ActivityRow` 组件
+- [x] MessageBubble 双轨渲染（旧 session → blocks，新 session → text + activities）
+- [x] 移除 `_sb.thinking` buffer、`forceNewTextBlock` 等 hack
+
+### Phase 3 🔲 前端 UI 完善
+
+- [x] ActivityRow 展示 intent 文本
+- [x] 文本区域内只包含最终回复（intent 文本归到 activity）
 - [ ] `ActivityDetail` 面板：完整 tool input/output 展示
+- [ ] 思考活动自动折叠（thinking 完成后折叠）
 - [ ] `ActivityGroup` 组件：子 agent 的工具执行组，可折叠
 - [ ] 动画：staggered 入场、状态切换动效
 - [ ] 后台任务指示器：实时 elapsed 时间显示
 
-### Phase 4：清理
+### Phase 4 ✅ 清理
 
-- [ ] 删除旧的 `blocks` 和 `ContentBlock` 类型
-- [ ] 删除 `tool.*` / `thinking.*` 事件处理（改用 activity 事件）
-- [ ] 删除 `forceNewTextBlock`、`reverse().findIndex()` 等 hack
+- [x] 删除旧 `blocks` 和 `ContentBlock` 类型
+- [x] 删除 `buildBlocksFromParts` 函数
+- [x] 删除 `ThinkingBlock.tsx` / `ToolBlock.tsx` 组件
+- [x] 删除 `ContentBlocksRenderer` 和相关代码
 
 ## 设计原则
 

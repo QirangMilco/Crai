@@ -114,45 +114,65 @@ export function browseDir(inputPath?: string): { path: string; dirs: string[]; p
   }
 }
 
-/** 从 MessagePart[] 重建前端所用的 ContentBlock[]。 */
-function buildBlocksFromParts(parts: any[]): any[] {
-  const blocks: any[] = []
-  // 按 parts 原始顺序遍历，保持 text 和 tool_group 的交错
-  let currentToolGroup: any = null
-
-  function flushToolGroup() {
-    if (currentToolGroup) {
-      blocks.push(currentToolGroup)
-      currentToolGroup = null
-    }
-  }
+/**
+ * 从消息 parts 重建活动列表（CrystalAgents 模式）。
+ * text parts 在 tool-call 之前 → activity.intent
+ * text parts 在 tool-call 之后 → 消息正文（由 extractResponseText 处理）
+ */
+function buildActivitiesFromParts(parts: any[]): any[] {
+  const activities: any[] = []
+  let pendingIntent = ''
 
   for (const p of parts) {
     if (p.type === 'thinking') {
-      flushToolGroup()
-      blocks.push({ type: 'thinking', content: p.thinking, sealed: true })
-    } else if (p.type === 'text') {
-      flushToolGroup()
-      blocks.push({ type: 'text', content: p.text })
-    } else if (p.type === 'tool-call') {
-      if (!currentToolGroup) {
-        currentToolGroup = {
-          type: 'tool_group',
-          tools: [],
-          collapsed: false,
-        }
-      }
-      currentToolGroup.tools.push({
-        toolCallId: p.toolCallId,
-        name: p.name,
-        args: typeof p.arguments === 'object' ? JSON.stringify(p.arguments) : String(p.arguments ?? ''),
-        status: 'success',
+      activities.push({
+        id: `think-${activities.length}`,
+        type: 'thinking',
+        status: 'completed',
+        content: p.thinking,
+        timestamp: Date.now(),
       })
+    } else if (p.type === 'text') {
+      pendingIntent = (pendingIntent + p.text).trim()
+    } else if (p.type === 'tool-call') {
+      activities.push({
+        id: `tool-${p.toolCallId}`,
+        type: 'tool',
+        status: 'completed',
+        toolName: p.name,
+        toolCallId: p.toolCallId,
+        toolInput: p.arguments,
+        intent: pendingIntent || undefined,
+        timestamp: Date.now(),
+      })
+      pendingIntent = ''
     }
   }
-  flushToolGroup()
+  return activities
+}
 
-  return blocks
+/**
+ * 从消息 parts 提取「最终文本」。
+ * 最后一个 tool-call / thinking 之后的 text parts 作为消息正文。
+ * text before tool = intent（由 buildActivitiesFromParts 处理）。
+ */
+function extractResponseText(parts: any[]): string {
+  const textParts: string[] = []
+  let hasToolOrThinking = false
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]
+    if (p.type === 'tool-call' || p.type === 'thinking') {
+      hasToolOrThinking = true
+      break
+    }
+    if (p.type === 'text') {
+      textParts.unshift(p.text)
+    }
+  }
+  if (!hasToolOrThinking) {
+    return parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')
+  }
+  return textParts.join('\n')
 }
 
 // ── Factory ────────────────────────────────────────
@@ -291,18 +311,42 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         const session = await rt.getSession(msg.sessionId)
         // 将内部 Message（parts 格式）转为客户端格式，含 blocks
         const messages = raw
-          .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
+          .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system' || m.role === 'tool')
           .map((m) => ({
             id: m.id,
             role: m.role,
-            text: m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n'),
+            text: m.role === 'tool' ? '' : extractResponseText(m.parts),
             createdAt: m.createdAt,
-            blocks: m.role === 'assistant' ? buildBlocksFromParts(m.parts) : undefined,
+            activities: m.role === 'assistant' ? buildActivitiesFromParts(m.parts) : undefined,
+            // tool-role 消息标记，前端用于把结果合并到对应 activity
+            toolCallId: m.role === 'tool' ? (m as any).toolCallId : undefined,
+            toolName: m.role === 'tool' ? (m as any).toolName : undefined,
+            isError: m.role === 'tool' ? (m as any).isError : undefined,
+            toolResult: m.role === 'tool' ? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') : undefined,
           }))
+
+        // 将 tool 消息的结果合并到对应 assistant 消息的 activities 中
+        const assistantMsgs = messages.filter((m: any) => m.role === 'assistant')
+        const toolMsgs = messages.filter((m: any) => m.role === 'tool')
+        for (const asst of assistantMsgs) {
+          if (!asst.activities) continue
+          for (const act of asst.activities) {
+            const toolMsg = toolMsgs.find((t: any) => t.toolCallId === act.toolCallId)
+            if (toolMsg) {
+              act.content = toolMsg.toolResult || act.content
+              if (toolMsg.isError) act.status = 'error'
+            }
+          }
+        }
+        // 去掉 tool 消息（前端只渲染 assistant + user + system）
+        const filteredMessages = messages.filter((m: any) => m.role !== 'tool').map((m: any) => {
+          const { toolCallId, toolName, isError, toolResult, ...rest } = m
+          return rest
+        })
         ws.send(JSON.stringify({
           type: 'session:data',
           sessionId: msg.sessionId,
-          messages,
+          messages: filteredMessages,
           metadata: session?.metadata,
         } satisfies ServerMessage))
         break
@@ -400,6 +444,16 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         }
         const sessions = await rt.listSessions()
         ws.send(JSON.stringify({ type: 'session:list:data', sessions } satisfies ServerMessage))
+        break
+      }
+
+      case 'session:delete': {
+        const rt = resolveRuntime()
+        if (!rt) { ws.send(JSON.stringify({ type: 'error', message: 'runtime not ready' } satisfies ServerMessage)); break }
+        await rt.deleteSession(msg.sessionId)
+        logger?.info(`已删除 session ${msg.sessionId}`)
+        const updatedSessions = await rt.listSessions()
+        ws.send(JSON.stringify({ type: 'session:list:data', sessions: updatedSessions } satisfies ServerMessage))
         break
       }
 
@@ -565,7 +619,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
     },
 
     publishEvent: (workspaceId: string, event: string, payload: unknown) => {
-      if (event === 'thinking.delta' || event === 'thinking.done' || event === 'tool.start' || event === 'tool.delta' || event === 'tool.done') {
+      if (event === 'thinking.delta' || event === 'thinking.done' || event === 'tool.start' || event === 'tool.delta' || event === 'tool.done' || event === 'activity.start' || event === 'activity.delta' || event === 'activity.done') {
         debugLog(DEBUG_SCOPES.API, `ws broadcast: ${event}`, { workspaceId, hasPayload: !!payload }, logger)
       }
       broadcast({ type: 'event', event, payload: { workspaceId, ...(typeof payload === 'object' && payload !== null ? payload : {}) } })
