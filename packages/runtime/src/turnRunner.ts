@@ -133,9 +133,11 @@ async function consumeStream(
   const startedTools = new Set<string>()
   let thinkingAccum = ''  // 积累 thinking 内容，用于持久化
   let thinkingActivityId: string | undefined
+  let textBeforeTool = ''  // 积累 tool 之前的文本，作为 intent
   for await (const event of stream) {
     switch (event.type) {
       case 'text-delta':
+        textBeforeTool += event.delta
         await emitEvent(EVENTS.MODEL_DELTA, { session, turnId, delta: event.delta })
         break
       case 'thinking-delta':
@@ -183,9 +185,11 @@ async function consumeStream(
               status: 'running',
               toolName: event.name,
               toolCallId: event.toolCallId,
+              intent: textBeforeTool.trim() || undefined,
               timestamp: Date.now(),
             },
           })
+          textBeforeTool = ''
         }
         break
       case 'done': {
@@ -385,7 +389,6 @@ export async function runTurn(
   ): Promise<{ execResult: ToolExecutionResult; tc: ToolCallPart }> {
     const def = defMap.get(tc.name)
     if (!def) {
-      await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 未注册` })
       await deps.emitEvent(EVENTS.ACTIVITY_DONE, { session, turnId, activity: { id: `tool-${tc.toolCallId}`, type: 'tool', status: 'error', toolName: tc.name, toolCallId: tc.toolCallId, error: `工具 "${tc.name}" 未注册`, timestamp: Date.now() } })
       return { tc, execResult: makeErrResult(tc, `工具 "${tc.name}" 未注册`) }
     }
@@ -395,7 +398,6 @@ export async function runTurn(
       { runtime },
     )
     if (safetyResult?.stop) {
-      await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: safetyResult.reason ?? '权限拒绝' })
       await deps.emitEvent(EVENTS.ACTIVITY_DONE, { session, turnId, activity: { id: `tool-${tc.toolCallId}`, type: 'tool', status: 'error', toolName: tc.name, toolCallId: tc.toolCallId, error: safetyResult.reason ?? '权限拒绝', timestamp: Date.now() } })
       return { tc, execResult: makeErrResult(tc, `权限拒绝: ${safetyResult.reason ?? '工具调用被安全策略阻止'}`) }
     }
@@ -404,7 +406,6 @@ export async function runTurn(
       toolCallId: tc.toolCallId, name: tc.name, arguments: tc.arguments,
     }, deps.logger)
     if (!handler) {
-      await deps.emitEvent(EVENTS.TOOL_BLOCKED, { session, toolCall: tc, reason: `工具 "${tc.name}" 无 handler` })
       await deps.emitEvent(EVENTS.ACTIVITY_DONE, { session, turnId, activity: { id: `tool-${tc.toolCallId}`, type: 'tool', status: 'error', toolName: tc.name, toolCallId: tc.toolCallId, error: `工具 "${tc.name}" 无 handler`, timestamp: Date.now() } })
       return { tc, execResult: makeErrResult(tc, `工具 "${tc.name}" 无 handler`) }
     }

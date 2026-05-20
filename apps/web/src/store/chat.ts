@@ -80,7 +80,7 @@ export interface ChatStore {
   updateActivity: (activityId: string, delta: string) => void
 
   /** 完成一个活动（thinking/tool 结束）。 */
-  completeActivity: (activityId: string, status: 'completed' | 'error', content?: string, error?: string, toolInput?: Record<string, unknown>) => void
+  completeActivity: (activityId: string, status: 'completed' | 'error', content?: string, error?: string) => void
 
   /** 合并服务端 session:data。 */
   mergeServerData: (incoming: ChatMessage[]) => void
@@ -123,7 +123,6 @@ export const useChatStore = create<ChatStore>((set) => ({
       if (idx === undefined) return s
       const msg = s.messages[idx]
       const activities = [...(msg.activities || [])]
-      // 如果同 ID 的活动已存在（流式过程中拿到完整参数后补充用），合并
       const existingIdx = activities.findIndex((a) => a.id === activity.id)
       if (existingIdx >= 0) {
         activities[existingIdx] = { ...activities[existingIdx], ...activity, timestamp: Date.now() }
@@ -131,10 +130,11 @@ export const useChatStore = create<ChatStore>((set) => ({
         copy[idx] = { ...copy[idx], activities }
         return { messages: copy }
       }
-      const intent = activity.intent || msg.text || undefined
-      activities.push({ ...activity, intent: intent || activity.toolName, timestamp: Date.now() } as any)
+      activities.push({ ...activity, timestamp: Date.now() } as any)
+      // 服务端已告知 intent（textBeforeTool），移除 msg.text 中对应的 intent 文本
+      const newText = activity.intent ? '' : msg.text
       const copy = [...s.messages]
-      copy[idx] = { ...copy[idx], activities, text: intent ? '' : msg.text }
+      copy[idx] = { ...copy[idx], activities, text: newText }
       return { messages: copy }
     })
   },
@@ -154,7 +154,7 @@ export const useChatStore = create<ChatStore>((set) => ({
     })
   },
 
-  completeActivity: (activityId, status, content, error, toolInput) => {
+  completeActivity: (activityId, status, content, error) => {
     set((s) => {
       const idx = findLastAssistantIndex(s.messages)
       if (idx === undefined) return s
@@ -166,7 +166,6 @@ export const useChatStore = create<ChatStore>((set) => ({
         ...activities[aIdx], status,
         ...(content !== undefined ? { content } : {}),
         ...(error !== undefined ? { error } : {}),
-        ...(toolInput !== undefined ? { toolInput } : {}),
       }
       const copy = [...s.messages]
       copy[idx] = { ...copy[idx], activities }

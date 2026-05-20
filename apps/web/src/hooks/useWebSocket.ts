@@ -31,6 +31,9 @@ export function useWebSocket({
 }: UseWebSocketOptions): UseWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null)
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
+  // 用 ref 持有回调，避免 TDZ 和闭包陈旧问题
+  const onMessageRef = useRef(onMessage)
+  onMessageRef.current = onMessage
 
   useEffect(() => {
     const ws = new WebSocket(url)
@@ -42,8 +45,8 @@ export function useWebSocket({
 
     ws.onmessage = (event) => {
       const raw = String(event.data)
-      // 先调通用回调
-      onMessage?.(raw)
+      // 用 ref 读取最新的 onMessage，避免闭包陈旧
+      onMessageRef.current?.(raw)
 
       let msg: ServerMsg
       try { msg = JSON.parse(raw) as ServerMsg } catch { return }

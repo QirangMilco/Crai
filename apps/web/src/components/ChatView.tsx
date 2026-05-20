@@ -1,7 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { useWsHandler } from '../hooks/useWsHandler'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
+import { ConfirmBar } from './ConfirmBar'
 import { InspectorPanel } from './InspectorPanel'
 import { SessionPanel } from './SessionPanel'
 import { ConfigPanel } from './ConfigPanel'
@@ -9,21 +11,14 @@ import { DirBrowser } from './DirBrowser'
 import { useChatStore } from '../store/chat'
 import { debugLog } from '../utils/debug'
 
-interface Props {
-  wsUrl: string
-}
+interface Props { wsUrl: string }
 
 function Dropdown<T extends string>({ label, items, selected, onSelect, onAction, actionLabel }: {
-  label: string
-  items: { id: T; display: string; active: boolean }[]
-  selected: T | null
-  onSelect: (id: T) => void
-  onAction?: () => void
-  actionLabel?: string
+  label: string; items: { id: T; display: string; active: boolean }[]; selected: T | null
+  onSelect: (id: T) => void; onAction?: () => void; actionLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
@@ -31,21 +26,18 @@ function Dropdown<T extends string>({ label, items, selected, onSelect, onAction
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
-
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors"
         style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-secondary)' }}>
-        {label}
-        <span className="text-[10px]">▼</span>
+        {label} <span className="text-[10px]">▼</span>
       </button>
       {open && (
         <div className="absolute top-full right-0 mt-1 min-w-[160px] rounded-lg z-50 py-1"
           style={{ backgroundColor: 'var(--crai-bg)', border: '1px solid var(--crai-border)' }}>
           {items.map((item) => (
-            <button key={item.id}
-              onClick={() => { onSelect(item.id); setOpen(false) }}
+            <button key={item.id} onClick={() => { onSelect(item.id); setOpen(false) }}
               className="w-full text-left px-3 py-1.5 text-xs hover:opacity-80 flex items-center gap-2"
               style={{ color: item.active ? 'var(--crai-accent)' : 'var(--crai-fg)' }}>
               {item.active && <span className="text-[10px]">●</span>}
@@ -56,8 +48,7 @@ function Dropdown<T extends string>({ label, items, selected, onSelect, onAction
             <>
               <div className="mx-2 my-1 border-t" style={{ borderColor: 'var(--crai-border)' }} />
               <button onClick={() => { onAction(); setOpen(false) }}
-                className="w-full text-left px-3 py-1.5 text-xs"
-                style={{ color: 'var(--crai-accent)' }}>
+                className="w-full text-left px-3 py-1.5 text-xs" style={{ color: 'var(--crai-accent)' }}>
                 {actionLabel}
               </button>
             </>
@@ -73,6 +64,7 @@ export function ChatView({ wsUrl }: Props) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [showInspector, setShowInspector] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
+  const [showSessionPanel, setShowSessionPanel] = useState(false)
   const [globalConfig, setGlobalConfig] = useState<any>(null)
   const [workspaces, setWorkspaces] = useState<Array<{ rootDir: string }>>([])
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
@@ -81,196 +73,78 @@ export function ChatView({ wsUrl }: Props) {
   const [availableModels, setAvailableModels] = useState<Array<{ name: string; provider: string }>>([])
   const [currentModel, setCurrentModel] = useState<string>('')
   const [modelsFetchResult, setModelsFetchResult] = useState<{ providerName: string; models: string[]; error?: string } | null>(null)
-  const titledSessions = useRef<Set<string>>(new Set())
-  const sessionIdRef = useRef<string | null>(null)
   const [thinkingLevel, setThinkingLevel] = useState<string>('auto')
   const [sessionMode, setSessionMode] = useState<string>('ask')
   const [knownModels, setKnownModels] = useState<Record<string, Record<string, { contextWindow: number; maxOutput?: number }>> | null>(null)
   const [firstPartyProviders, setFirstPartyProviders] = useState<Array<{ name: string; label: string; defaultBaseURL: string }> | null>(null)
   const [providerThinkingLevels, setProviderThinkingLevels] = useState<Record<string, string[]> | null>(null)
   const [defaultThinkingLevels, setDefaultThinkingLevels] = useState<Record<string, string> | null>(null)
-  // 确认弹窗
   const [pendingConfirm, setPendingConfirm] = useState<{ id: string; question: string; options?: string[]; meta?: Record<string, unknown> } | null>(null)
-  // 本会话已自动批准的 tools（不再弹确认）
-  const sessionApprovedTools = useRef<Set<string>>(new Set())
-  const [showSessionPanel, setShowSessionPanel] = useState(false)
+
   const store = useChatStore
+
+  // 用 ref 桥接 onMessage，避免 TDZ（onMessage 在 useWebSocket 返回后才创建）
+  const onMessageRef = useRef<((raw: string) => void) | undefined>(undefined)
 
   const { status, send } = useWebSocket({
     url: wsUrl,
+    onMessage: useCallback((raw: string) => onMessageRef.current?.(raw), []),
     onError: useCallback((err: string) => {
       console.error('[WS error]', err)
       debugLog('timeline', 'WS 错误:', err)
     }, []),
-    onMessage: useCallback((raw: string) => {
-      let msg: any
-      try { msg = JSON.parse(raw) } catch { return }
-
-      switch (msg.type) {
-        case 'event': {
-          if (msg.event === 'model.delta' && typeof msg.payload?.delta === 'string') {
-            debugLog('stream', 'model.delta', msg.payload.delta.slice(0, 50))
-            debugLog('timeline', '文本 δ:', `${msg.payload.delta.slice(0, 30)}`)
-            store.getState().streamText(msg.payload.delta)
-          }
-
-          // ── Activity 事件（CrystalAgents 路线，替代 tool.* / thinking.*） ──
-          if (msg.event === 'activity.start' && msg.payload?.activity) {
-            const a = msg.payload.activity
-            debugLog('tools', '活动开始:', a.id, a.type, a.toolName || '')
-            store.getState().addActivity({
-              id: a.id,
-              type: a.type,
-              status: 'running',
-              toolName: a.toolName,
-              toolCallId: a.toolCallId,
-              intent: a.intent,
-              toolInput: a.toolInput,
-            })
-          }
-          if (msg.event === 'activity.delta' && msg.payload?.delta) {
-            const { activityId, delta } = msg.payload
-            store.getState().updateActivity(activityId, delta)
-          }
-          if (msg.event === 'activity.done' && msg.payload?.activity) {
-            const a = msg.payload.activity
-            debugLog('tools', '活动完成:', a.id, a.status, a.content?.slice(0, 60))
-            store.getState().completeActivity(a.id, a.status, a.content, a.error, a.toolInput)
-          }
-
-          if (msg.event === 'model.completed') {
-            debugLog('timeline', '本轮模型调用完成','')
-            store.getState().flushBuffer()
-            if (sessionIdRef.current && !titledSessions.current.has(sessionIdRef.current)) {
-              titledSessions.current.add(sessionIdRef.current)
-              debugLog('title-gen', '发送 session:generate-title', sessionIdRef.current)
-              send({ type: 'session:generate-title', sessionId: sessionIdRef.current })
-            } else {
-              debugLog('title-gen', '跳过生成', { sessionId: sessionIdRef.current, alreadyTitled: titledSessions.current.has(sessionIdRef.current ?? '') })
-            }
-          }
-          break
-        }
-        case 'session:id':
-          setSessionId(msg.id)
-          sessionIdRef.current = msg.id
-          send({ type: 'session:load', sessionId: msg.id })
-          send({ type: 'session:list' })
-          break
-        case 'request:input': {
-          // 自动批准已记录的工具
-          const toolName = (msg.meta?.toolName as string) ?? ''
-          if (toolName && sessionApprovedTools.current.has(toolName)) {
-            send({ type: 'resolve:input', id: msg.id, value: 'allow' })
-          } else {
-            setPendingConfirm({ id: msg.id, question: msg.question, options: msg.options, meta: msg.meta })
-          }
-          break
-        }
-        case 'config:data':
-          setGlobalConfig(msg.config)
-          if (msg.config?.debugScopes?.length) {
-            localStorage.setItem('crai:debug:scope', msg.config.debugScopes.join(','))
-            console.log('[crai:debug] 已激活 scope:', msg.config.debugScopes.join(', '))
-            console.log('[crai:debug] 如需手动调试，在控制台执行: localStorage.setItem(\'crai:debug:scope\', \'thinking,stream,timeline,merge\')')
-          }
-          if (msg.config?.providers) {
-            const models: Array<{ name: string; provider: string }> = []
-            for (const [provider, cfg] of Object.entries(msg.config.providers) as [string, { models?: string[] }][]) {
-              for (const m of cfg.models ?? []) {
-                models.push({ name: m, provider })
-              }
-            }
-            setAvailableModels(models)
-            if (!currentModel && models.length > 0) {
-              setCurrentModel(models[0].name)
-            }
-          }
-          break
-        case 'config:models:data':
-          setModelsFetchResult({ providerName: msg.providerName, models: msg.models ?? [], error: msg.error })
-          break
-        case 'workspace:list:data': {
-          const list = msg.workspaces?.map((w: any) => ({ rootDir: w.rootDir })) ?? []
-          setWorkspaces(list)
-          if (msg.current) {
-            setCurrentWorkspace(msg.current)
-          } else if (list.length > 0 && !currentWorkspace) {
-            send({ type: 'workspace:switch', rootDir: list[0].rootDir })
-            return
-          }
-          if (list.length > 0) {
-            send({ type: 'session:list' })
-          }
-          break
-        }
-        case 'workspace:switched':
-          setCurrentWorkspace(msg.rootDir)
-          setSessionId(null)
-          sessionIdRef.current = null
-          store.getState().clearMessages()
-          send({ type: 'workspace:list' })
-          break
-        case 'session:list:data':
-          setSessions(msg.sessions ?? [])
-          break
-        case 'session:data': {
-          const incoming = (msg.messages ?? []).map((m: any) => ({
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            text: m.text,
-            createdAt: m.createdAt ?? Date.now(),
-            activities: m.activities as any[] | undefined,
-          }))
-          // 从 metadata 恢复思考深度和模式
-          if (msg.metadata) {
-            if (msg.metadata.thinkingLevel) setThinkingLevel(String(msg.metadata.thinkingLevel))
-            if (msg.metadata.mode) setSessionMode(String(msg.metadata.mode))
-          }
-          debugLog('timeline', `session:data 合并 → ${incoming.length} 条消息`,'')
-          store.getState().mergeServerData(incoming)
-          break
-        }
-        case 'error': {
-          debugLog('tools', '服务端错误:', msg.message)
-          store.getState().appendSystemMessage(`⚠ ${msg.message}`)
-          break
-        }
-        case 'dir:browse:data':
-          setDirBrowser({ path: msg.path, dirs: msg.dirs, parent: msg.parent, error: msg.error })
-          break
-        case 'session:title':
-          debugLog('title-gen', '收到标题', { sessionId: msg.sessionId, title: msg.title })
-          setSessions((prev) => prev.map((s) => s.id === msg.sessionId ? { ...s, title: msg.title } : s))
-          break
-        case 'config:known-models:data':
-          setKnownModels(msg.knownModels)
-          setFirstPartyProviders(msg.firstParty)
-          setProviderThinkingLevels(msg.thinkingLevels ?? null)
-          setDefaultThinkingLevels(msg.defaultThinkingLevels ?? null)
-          break
-      }
-    }, []),
   })
 
+  // 构建 onMessage handler（此时 send 已可用）
+  const wsHandler = useWsHandler({
+    send,
+    setCurrentModel: (m) => setCurrentModel((prev) => prev || m),
+      onSessionId: (id) => setSessionId(id),
+      onSessionList: (list) => setSessions(list),
+      onSessionTitle: (id, title) => setSessions((prev) => prev.map((s) => s.id === id ? { ...s, title } : s)),
+      onConfigData: (config) => {
+        setGlobalConfig(config)
+        if (config?.debugScopes?.length) {
+          localStorage.setItem('crai:debug:scope', config.debugScopes.join(','))
+          console.log('[crai:debug] 已激活 scope:', config.debugScopes.join(', '))
+        }
+        if (config?.providers) {
+          const models: Array<{ name: string; provider: string }> = []
+          for (const [provider, cfg] of Object.entries(config.providers) as [string, { models?: string[] }][]) {
+            for (const m of cfg.models ?? []) models.push({ name: m, provider })
+          }
+          setAvailableModels(models)
+        }
+      },
+      onConfigModels: (providerName, models, error) => setModelsFetchResult({ providerName, models, error }),
+      onWorkspaceList: (current, list) => {
+        setWorkspaces(list)
+        if (current) setCurrentWorkspace(current)
+      },
+      onWorkspaceSwitched: (rootDir) => {
+        setCurrentWorkspace(rootDir)
+        setSessionId(null)
+        store.getState().clearMessages()
+      },
+      onThinkingLevel: (level) => setThinkingLevel(level),
+      onSessionMode: (mode) => setSessionMode(mode),
+      onKnownModels: (known, firstParty, levels, defaults) => {
+        setKnownModels(known)
+        setFirstPartyProviders(firstParty)
+        setProviderThinkingLevels(levels ?? null)
+        setDefaultThinkingLevels(defaults ?? null)
+      },
+      onRequestInput: (id, question, options, meta) => setPendingConfirm({ id, question, options, meta }),
+      onDirBrowse: (data) => setDirBrowser(data),
+    }).handler
+  onMessageRef.current = wsHandler
+
   const handleSend = useCallback((text: string, model?: string) => {
-    const ts = Date.now()
-    debugLog('timeline', '用户发送消息', { text, model, thinkingLevel, mode: sessionMode })
-    debugLog('timeline', '创建助理消息（空）','')
-    store.getState().appendPlaceholders(text, ts, sessionId)
-    if (sessionId) {
-      // 更新标题（仅第一次）
-      if (!sessions.find((s) => s.id === sessionId)?.title) {
-        const title = text.length > 30 ? text.slice(0, 30) + '…' : text
-        setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, title } : s))
-        send({ type: 'session:update', sessionId, title })
-      }
-      // 同步当前思考深度和模式到 session metadata
-      const meta: Record<string, any> = {}
-      if (thinkingLevel !== 'auto') meta.thinkingLevel = thinkingLevel
-      if (sessionMode !== 'ask') meta.mode = sessionMode
-      // 只在新会话或值变化时发送 metadata
-      // 实际上 session:update 会在前端控件改变时单独发送
+    store.getState().appendPlaceholders(text, Date.now(), sessionId ?? undefined)
+    if (sessionId && !sessions.find((s) => s.id === sessionId)?.title) {
+      const title = text.length > 30 ? text.slice(0, 30) + '…' : text
+      setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, title } : s))
+      send({ type: 'session:update', sessionId, title })
     }
     send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model: model || undefined, thinkingLevel, mode: sessionMode })
   }, [sessionId, send, sessions, store, thinkingLevel, sessionMode])
@@ -278,7 +152,6 @@ export function ChatView({ wsUrl }: Props) {
   const handleNewSession = useCallback(() => {
     store.getState().clearMessages()
     setSessionId(null)
-    sessionIdRef.current = null
     setThinkingLevel('auto')
     setSessionMode('ask')
     send({ type: 'session:new' })
@@ -286,17 +159,12 @@ export function ChatView({ wsUrl }: Props) {
 
   const handleDeleteSession = useCallback((sid: string) => {
     send({ type: 'session:delete', sessionId: sid })
-    if (sid === sessionId) {
-      store.getState().clearMessages()
-      setSessionId(null)
-      sessionIdRef.current = null
-    }
+    if (sid === sessionId) { store.getState().clearMessages(); setSessionId(null) }
   }, [send, sessionId, store])
 
   const handleSwitchSession = useCallback((sid: string) => {
     store.getState().clearMessages()
     setSessionId(sid)
-    sessionIdRef.current = sid
     send({ type: 'session:load', sessionId: sid })
   }, [send, store])
 
@@ -312,15 +180,6 @@ export function ChatView({ wsUrl }: Props) {
     send({ type: 'dir:browse' })
   }, [send])
 
-  function handleDirNavigate(path: string) {
-    send({ type: 'dir:browse', path })
-  }
-
-  function handleDirSelect(path: string) {
-    setDirBrowser(null)
-    handleSwitchWorkspace(path)
-  }
-
   useEffect(() => {
     if (status === 'connected') {
       send({ type: 'config:get' })
@@ -328,6 +187,11 @@ export function ChatView({ wsUrl }: Props) {
       send({ type: 'workspace:list' })
     }
   }, [status, send])
+
+  const resolveConfirm = useCallback((id: string, value: string, alwaysAllow?: boolean) => {
+    send({ type: 'resolve:input', id, value })
+    setPendingConfirm(null)
+  }, [send])
 
   return (
     <div className="flex h-dvh flex-col" style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg)' }}>
@@ -342,135 +206,34 @@ export function ChatView({ wsUrl }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSessionPanel(true)}
-            style={{
-              background: 'none',
-              border: '1px solid var(--crai-border)',
-              borderRadius: 6,
-              padding: '4px 10px',
-              color: 'var(--crai-fg)',
-              fontSize: 13,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}>
+          <button onClick={() => setShowSessionPanel(true)}
+            style={{ background: 'none', border: '1px solid var(--crai-border)', borderRadius: 6, padding: '4px 10px', color: 'var(--crai-fg)', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
             会话 ({sessions.length})
           </button>
-          <Dropdown
-            label={currentWorkspace ? currentWorkspace.split('/').pop()! : '工作区'}
-            items={workspaces.map((w) => ({
-              id: w.rootDir,
-              display: w.rootDir.split('/').pop() ?? w.rootDir,
-              active: w.rootDir === currentWorkspace,
-            }))}
-            selected={currentWorkspace}
-            onSelect={handleSwitchWorkspace}
-            onAction={handleAddWorkspace}
-            actionLabel="+ 添加工作区"
-          />
+          <Dropdown label={currentWorkspace ? currentWorkspace.split('/').pop()! : '工作区'}
+            items={workspaces.map((w) => ({ id: w.rootDir, display: w.rootDir.split('/').pop() ?? w.rootDir, active: w.rootDir === currentWorkspace }))}
+            selected={currentWorkspace} onSelect={handleSwitchWorkspace} onAction={handleAddWorkspace} actionLabel="+ 添加工作区" />
           <button onClick={() => { send({ type: 'config:get' }); setShowConfig((s) => !s) }}
             className="px-3 py-1 rounded text-xs font-medium transition-colors"
-            style={{
-              backgroundColor: showConfig ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
-              color: showConfig ? '#fff' : 'var(--crai-fg-secondary)',
-            }}>配置</button>
+            style={{ backgroundColor: showConfig ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)', color: showConfig ? '#fff' : 'var(--crai-fg-secondary)' }}>
+            配置</button>
           <button onClick={() => setShowInspector((s) => !s)}
             className="px-3 py-1 rounded text-xs font-medium transition-colors"
-            style={{
-              backgroundColor: showInspector ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
-              color: showInspector ? '#fff' : 'var(--crai-fg-secondary)',
-            }}>Inspector</button>
+            style={{ backgroundColor: showInspector ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)', color: showInspector ? '#fff' : 'var(--crai-fg-secondary)' }}>
+            Inspector</button>
         </div>
       </header>
 
       <MessageList messages={messages} />
-      {/* 确认弹窗条 */}
-      {pendingConfirm && (() => {
-        const meta = pendingConfirm.meta ?? {}
-        const toolName = (meta.toolName as string) ?? ''
-        const safetyLevel = (meta.safetyLevel as string) ?? ''
-        const toolArgs = (meta.args as Record<string, unknown>) ?? {}
-        const safetyColor = safetyLevel === 'dangerous' ? 'var(--crai-destructive, #e74c3c)' : safetyLevel === 'restricted' ? 'var(--crai-warning, #f39c12)' : 'var(--crai-fg)'
-        // 提取关键参数
-        const detailParts: string[] = []
-        if (toolArgs.path) detailParts.push(`路径: ${toolArgs.path}`)
-        if (toolArgs.command) detailParts.push(`命令: ${(toolArgs.command as string).slice(0, 80)}`)
-        if (toolArgs.pattern) detailParts.push(`搜索: ${toolArgs.pattern}`)
-        return (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '10px 16px',
-            margin: '0 auto',
-            maxWidth: 'var(--crai-chat-max-width)',
-            width: '100%',
-            backgroundColor: 'var(--crai-bg-tertiary)',
-            borderTop: '1px solid var(--crai-border)',
-            gap: 12,
-          }}>
-          {/* 左侧：描述 */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: 'var(--crai-fg)', fontWeight: 500, marginBottom: 2 }}>
-              {pendingConfirm.question}
-            </div>
-            <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{ color: safetyColor, fontWeight: 600 }}>{toolName}</span>
-              {detailParts.length > 0 && (
-                <span style={{ color: 'var(--crai-fg-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
-                  {detailParts.join(' | ')}
-                </span>
-              )}
-            </div>
-          </div>
-          {/* 右侧：操作按钮 */}
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
-            <button onClick={() => {
-              send({ type: 'resolve:input', id: pendingConfirm.id, value: 'deny' })
-              setPendingConfirm(null)
-            }}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 6,
-                border: '1px solid var(--crai-border)',
-                backgroundColor: 'transparent',
-                color: 'var(--crai-fg-secondary)',
-                fontSize: 12,
-                cursor: 'pointer',
-              }}>拒绝</button>
-            <button onClick={() => {
-              send({ type: 'resolve:input', id: pendingConfirm.id, value: 'allow' })
-              setPendingConfirm(null)
-            }}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 6,
-                border: 'none',
-                backgroundColor: 'var(--crai-accent)',
-                color: '#fff',
-                fontSize: 12,
-                cursor: 'pointer',
-              }}>允许</button>
-            <button onClick={() => {
-              if (toolName) sessionApprovedTools.current.add(toolName)
-              send({ type: 'resolve:input', id: pendingConfirm.id, value: 'allow' })
-              setPendingConfirm(null)
-            }}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 6,
-                border: '1px solid var(--crai-accent)',
-                backgroundColor: 'transparent',
-                color: 'var(--crai-accent)',
-                fontSize: 12,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}>始终允许</button>
-          </div>
-        </div>
-        )
-      })()}
+      {pendingConfirm && (
+        <ConfirmBar
+          id={pendingConfirm.id}
+          question={pendingConfirm.question}
+          options={pendingConfirm.options}
+          meta={pendingConfirm.meta}
+          onResolve={resolveConfirm}
+        />
+      )}
       <ChatInput
         onSend={handleSend}
         disabled={status !== 'connected'}
@@ -478,47 +241,27 @@ export function ChatView({ wsUrl }: Props) {
         currentModel={currentModel}
         onModelChange={setCurrentModel}
         thinkingLevel={thinkingLevel}
-        onThinkingLevelChange={(level) => {
-          setThinkingLevel(level)
-          if (sessionId) send({ type: 'session:update', sessionId, thinkingLevel: level })
-        }}
+        onThinkingLevelChange={(level) => { setThinkingLevel(level); if (sessionId) send({ type: 'session:update', sessionId, thinkingLevel: level }) }}
         sessionMode={sessionMode}
-        onModeChange={(mode) => {
-          setSessionMode(mode)
-          if (sessionId) send({ type: 'session:update', sessionId, mode })
-        }}
-        providerThinkingLevels={
-          (() => {
-            if (!providerThinkingLevels) return undefined
-            const provider = availableModels.find((m) => m.name === currentModel)?.provider
-            if (!provider) return undefined
-            const levels = providerThinkingLevels[provider]
-            if (!levels) return undefined
-            // 转为 { value: label } 格式，label 用硬编码标签（也可抽到服务端）
-            const labelMap: Record<string, string> = { off: '关', auto: '自动', low: '低', medium: '中', high: '高', max: '最高', xhigh: '极高' }
-            const result: Record<string, string> = {}
-            for (const l of levels) {
-              result[l] = labelMap[l] ?? l
-            }
-            return result
-          })()
-        }
+        onModeChange={(mode) => { setSessionMode(mode); if (sessionId) send({ type: 'session:update', sessionId, mode }) }}
+        providerThinkingLevels={(() => {
+          if (!providerThinkingLevels) return undefined
+          const provider = availableModels.find((m) => m.name === currentModel)?.provider
+          if (!provider) return undefined
+          const levels = providerThinkingLevels[provider]
+          if (!levels) return undefined
+          const labelMap: Record<string, string> = { off: '关', auto: '自动', low: '低', medium: '中', high: '高', max: '最高', xhigh: '极高' }
+          const result: Record<string, string> = {}
+          for (const l of levels) result[l] = labelMap[l] ?? l
+          return result
+        })()}
         defaultThinkingLevels={defaultThinkingLevels ?? undefined}
       />
 
       {showInspector && <InspectorPanel onClose={() => setShowInspector(false)} />}
       {showConfig && <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />}
-      {dirBrowser && <DirBrowser data={dirBrowser} onNavigate={handleDirNavigate} onSelect={handleDirSelect} onClose={() => setDirBrowser(null)} />}
-      {showSessionPanel && (
-        <SessionPanel
-          sessions={sessions}
-          currentSessionId={sessionId}
-          onSelect={handleSwitchSession}
-          onNew={handleNewSession}
-          onDelete={handleDeleteSession}
-          onClose={() => setShowSessionPanel(false)}
-        />
-      )}
+      {dirBrowser && <DirBrowser data={dirBrowser} onNavigate={(p) => send({ type: 'dir:browse', path: p })} onSelect={(p) => { setDirBrowser(null); handleSwitchWorkspace(p) }} onClose={() => setDirBrowser(null)} />}
+      {showSessionPanel && <SessionPanel sessions={sessions} currentSessionId={sessionId} onSelect={handleSwitchSession} onNew={handleNewSession} onDelete={handleDeleteSession} onClose={() => setShowSessionPanel(false)} />}
     </div>
   )
 }
