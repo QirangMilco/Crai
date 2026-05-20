@@ -28,11 +28,6 @@ export interface WorkspaceSecurityOptions {
   /** dangerous 工具在 ask 模式下的确认回调。不传时默认拒绝。 */
   askHandler?: AskHandler
   /**
-   * YOLO 模式：非敏感命令自动放行，敏感命令仍需确认。
-   * 仅在 mode='ask' 时生效。
-   */
-  yoloMode?: boolean
-  /**
    * 敏感命令配置列表（全局）。适用于用户家目录级别配置。
    * 覆盖默认预设的 enabled/scope。
    */
@@ -54,7 +49,6 @@ export interface WorkspaceSecurityOptions {
 export function createWorkspaceSecurity(options: WorkspaceSecurityOptions): Extension {
   const rootDir = options.rootDir
   const askHandler = options.askHandler
-  const yoloMode = options.yoloMode ?? false
 
   return {
     name: 'workspace-security',
@@ -100,10 +94,29 @@ export function createWorkspaceSecurity(options: WorkspaceSecurityOptions): Exte
             if (pathError) {
               return { stop: true as const, reason: pathError.reason }
             }
-            // safe 模式下 RESTRICTED 工具也被拦截
-            if (level === TOOL_SAFETY_LEVELS.RESTRICTED && checkMode === PERMISSION_MODES.SAFE) {
-              return { stop: true as const, reason: `修改工具 "${def.name}" 在只读模式下被禁止` }
+            // safe 模式下 RESTRICTED 工具被拦截
+            if (level === TOOL_SAFETY_LEVELS.RESTRICTED) {
+              if (checkMode === PERMISSION_MODES.SAFE) {
+                return { stop: true as const, reason: `修改工具 "${def.name}" 在只读模式下被禁止` }
+              }
+              // ask 模式下 RESTRICTED 工具需要用户确认
+              if (checkMode === PERMISSION_MODES.ASK && askHandler) {
+                const allowed = await askHandler({
+                  toolName: def.name,
+                  args,
+                  definition: def,
+                  isSensitive: false,
+                  reason: `工具 "${def.name}" 被标记为 restricted，是否允许执行？`,
+                })
+                if (!allowed) {
+                  return { stop: true as const, reason: `工具 "${def.name}" 被用户拒绝` }
+                }
+                return
+              }
+              // execute 模式：直接放行
+              return
             }
+            // SAFE 工具无条件放行
             return
           }
 
@@ -126,11 +139,24 @@ export function createWorkspaceSecurity(options: WorkspaceSecurityOptions): Exte
               sensitiveDesc = check.description ?? ''
             }
 
-            // YOLO 模式：非敏感命令自动放行
-            if (yoloMode && !sensitive) {
-              return // 自动放行
+            // execute（操作）模式：非敏感命令自动放行，敏感命令弹确认
+            if (checkMode === PERMISSION_MODES.EXECUTE) {
+              if (sensitive && askHandler) {
+                const allowed = await askHandler({
+                  toolName: def.name,
+                  args,
+                  definition: def,
+                  isSensitive: true,
+                  reason: `敏感命令: ${sensitiveDesc}。请确认是否允许执行？`,
+                })
+                if (!allowed) {
+                  return { stop: true as const, reason: `敏感命令被用户拒绝` }
+                }
+              }
+              return
             }
 
+            // ask（询问）模式：弹确认（敏感和非敏感都弹）
             if (checkMode === PERMISSION_MODES.ASK && askHandler) {
               const allowed = await askHandler({
                 toolName: def.name,

@@ -97,7 +97,7 @@ docs/
 - 路径校验（resolveAllowedPath）
 - 敏感命令检测（可配置 JSON，scope/disable）
 - `createWorkspaceSecurity` extension（tool:safetyCheck hook）
-- YOLO 模式支持
+- YOLO 模式（操作模式下敏感命令仍弹确认）
 
 ### 3.10 `packages/tools-fs`
 - fs_read（hashline 锚点）

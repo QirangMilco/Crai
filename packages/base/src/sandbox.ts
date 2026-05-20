@@ -73,32 +73,23 @@ function generateSeatbeltProfile(rootDir: string, extraWritable?: string[]): str
   const realRoot = resolveRealPath(rootDir)
   const lines: string[] = [
     '(version 1)',
-    '(deny default)',
     '',
-    ';; 进程与信号',
-    '(allow process-exec*)',
-    '(allow process-fork)',
-    '(allow signal)',
-    '(allow sysctl-read)',
-    '(allow mach*)',
-    '(allow ipc-posix*)',
-    '',
-    ';; 网络（允许常见出站）',
-    '(allow network* (bind "") (sendto "localhost" "127.0.0.1" "::1"))',
-    '(allow network-outbound (remote "0.0.0.0" "::" "localhost"))',
-    '',
-    ';; 文件读取（全局允许 read，只在特定的 deny 目录拒绝写）',
-    '(allow file-read*)',
-    '',
-    ';; 工作区读写',
-    `(allow file-write* (subpath "${realRoot}"))`,
-    '',
-    ';; 临时目录（npm、cargo 等下载缓存需要写 /tmp）',
-    '(allow file-write* (subpath "/private/tmp"))',
-    `(allow file-write* (subpath "${resolveRealPath(tmpdir())}"))`,
-    '',
-    ';; 额外可写路径',
+    ';; 写保护：只拒绝特定系统路径的写操作，其他全部允许',
   ]
+
+  for (const p of PROTECTED_PATHS) {
+    lines.push(`(deny file-write* (subpath "${p}"))`)
+  }
+
+  // 确保工作区可写（覆盖上面的 deny）
+  lines.push('', ';; 工作区读写')
+  lines.push(`(allow file-write* (subpath "${realRoot}"))`)
+  lines.push('')
+
+  // 临时目录可写
+  lines.push(';; 临时目录')
+  lines.push('(allow file-write* (subpath "/private/tmp"))')
+  lines.push(`(allow file-write* (subpath "${resolveRealPath(tmpdir())}"))`)
 
   if (extraWritable) {
     for (const p of extraWritable) {
@@ -106,12 +97,9 @@ function generateSeatbeltProfile(rootDir: string, extraWritable?: string[]): str
     }
   }
 
-  // macOS SBPL 的 "last match wins"，在 allow 之后添加 protect 路径
-  lines.push('', ';; 写保护（deny 覆盖前面的 allow）')
-  for (const p of PROTECTED_PATHS) {
-    lines.push(`(deny file-write* (subpath "${p}"))`)
-  }
-  lines.push('')
+  // /dev/null
+  lines.push('', ';; 杂项')
+  lines.push('(allow file-write* (literal "/dev/null"))')
 
   return lines.join('\n')
 }

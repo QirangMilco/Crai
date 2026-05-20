@@ -49,7 +49,7 @@ export interface WsTransport {
   extension: Extension
   start: () => Promise<{ port: number; url: string }>
   stop: () => Promise<void>
-  requestUserInput: (question: string, options?: string[]) => Promise<string>
+  requestUserInput: (question: string, options?: string[], meta?: Record<string, unknown>) => Promise<string>
   /** 发布来自任意 workspace 的事件到所有客户端。事件消息中会带 workspaceId。 */
   publishEvent: (workspaceId: string, event: string, payload: unknown) => void
 }
@@ -546,11 +546,11 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       })
     },
 
-    requestUserInput: async (question: string, options?: string[]) => {
+    requestUserInput: async (question: string, options?: string[], meta?: Record<string, unknown>) => {
       const id = createId('req')
       return new Promise<string>((resolve) => {
         pendingInputs.set(id, { resolve })
-        broadcast({ type: 'request:input', id, question, options })
+        broadcast({ type: 'request:input', id, question, options, meta })
       })
     },
 

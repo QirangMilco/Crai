@@ -63,7 +63,12 @@ class WorkspaceManager {
   private onEvent: (wsId: string, evt: string, payload: unknown) => void
   private log: ConsoleLogger
 
-  constructor(config: ConfigManager, onEvent: (wsId: string, evt: string, payload: unknown) => void, log: ConsoleLogger) {
+  constructor(
+    config: ConfigManager,
+    onEvent: (wsId: string, evt: string, payload: unknown) => void,
+    log: ConsoleLogger,
+    private requestUserInput?: (question: string, options?: string[], meta?: Record<string, unknown>) => Promise<string>,
+  ) {
     this.config = config
     this.onEvent = onEvent
     this.log = log
@@ -130,7 +135,23 @@ class WorkspaceManager {
           },
         }),
         createWebTools(),
-        createWorkspaceSecurity({ rootDir, mode: 'ask', askHandler: async () => true }),
+        createWorkspaceSecurity({
+          rootDir, mode: 'ask',
+          askHandler: this.requestUserInput
+            ? async ({ toolName, args, definition, isSensitive, reason }) => {
+                try {
+                  const answer = await this.requestUserInput!(
+                    `是否允许执行该操作？`,
+                    ['allow', 'deny'],
+                    { toolName, args, safetyLevel: definition.safetyLevel, isSensitive, reason },
+                  )
+                  return answer === 'allow'
+                } catch {
+                  return false
+                }
+              }
+            : async () => true,
+        }),
         createEventForwarder(rootDir, this.onEvent),
       ],
       onModelNotFound: async (modelName, provider) => {
@@ -303,7 +324,7 @@ async function main() {
 
   gWorkspaces = new WorkspaceManager(config, (wsId, evt, payload) => {
     transport.publishEvent(wsId, evt, payload)
-  }, log)
+  }, log, transport.requestUserInput)
   await gWorkspaces.sync()
 
   const { url } = await transport.start()

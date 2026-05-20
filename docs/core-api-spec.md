@@ -61,7 +61,7 @@ export type PermissionMode = 'safe' | 'ask' | 'execute'
 /**
  * safe: 只允许 safe 级工具，restricted 和 dangerous 被拒绝
  * ask: safe 自动通过，restricted 和 dangerous 需用户确认
- * execute: safe 和 restricted 自动通过，dangerous 需用户确认
+ * execute: safe 和 restricted 自动通过，dangerous 敏感命令需用户确认
  */
 
 /** 文件系统沙箱作用域 */

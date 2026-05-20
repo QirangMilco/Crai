@@ -57,7 +57,7 @@ Runtime 层在工具执行路径上强制执行安全检查：
 |----------|------|----------|-----------|----------|--------------|
 | `safe` | 纯只读，不修改任何状态 | read_file, search, grep, list | 自动允许 | 自动允许 | 自动允许 |
 | `restricted` | 受限写，仅在沙箱范围内生效 | edit_file, write_file, create | 拒绝 | 需确认 | 自动允许 |
-| `dangerous` | 可能造成不可逆损害 | rm, shell, sudo, mv, chmod | 拒绝 | 需确认 | 需确认 |
+| `dangerous` | 可能造成不可逆损害 | rm, shell, sudo, mv, chmod | 拒绝 | 需确认 | 敏感命令需确认，非敏感自动允许 |
 
 ## 4. 默认禁止的行为
 

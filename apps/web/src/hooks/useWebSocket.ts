@@ -10,7 +10,7 @@ export interface UseWebSocketOptions {
   /** session:id 消息回调。 */
   onSessionId?: (id: string) => void
   /** request:input 消息回调。 */
-  onRequestInput?: (id: string, question: string, options?: string[]) => void
+  onRequestInput?: (id: string, question: string, options?: string[], meta?: Record<string, unknown>) => void
   /** error 消息回调。 */
   onError?: (msg: string) => void
 }
@@ -56,7 +56,7 @@ export function useWebSocket({
           onSessionId?.(msg.id)
           break
         case 'request:input':
-          onRequestInput?.(msg.id, msg.question, msg.options)
+          onRequestInput?.(msg.id, msg.question, msg.options, msg.meta)
           break
         case 'error':
           onError?.(msg.message)

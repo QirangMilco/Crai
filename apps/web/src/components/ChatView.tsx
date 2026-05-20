@@ -88,6 +88,10 @@ export function ChatView({ wsUrl }: Props) {
   const [firstPartyProviders, setFirstPartyProviders] = useState<Array<{ name: string; label: string; defaultBaseURL: string }> | null>(null)
   const [providerThinkingLevels, setProviderThinkingLevels] = useState<Record<string, string[]> | null>(null)
   const [defaultThinkingLevels, setDefaultThinkingLevels] = useState<Record<string, string> | null>(null)
+  // 确认弹窗
+  const [pendingConfirm, setPendingConfirm] = useState<{ id: string; question: string; options?: string[]; meta?: Record<string, unknown> } | null>(null)
+  // 本会话已自动批准的 tools（不再弹确认）
+  const sessionApprovedTools = useRef<Set<string>>(new Set())
   const store = useChatStore
 
   const { status, send } = useWebSocket({
@@ -151,8 +155,13 @@ export function ChatView({ wsUrl }: Props) {
           send({ type: 'session:list' })
           break
         case 'request:input': {
-          const answer = prompt(msg.question + (msg.options?.length ? `\n选项: ${msg.options.join(', ')}` : ''))
-          if (answer !== null) send({ type: 'resolve:input', id: msg.id, value: answer })
+          // 自动批准已记录的工具
+          const toolName = (msg.meta?.toolName as string) ?? ''
+          if (toolName && sessionApprovedTools.current.has(toolName)) {
+            send({ type: 'resolve:input', id: msg.id, value: 'allow' })
+          } else {
+            setPendingConfirm({ id: msg.id, question: msg.question, options: msg.options, meta: msg.meta })
+          }
           break
         }
         case 'config:data':
@@ -355,6 +364,93 @@ export function ChatView({ wsUrl }: Props) {
       </header>
 
       <MessageList messages={messages} />
+      {/* 确认弹窗条 */}
+      {pendingConfirm && (() => {
+        const meta = pendingConfirm.meta ?? {}
+        const toolName = (meta.toolName as string) ?? ''
+        const safetyLevel = (meta.safetyLevel as string) ?? ''
+        const toolArgs = (meta.args as Record<string, unknown>) ?? {}
+        const safetyColor = safetyLevel === 'dangerous' ? 'var(--crai-destructive, #e74c3c)' : safetyLevel === 'restricted' ? 'var(--crai-warning, #f39c12)' : 'var(--crai-fg)'
+        // 提取关键参数
+        const detailParts: string[] = []
+        if (toolArgs.path) detailParts.push(`路径: ${toolArgs.path}`)
+        if (toolArgs.command) detailParts.push(`命令: ${(toolArgs.command as string).slice(0, 80)}`)
+        if (toolArgs.pattern) detailParts.push(`搜索: ${toolArgs.pattern}`)
+        return (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 16px',
+            margin: '0 auto',
+            maxWidth: 'var(--crai-chat-max-width)',
+            width: '100%',
+            backgroundColor: 'var(--crai-bg-tertiary)',
+            borderTop: '1px solid var(--crai-border)',
+            gap: 12,
+          }}>
+          {/* 左侧：描述 */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: 'var(--crai-fg)', fontWeight: 500, marginBottom: 2 }}>
+              {pendingConfirm.question}
+            </div>
+            <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ color: safetyColor, fontWeight: 600 }}>{toolName}</span>
+              {detailParts.length > 0 && (
+                <span style={{ color: 'var(--crai-fg-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+                  {detailParts.join(' | ')}
+                </span>
+              )}
+            </div>
+          </div>
+          {/* 右侧：操作按钮 */}
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+            <button onClick={() => {
+              send({ type: 'resolve:input', id: pendingConfirm.id, value: 'deny' })
+              setPendingConfirm(null)
+            }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 6,
+                border: '1px solid var(--crai-border)',
+                backgroundColor: 'transparent',
+                color: 'var(--crai-fg-secondary)',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}>拒绝</button>
+            <button onClick={() => {
+              send({ type: 'resolve:input', id: pendingConfirm.id, value: 'allow' })
+              setPendingConfirm(null)
+            }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 6,
+                border: 'none',
+                backgroundColor: 'var(--crai-accent)',
+                color: '#fff',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}>允许</button>
+            <button onClick={() => {
+              if (toolName) sessionApprovedTools.current.add(toolName)
+              send({ type: 'resolve:input', id: pendingConfirm.id, value: 'allow' })
+              setPendingConfirm(null)
+            }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 6,
+                border: '1px solid var(--crai-accent)',
+                backgroundColor: 'transparent',
+                color: 'var(--crai-accent)',
+                fontSize: 12,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}>始终允许</button>
+          </div>
+        </div>
+        )
+      })()}
       <ChatInput
         onSend={handleSend}
         disabled={status !== 'connected'}

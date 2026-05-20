@@ -160,6 +160,8 @@ export interface RequestInputMessage {
   id: string
   question: string
   options?: string[]
+  /** 工具确认等场景携带的额外上下文（工具名、参数、安全级别等）。 */
+  meta?: Record<string, unknown>
 }
 
 export interface SessionIdMessage {

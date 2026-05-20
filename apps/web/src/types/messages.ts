@@ -13,6 +13,7 @@ export interface RequestInputMsg {
   id: string
   question: string
   options?: string[]
+  meta?: Record<string, unknown>
 }
 
 export interface SessionIdMsg {

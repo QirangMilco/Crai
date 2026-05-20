@@ -44,6 +44,7 @@ function mockRuntime(): RuntimeHandle {
 
     async stopSession() {},
     async getSession(id: string) { return sessions.get(id) },
+    async updateSession(session: Session) { sessions.set(session.id, session) },
     async listMessages() { return [] },
     async callModel(messages: any, opts?: any) { return 'test response' },
     async loadExtension() {},
@@ -316,6 +317,9 @@ describe('transport-ws', () => {
 
     // 发送 session:update 设置标题
     ws.send(JSON.stringify({ type: 'session:update', sessionId, title: '测试会话' }))
+    // session:update 不返回响应，主动请求列表验证
+    await new Promise((r) => setTimeout(r, 50))
+    ws.send(JSON.stringify({ type: 'session:list' }))
     const raw2 = await waitForMessage(ws)
     const msg2 = JSON.parse(raw2)
     assert.equal(msg2.type, 'session:list:data')

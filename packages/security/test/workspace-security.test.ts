@@ -99,23 +99,27 @@ describe('workspace-security', () => {
     assert.equal((result as any).stop, undefined)
   })
 
-  it('YOLO 模式非敏感命令自动放行', async () => {
+  it('execute 模式非敏感命令自动放行', async () => {
     const hooks = createHookBus()
-    createWorkspaceSecurity({ rootDir: '/tmp', mode: 'ask', yoloMode: true }).setup(mockCtx(hooks))
+    const value = makeToolCall('bash', 'dangerous', { command: 'ls -la' })
+    value.mode = PERMISSION_MODES.EXECUTE as any
+    createWorkspaceSecurity({ rootDir: '/tmp', mode: 'ask' }).setup(mockCtx(hooks))
 
-    const result = await hooks.run(HOOKS.TOOL_SAFETY_CHECK, makeToolCall('bash', 'dangerous', { command: 'ls -la' }), {} as any)
+    const result = await hooks.run(HOOKS.TOOL_SAFETY_CHECK, value, {} as any)
     assert.equal((result as any).stop, undefined)
   })
 
-  it('YOLO 模式敏感命令仍调用 askHandler', async () => {
+  it('execute 模式敏感命令仍调用 askHandler', async () => {
     const hooks = createHookBus()
     let asked = false
+    const value = makeToolCall('bash', 'dangerous', { command: 'rm -rf /tmp/foo' })
+    value.mode = PERMISSION_MODES.EXECUTE as any
     createWorkspaceSecurity({
-      rootDir: '/tmp', mode: 'ask', yoloMode: true,
+      rootDir: '/tmp', mode: 'ask',
       askHandler: async () => { asked = true; return true },
     }).setup(mockCtx(hooks))
 
-    await hooks.run(HOOKS.TOOL_SAFETY_CHECK, makeToolCall('bash', 'dangerous', { command: 'rm -rf /tmp/foo' }), {} as any)
+    await hooks.run(HOOKS.TOOL_SAFETY_CHECK, value, {} as any)
     assert.equal(asked, true)
   })
 })

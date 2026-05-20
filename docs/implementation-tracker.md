@@ -5,7 +5,7 @@
 ## 当前聚焦
 
 - 目标：跨平台 GUI/Web 应用，个人桌面助手
-- 安全就绪：三层防御 + 敏感命令配置 + YOLO
+- 安全就绪：三层防御 + 敏感命令配置 + 三级权限模式
 - 核心稳定：core + runtime + tools 能力集较完整
 - 配置：变体配置（dev/prod 隔离）+ 全局配置 + 工作区配置（仅 security）
 - 不需要环境变量，全配置文件驱动
@@ -33,7 +33,7 @@
 - 会话 ID 持久化与恢复
 
 ### Safety
-- `@crai/security`：路径校验、敏感命令检测、Always-Allow + YOLO
+- `@crai/security`：路径校验、敏感命令检测、三级权限模式
 - 敏感命令可配置（JSON 文件、scope、enable/disable）
 - 预设 46 条敏感命令（SQL、Git、Docker、PowerShell、远程代码执行、npm）
 - 三层防御：工具自检 → 安全扩展 → turnRunner
@@ -124,7 +124,7 @@ packages/
     ├── runtime       — 运行时内核
     ├── provider      — 模型适配器工厂
     ├── config        — 配置管理
-    ├── security      — 路径校验、敏感命令、YOLO
+    ├── security      — 路径校验、敏感命令、三级权限模式
     ├── tools-fs      — 文件系统工具
     ├── tools-shell   — shell 执行工具
     ├── tools-web     — 网络工具
