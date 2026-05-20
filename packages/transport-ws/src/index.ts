@@ -2,14 +2,16 @@
  * @crai/transport-ws — WebSocket transport for Crai runtime.
  */
 import type { Extension, Logger, RuntimeHandle } from '@crai/core'
-import { DEBUG_SCOPES, debugLog, EVENTS, createId, setDebugScopes } from '@crai/core'
-import { readdirSync, statSync, realpathSync } from 'node:fs'
-import { join, resolve, sep, normalize } from 'node:path'
-import { homedir } from 'node:os'
+import { DEBUG_SCOPES, debugLog, EVENTS, createId } from '@crai/core'
 import http from 'node:http'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { ClientMessage, ServerMessage } from './protocol'
 import type { GlobalConfig, ProviderConfig, WorkspaceConfig } from '@crai/core'
+import { browseDir } from './dir-browse'
+import { buildActivitiesFromParts, extractResponseText } from './parts-utils'
+
+export type { ClientMessage, ServerMessage } from './protocol'
+export { browseDir } from './dir-browse'
 
 // ── 选项 ───────────────────────────────────────────
 
@@ -52,127 +54,6 @@ export interface WsTransport {
   requestUserInput: (question: string, options?: string[], meta?: Record<string, unknown>) => Promise<string>
   /** 发布来自任意 workspace 的事件到所有客户端。事件消息中会带 workspaceId。 */
   publishEvent: (workspaceId: string, event: string, payload: unknown) => void
-}
-
-// ── 目录浏览辅助 ──
-
-/** 禁止浏览的系统目录（子路径也会被拒绝）。 */
-const DENY_DIRS = new Set([
-  // Linux / macOS
-  '/etc', '/proc', '/sys', '/dev', '/boot', '/private/etc', '/private/var/db',
-  // Windows
-  'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)', 'C:\\System32',
-])
-
-function isDenied(resolved: string): boolean {
-  const norm = resolve(resolved)
-  for (const d of DENY_DIRS) {
-    if (norm === d || norm.startsWith(d + sep)) return true
-  }
-  return false
-}
-
-/** 安全地浏览目录，带系统目录过滤和路径规范化。 */
-export function browseDir(inputPath?: string): { path: string; dirs: string[]; parent?: string; error?: string } {
-  try {
-    if (!inputPath) {
-      // 无参数时返回用户主目录
-      const home = homedir()
-      let dirs: string[] = []
-      try {
-        dirs = readdirSync(home).filter((e) => {
-          if (e.startsWith('.')) return false // 隐藏目录默认不显示
-          try { return statSync(join(home, e)).isDirectory() } catch { return false }
-        }).sort()
-      } catch {}
-      return { path: home, dirs, parent: undefined }
-    }
-
-    const resolved = resolve(inputPath)
-
-    // 安全检查：禁止浏览系统敏感目录
-    if (isDenied(resolved)) {
-      return { path: resolved, dirs: [], error: '不允许浏览此目录' }
-    }
-
-    const dirs = readdirSync(resolved).filter((e) => {
-      if (e.startsWith('.')) return false
-      const full = join(resolved, e)
-      // 如果子目录是敏感目录，也不显示
-      if (isDenied(full)) return false
-      try { return statSync(full).isDirectory() } catch { return false }
-    }).sort()
-
-    const parent = resolve(resolved, '..')
-    return {
-      path: resolved,
-      dirs,
-      parent: parent === resolved ? undefined : (isDenied(parent) ? undefined : parent),
-    }
-  } catch (err: any) {
-    return { path: inputPath ?? '', dirs: [], error: err.message ?? String(err) }
-  }
-}
-
-/**
- * 从消息 parts 重建活动列表（CrystalAgents 模式）。
- * text parts 在 tool-call 之前 → activity.intent
- * text parts 在 tool-call 之后 → 消息正文（由 extractResponseText 处理）
- */
-function buildActivitiesFromParts(parts: any[]): any[] {
-  const activities: any[] = []
-  let pendingIntent = ''
-
-  for (const p of parts) {
-    if (p.type === 'thinking') {
-      activities.push({
-        id: `think-${activities.length}`,
-        type: 'thinking',
-        status: 'completed',
-        content: p.thinking,
-        timestamp: Date.now(),
-      })
-    } else if (p.type === 'text') {
-      pendingIntent = (pendingIntent + p.text).trim()
-    } else if (p.type === 'tool-call') {
-      activities.push({
-        id: `tool-${p.toolCallId}`,
-        type: 'tool',
-        status: 'completed',
-        toolName: p.name,
-        toolCallId: p.toolCallId,
-        toolInput: p.arguments,
-        intent: pendingIntent || undefined,
-        timestamp: Date.now(),
-      })
-      pendingIntent = ''
-    }
-  }
-  return activities
-}
-
-/**
- * 从消息 parts 提取「最终文本」。
- * 最后一个 tool-call / thinking 之后的 text parts 作为消息正文。
- * text before tool = intent（由 buildActivitiesFromParts 处理）。
- */
-function extractResponseText(parts: any[]): string {
-  const textParts: string[] = []
-  let hasToolOrThinking = false
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const p = parts[i]
-    if (p.type === 'tool-call' || p.type === 'thinking') {
-      hasToolOrThinking = true
-      break
-    }
-    if (p.type === 'text') {
-      textParts.unshift(p.text)
-    }
-  }
-  if (!hasToolOrThinking) {
-    return parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n')
-  }
-  return textParts.join('\n')
 }
 
 // ── Factory ────────────────────────────────────────

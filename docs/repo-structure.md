@@ -173,7 +173,10 @@ Vite + React 18 + TypeScript + Tailwind CSS Web UI：
 - `packages/tools-web/src/index.ts`
 - `packages/persistence/src/index.ts`
 - `packages/storage-fs/src/adapter.ts`
-- `packages/transport-ws/src/index.ts`
+- `packages/transport-ws/src/index.ts`（主入口 + 消息路由）
+- `packages/transport-ws/src/dir-browse.ts`（目录浏览安全工具）
+- `packages/transport-ws/src/parts-utils.ts`（parts → activities 重建）
+- `packages/transport-ws/src/protocol.ts`（消息类型定义）
 - `packages/config/src/index.ts`
 - `packages/provider/src/openai/adapter.ts`
 - `packages/provider/src/deepseek/adapter.ts`
