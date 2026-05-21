@@ -12,54 +12,9 @@ import { ShellLayout } from './shell/ShellLayout'
 import { registerPanels } from './shell/PanelRegistry'
 import { SessionListPanel } from './panels/SessionListPanel'
 import { FileTreePanel } from './panels/FileTreePanel'
+import { Dropdown } from './ui/Dropdown'
 
 interface Props { wsUrl: string }
-
-function Dropdown<T extends string>({ label, items, selected, onSelect, onAction, actionLabel }: {
-  label: string; items: { id: T; display: string; active: boolean }[]; selected: T | null
-  onSelect: (id: T) => void; onAction?: () => void; actionLabel?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-  return (
-    <div ref={ref} className="relative">
-      <button onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors"
-        style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-secondary)' }}>
-        {label} <span className="text-[10px]">▼</span>
-      </button>
-      {open && (
-        <div className="absolute top-full right-0 mt-1 min-w-[160px] rounded-lg z-50 py-1"
-          style={{ backgroundColor: 'var(--crai-bg)', border: '1px solid var(--crai-border)' }}>
-          {items.map((item) => (
-            <button key={item.id} onClick={() => { onSelect(item.id); setOpen(false) }}
-              className="w-full text-left px-3 py-1.5 text-xs hover:opacity-80 flex items-center gap-2"
-              style={{ color: item.active ? 'var(--crai-accent)' : 'var(--crai-fg)' }}>
-              {item.active && <span className="text-[10px]">●</span>}
-              {item.display}
-            </button>
-          ))}
-          {onAction && actionLabel && (
-            <>
-              <div className="mx-2 my-1 border-t" style={{ borderColor: 'var(--crai-border)' }} />
-              <button onClick={() => { onAction(); setOpen(false) }}
-                className="w-full text-left px-3 py-1.5 text-xs" style={{ color: 'var(--crai-accent)' }}>
-                {actionLabel}
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 export function ChatView({ wsUrl }: Props) {
   const messages = useChatStore((s) => s.messages)

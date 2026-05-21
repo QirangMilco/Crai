@@ -159,6 +159,16 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-sidebar-handle-color', label: '拖拽手柄颜色', group: 'layout', type: 'color', defaultValue: 'var(--crai-border)', description: '拖拽手柄 hover 时的颜色' },
   { name: '--crai-sidebar-header-height', label: '面板头部高度', group: 'layout', type: 'size', defaultValue: '36px', min: 24, max: 60 },
 
+  // ── UI 原语 ──
+  { name: '--crai-shadow-card', label: '卡片阴影', group: 'layout', type: 'text', defaultValue: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)', description: '卡片容器的阴影' },
+  { name: '--crai-transition-fast', label: '过渡速度', group: 'layout', type: 'size', defaultValue: '0.15s', min: 0.05, max: 0.5, description: '通用微交互过渡时长' },
+  { name: '--crai-space-xxs', label: '间距 XXS', group: 'spacing', type: 'size', defaultValue: '2px', max: 8, description: '极细微间距' },
+  { name: '--crai-space-xs', label: '间距 XS', group: 'spacing', type: 'size', defaultValue: '4px', max: 16 },
+  { name: '--crai-space-sm', label: '间距 SM', group: 'spacing', type: 'size', defaultValue: '8px', max: 24 },
+  { name: '--crai-space-md', label: '间距 MD', group: 'spacing', type: 'size', defaultValue: '12px', max: 32 },
+  { name: '--crai-space-lg', label: '间距 LG', group: 'spacing', type: 'size', defaultValue: '16px', max: 48 },
+  { name: '--crai-space-xl', label: '间距 XL', group: 'spacing', type: 'size', defaultValue: '24px', max: 64 },
+
   // ── 思考过程 ──
   { name: '--crai-thinking-bg', label: '背景', group: 'thinking-block', type: 'color', defaultValue: '#f3f4f6' },
   { name: '--crai-thinking-fg', label: '标题色', group: 'thinking-block', type: 'color', defaultValue: '#6b7280' },
