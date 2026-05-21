@@ -1,207 +1,78 @@
 # 前端体验打磨计划
 
-> 对比 refs/crystalagents 和 refs/openhanako，发现 Crai 前端的质感差距。
-> 逐一给出目标做法和对标参考。
->
-> 实施完成后可以删掉此文档，或者保留为后续继续打磨的参考。
-> 建议：功能性的设计决策入 decision-log.md，此文档作为阶段性打磨草稿可以归档或删除。
+> 对比 refs/crystalagents 和 refs/openhanako，做系统性差距分析。
+> 按「地基 → 上层」的顺序分层实施。
 
 ---
 
-## P0 — 图标
+## 差距：9 层架构
 
-**现状**：全 emoji（✓ ✗ ▶ 📁 📄 🟦 等）。跨平台渲染不一，无法着色，无法做动画。
+组成一个优质前端界面的完整维度。Crai 在每一层上的差距：
 
-**目标**：统一换为 SVG 图标库。
+### 第 1 层：色值体系（Color System）
 
-**方案**：安装 `lucide-react`（CrystalAgents 用的），逐步替换 emoji。
+**这是什么**：颜色之间的数学关系。决定了整个界面是否协调。
 
-**替换清单**：
+| | CrystalAgents | OpenHanako | Crai |
+|---|---|---|---|
+| 色彩空间 | `oklch` + `color-mix()` 自动衍生 | 手调 CSS 变量 | hex 硬编码 |
+| 表面层级 | 10 级（foreground-2~95） | 5 级 | 3 级（bg/s/tertiary） |
+| 换主题 | accent 一变，全部跟随 | 手动调 | 手动调 |
+| 分割线 | 前景色 5% 透明度，极浅 | rgba(0,0,0,0.1) | `#e5e7eb` 固定 |
 
-| 位置 | 当前 emoji | 目标 lucide icon |
+**这是地基。地基不正，上面再怎么打磨也看不出效果。**
+
+### 第 2 层：表面层级（Surface Hierarchy）
+
+**这是什么**：每个元素"在界面里有多深"的信号。背景、卡片、弹窗、下拉菜单应该有不同的表面色。
+
+Crai 所有覆盖层（对话框、弹窗、侧栏、卡片）都用同一个 `--crai-bg`，没有分层。
+
+### 第 3 层：边框哲学（Border Treatment）
+
+**这是什么**：边框的深浅和用法。一条线的透明度决定了界面的精致度。
+
+Crai 全界面用同一个 `--crai-border: #e5e7eb`。CrystalAgents 的边框是前景色 5% 透明度，深色模式自动变浅。
+
+### 第 4 层：阴影系统（Shadow System）
+
+**这是什么**：多层 shadow 组合出深度感。
+
+| | CrystalAgents | Crai |
 |---|---|---|
-| ActivityTimeline 状态指示 | ✓ / ✗ | `CheckCircle2` / `XCircle` |
-| ActivityTimeline 展开箭头 | ▶ ▼ | `ChevronRight` (with rotate animation) |
-| ActivityTimeline 运行中 | ⌛ ⋯ | `LoaderCircle` (with spin) |
-| ActivityTimeline 工具参数 | → | `ArrowRight` |
-| SessionListPanel 搜索清除 | ✕ | `X` |
-| SessionListPanel 排序 | ↓ ↑ | `ArrowDown` / `ArrowUp` |
-| FileTreePanel 目录图标 | 📁 | `Folder` |
-| FileTreePanel 文件图标 | 📄 🟦 🎨 ⚙️ etc | `File`, `FileCode`, `FileImage`, `FileJson`, `FileText` |
-| FileTreePanel 展开箭头 | ▶ ▼ | `ChevronRight` (with rotate) |
-| FileTreePanel 上级目录 | ⬆ | `ArrowUp` |
-| FileTreePanel 搜索清除 | ✕ | `X` |
-| Header 连接状态 | 圆点 | `Circle` / `CheckCircle2` |
-| 发送按钮 | 文字"发送" | `Send` icon + text |
-| Config/Inspector 按钮 | 文字 | `Settings`, `Palette` icon + text |
-| Panel 面板头部 | emoji icon | lucide icon |
-| ConfirmBar 确认按钮 | 文字"允许"/"拒绝" | `ShieldCheck`, `Ban` |
+| 阴影层数 | 5 级（从 minimal 到 elevated） | 3 级 |
+| 衍生方式 | 从 foreground-rgb 计算 | 固定 rgba |
+| 含义 | 每个阴影对应一个语义层级 | bubble/panel/modal 堆砌 |
 
-**对标**：
-- CrystalAgents: `lucide-react` 全组件使用（TurnCard.tsx:38-56 import）
-- OpenHanako: 内联 SVG（AssistantMessage.tsx:299-366 多段 handwritten SVG）
+### 第 5 层：组件视觉语法（Component Grammar）
 
-**做法**：分两轮。先替换 ActivityTimeline 和 FileTreePanel 这两个最显眼的位置，再扫一遍其他零散 emoji（✅ 两轮均已完成）。
+**这是什么**：所有组件共用一套边框、圆角、focus ring 规则。这是「一致性」的来源。
 
----
+CrystalAgents 所有组件从 `--border`、`--ring`、`--radius` 衍生。Crai 每个组件自己写 borderRadius 和 borderColor。
 
-## P1 — 卡片容器
+### 第 6 层：微交互（Micro-interactions）
 
-**现状**：ActivityTimeline 是纯文字行（左边条 + 圆点 + 描述），没有"卡片"这个容器概念。
-工具结果、错误信息都直接堆在文字行里。
+**这是什么**：每个可交互元素 hover/click/focus 时的反馈。
 
-**目标**：
+CrystalAgents 用 framer-motion，OpenHanako 用 `transition: 0.15s` 全覆盖。Crai 有全局 transition 规则但部分组件没覆盖到。
 
-1. **工具调用卡片**：运行中有边框 + 背景 + 状态色条；完成/失败后颜色变化
-2. **思考折叠卡片**：类似 CrystalAgents ThinkingBlock，点击展开正文
-3. **输出卡片**：文件写入、搜索结果的专用展示卡片
+### 第 7 层：间距韵律（Spacing Rhythm）
 
-**方案**：
+**这是什么**：所有元素之间的间距遵守同一套尺度。
 
-```css
-/* 卡片基础 */
-.card-base {
-  border: 1px solid var(--crai-border);
-  border-radius: var(--crai-radius-md);
-  background: var(--crai-bg-secondary);
-  box-shadow: var(--crai-shadow-card);
-  padding: var(--crai-spacing-md);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-```
+OpenHanako 用 `--space-xs` 到 `--space-xl` 命名尺度，全界面遵守。Crai 有 token 但组件在用。
 
-**对标**：
-- OpenHanako: `Chat.module.css` — toolGroup, cronConfirmCard, fileOutputCard, imageOutputCard
-  - 统一 `.card { border-radius: var(--radius-md); box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04); }`
-  - hover 态: `:hover { border-color: var(--text-muted); background: var(--overlay-light); }`
-- CrystalAgents: TurnCard.tsx — 多样化的容器（折叠组、面板、弹窗）
+### 第 8 层：排版（Typography）
 
-**做法**：
-1. 在 tokens.ts 添加 `--crai-shadow-card` token（参考 OpenHanako 的双层 shadow）
-2. 将 ActivityTimeline 的活动行包裹为卡片
-3. 运行中 / 完成 / 错误三种状态不同左边条颜色
+**这是什么**：字体选择、字重、行高、letter-spacing 的体系。
 
----
+CrystalAgents 用 Inter 字体 + font-feature-settings。OpenHanako 正文 serif、UI sans。Crai 刚加了 font token。
 
-## P1 — 间距体系
+### 第 9 层：内容密度（Content Density）
 
-**现状**：间距硬编码散落在各组件（`12px`, `8px`, `16px`）。
+**这是什么**：每屏能放多少信息，间距是紧凑还是宽松。
 
-**目标**：建立命名间距尺度 token。
-
-**方案**：在 tokens.ts 添加：
-
-```
---crai-space-xxs: 2px
---crai-space-xs:  4px
---crai-space-sm:  8px
---crai-space-md:  12px
---crai-space-lg:  16px
---crai-space-xl:  24px
-```
-
-**对标**：OpenHanako `Chat.module.css` 全面使用 `var(--space-xs)` 到 `var(--space-lg)`。
-
-**做法**：
-1. 加 token
-2. 逐组件替换硬编码间距（从 ActivityTimeline、SessionListPanel、FileTreePanel 开始）
-3. 不改 `--crai-chat-padding` / `--crai-gap` 等已有 token（它们已有语义）
-
----
-
-## P1 — 微交互全覆盖
-
-**现状**：hover 态参差不齐，过渡时间不一致或缺失。
-
-**目标**：每个可交互元素都有 transition，统一为 `0.15s`。
-
-**对标**：OpenHanako 几乎每段 CSS 都有 `transition: color 0.15s` / `transition: opacity 0.15s` / `transition: transform 0.15s ease`。
-
-**方案**：加一个 utility token `--crai-transition-fast: 0.15s`，然后在以下位置加 transition：
-
-| 元素 | 当前 | 目标 |
-|---|---|---|
-| 所有 button | 无或硬编码 | `transition: all 0.15s` |
-| FixedBar 按钮 | 无 | `transition: opacity 0.15s, background 0.15s` |
-| ResizeHandle hover | opacity | `transition: opacity 0.15s` |
-| Sidebar header | 无 | `transition: background 0.15s` |
-| ActivityTimeline 活动行 | 仅有 cursor | `transition: background 0.15s` |
-| Dropdown 项 | 无 | `transition: background 0.15s` |
-| Config/Inspector 按钮 | transition-colors | 统一用 token |
-
-**做法**：建一个 `crai-interactive` CSS 类或在 index.css 中全局统一定义。
-
----
-
-## P2 — 动画
-
-**现状**：
-- 消息只做入场（opacity + translateY）
-- 侧栏展开/收起是 width transition，无内容过渡
-
-**目标**：引入 framer-motion，分阶段加动画。
-
-**对标**：
-- CrystalAgents: TurnCard.tsx — `motion.div` 的 staggered entry、AnimatePresence 的折叠过渡、rotate 箭头动画
-- OpenHanako: `Chat.module.css` — `@keyframes msgIn`、`transition: max-height 200ms cubic-bezier(0.33,1,0.68,1)`、`@keyframes typewriterDots`
-
-**方案**：
-
-1. 安装 `framer-motion`（CrystalAgents 用 `motion/react`）
-2. 消息列表加 staggered entry（每个消息比前一个延迟 30ms 入场）
-3. ActivityTimeline 折叠加 height 动画
-4. 侧栏展开/收起加内容 fade-in
-
-**做法**：仅 P2，在所有 P0-P1 做完后再做。
-
----
-
-## P2 — 字体分层
-
-**现状**：全文同一字体。
-
-**目标**：助手正文 / 用户正文 / UI 元素用不同字体族。
-
-**对标**：OpenHanako `messageAssistant :global(.md-content)` 用 `var(--font-serif)`，工具/UI 用 sans。
-
-**方案**：
-- 添加 `--crai-font-serif` token（默认 `Georgia, 'Noto Serif SC', serif`）
-- 添加 `--crai-font-mono` token（默认 `'SF Mono', Monaco, 'Cascadia Code', monospace`）
-- MarkdownRenderer 正文用 serif
-- 代码块和工具参数用 mono
-- UI（按钮、标签、侧栏）保持当前 sans
-
-**做法**：仅 P2，在所有 P0-P1 做完后再做。
-
----
-
-## P3 — 阴影体系
-
-**现状**：3 个简单阴影 token（bubble / panel / modal）。
-
-**目标**：多层阴影系统，区分更细的层级（minimal / card / modal / overlay）。
-
-**对标**：
-- CrystalAgents `index.css:40-80` — 6 层 shadow（`shadow-minimal` / `shadow-minimal-flat` / `shadow-modal-small`）
-- OpenHanako 简单一些，但也是双层 shadow（`box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)`）
-
-**方案**：添加 `--crai-shadow-card`、`--crai-shadow-elevated` 两新 token。
-
-**做法**：仅 P3，P0-P2 之后或穿插。
-
----
-
-## P3 — 专用组件
-
-**现状**：工具调用没有专用视觉组件。
-
-**目标**：逐步添加专用组件。
-
-**对标**：
-- OpenHanako: fileOutputCard, imageOutputCard, cronConfirmCard, toolGroup
-- CrystalAgents: TurnCard 内部的各种状态渲染分支
-
-**方案**：后续阶段做，当前阶段先做 P0-P1 的卡片化。
+CrystalAgents 紧凑但呼吸感好，OpenHanako 宽松卡片式。Crai 不一致。
 
 ---
 
@@ -211,178 +82,45 @@ Crai 的 Inspector 面板（实时编辑 token / 预设 / 定位模式）是两�
 CrystalAgents 的设计系统是编译时确定的，OpenHanako 的 CSS 变量是静态的。
 Crai 可以在运行时调色、调字号、调间距，立即看到效果。
 
-**打磨计划中 Inspector 的角色**：Inspector 不是被对标的目标，而是**分发新 token 的通道**。
-所有新增的 token（`--crai-shadow-card`、`--crai-space-*`、`--crai-transition-fast`）都必须注册到 Inspector，
-让用户能在面板里直接调整，继承 Inspector 已有的"修改实时生效"能力。
-
-**后续可做的 Inspector 增强（不等同于对标 refs，而是 Crai 独有的发展方向）**：
-
-1. **面板配置 UI** — 把 PanelRegistry 的配置（左右侧、顺序、可见性）做到 Inspector 中，拖拽排序
-2. **token 搜索** — token 列表加搜索过滤（现在需要手动翻分组）
-3. **token 对比** — 当前值与预设值的 diff 展示
-4. **样式快照** — 一键导出当前所有 token 为预设，分享给其他人
-
-这些都超出了"对标 refs"的范畴，是 Crai 自己可以走的方向。
-放在本计划的"后续可能"阶段，不在当前的 Phase 1-4 中实施。
-
----
-
-## 组件化架构（脚手架层面）
-
-打磨的同时建立可复用的组件体系。目标不是"做漂亮"，而是"做规范"。
-
-### 当前问题
-
-- 所有组件用 `style={}` 内联对象，不可覆写、不可组合
-- 没有 className forwarding 模式，外部无法定制样式
-- 没有 UI 原语层（Button / Card / Icon / Badge），每个组件自己写按钮
-- 组件之间边界模糊（ChatView 里内联了 Dropdown、workspaceBrowser modal）
-- 不一致的渲染模式：有的用 Tailwind className，有的用 inline style，有的两者混用
-
-### 目标分层
-
-```
-packages/ui/ (未来可提取的共享包)
-├── primitives/       # 通用 UI 原语
-│   ├── Button        # 图标+文字按钮
-│   ├── Card          # 卡片容器
-│   ├── Icon          # lucide 包装
-│   ├── Badge         # 状态徽标
-│   └── Select        # 下拉框
-├── layout/           # 布局原语
-│   ├── Panel         # 面板容器（header + content）
-│   ├── Sidebar       # 侧栏布局
-│   └── Header        # 顶栏
-└── domain/           # 领域组件（当前在 components/）
-    ├── MessageBubble
-    ├── ActivityTimeline
-    ├── SessionListPanel
-    ├── FileTreePanel
-    └── ...
-```
-
-实作时**不建新包**，先在 `apps/web/src/components/ui/` 下积累原语，方便后续提取。
-
-### 组件设计规范
-
-每个可复用组件遵循以下模式：
-
-```tsx
-// 1. className 透传（外部可覆写样式）
-// 2. 用 cn() 合并默认 className 和外部 className
-// 3. 语义化 props，最小心智负担
-// 4. 支持 asChild 或 render props 模式（需要时）
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost'
-  size?: 'sm' | 'md'
-  icon?: React.ReactNode  // 可选前置图标
-  children: React.ReactNode
-}
-
-function Button({ variant = 'primary', size = 'md', icon, className, children, ...rest }: ButtonProps) {
-  return (
-    <button
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-lg font-medium transition-all duration-150',
-        variantStyles[variant],
-        sizeStyles[size],
-        className,
-      )}
-      {...rest}
-    >
-      {icon && <span className="shrink-0">{icon}</span>}
-      {children}
-    </button>
-  )
-}
-```
-
-### 样式策略
-
-**统一使用 inline style + 无法覆写的 Token** 的现行模式不改——因为 Inspector 依赖 CSS 变量实时生效，切到 Tailwind utility class 会破坏这个能力。
-
-但对于**组件结构**（flex / gap / align / padding 等布局属性），逐步从 `style={}` 迁移到 Tailwind className。分界线：
-
-| 用 CSS 变量（style=） | 用 Tailwind className |
-|---|---|
-| 颜色、字号、圆角、间距尺度 | flex / grid / gap / padding / align |
-| 阴影、边框宽度 | overflow / cursor / position / z-index |
-| 背景色、文字色 | display / width / height / text-align |
-| 过渡持续时间 | border-style / white-space / text-overflow |
-
-原因是：Tailwind 处理布局类更简洁（`flex items-center gap-2` vs `style={{display:'flex',alignItems:'center',gap:8}}`），且不影响 Inspector 的实时调色能力。
-
-### 新增目录
-
-```
-apps/web/src/components/
-├── ui/               # UI 原语（可复用组件）
-│   ├── Button.tsx
-│   ├── Card.tsx
-│   └── Icon.tsx
-├── shell/            # 布局层（不变）
-├── panels/           # 面板层（不变）
-├── markdown/         # markdown 渲染（不变）
-└── ...               # 现有领域组件
-```
-
-现有组件逐步迁移：内联的 Dropdown → `ui/Dropdown.tsx`，workspaceBrowser → 用 Card 原语拼装。
-
-### 设计原则
-
-**不做虚拟壳，原语按可提取标准写，domain 直接接真实业务。**
-
-- `ui/` 下的原语以"明天就提取成独立包"的标准设计——TypeScript 完备、className forwarding、纯表现层零业务依赖
-- domain 层（Timeline、Bubble、Panels）直接接 `send()`、zustand store、真实 WebSocket 数据
-- 不建虚拟壳，不做假 demo
-- 等原语 API 稳定后（至少 2-3 个 domain 组件用完没改过），再考虑提取到独立 package
-
-- OpenHanako: 没有显式的原语层，但 CSS Modules + `composes` 起到了类似效果
-- CrystalAgents: `packages/ui/src/components/ui/` 下有 Button、Select、Spinner 等原语
-  - 都接入了 `cn()` utility（`import { cn } from '../../lib/utils'`）
-  - 都用 className forwarding 模式
+**打磨计划中 Inspector 的角色**：所有新增 token 必须注册到 Inspector。
+后续可做面板配置 UI、token 搜索、样式快照导出。
 
 ---
 
 ## 实施顺序
 
 ```
-Phase 0 (脚手架基础) ✅
-  0. ✅ 安装 lucide-react + classnames (cn utility)
-  1. ✅ 创建 apps/web/src/components/ui/ 目录
-  2. ✅ 实现 cn() utility（classnames merge）
-  3. ✅ 创建 Icon 原语（lucide 包装，统一 size/strokeWidth）
-  4. ✅ 创建 Button 原语（variant / size / icon / className forwarding）
-  5. ✅ 创建 Card 原语（基础卡片容器 + Header/Body）
-  6. ✅ 提取内联 Dropdown → ui/Dropdown.tsx
-  7. ✅ tokens.ts 加 --crai-shadow-card + --crai-space-* + --crai-transition-fast
+Phase 0 — 色值体系重构（第1~3层，地基）✅
+  ✅ 0. 将 Crai 的 hex 色值替换为 oklch + color-mix 体系
+  ✅ 1. 重建表面层级：--crai-bg-3/5/8/12 + --crai-fg-40/60
+  ✅ 2. 边框改为从 foreground 衍生（color-mix 8% / 15%）
+  ✅ 3. 暗色模式同步（仅 5 个基色，其余 color-mix 自动计算）
+  ✅ 4. 所有组件色值 token 改为引用 var(--crai-bg-*)、var(--crai-fg-*)
+  ✅ 5. 向后兼容别名（旧 --crai-bg-secondary 等 → 新层级）
 
-Phase 1 (P0 + P1 混合) ✅
-  8.  ✅ 替换 ActivityTimeline emoji → lucide icons（CheckCircle2/XCircle/LoaderCircle/ChevronRight）
-  9.  ✅ ActivityTimeline 用 3px 左侧色条 + 卡片容器（shadow-card）
-  10. ✅ 替换 FileTreePanel emoji → lucide icons（Folder/FileCode/FileJson/FileText/Terminal/FileImage）
-  11. ✅ 替换 SessionListPanel 零散 emoji（X/ArrowDown/ArrowUp）
-  12. ✅ workspaceBrowser modal 改用 lucide icons（Folder/ArrowUp/X）
-  +    ✅ FixedBar / 面板注册图标（MessageSquare/FolderTree）
-  +    ✅ Header 连接状态 + 按钮（CheckCircle2/Settings/Palette）
-  +    ✅ 发送按钮（Send icon）
-  +    ✅ ConfirmBar 按钮（Ban/ShieldCheck/Shield）
-  +    ✅ Dropdown 箭头（ChevronDown）
+Phase 1 — 组件语法统一（第5层）
+  ⬜ 5. 统一 border-radius：所有组件用 --crai-radius token
+  ⬜ 6. 统一 focus ring：所有输入框/按钮用 --crai-ring token
+  ⬜ 7. 统一 shadow 语义：确认每个组件用了正确的阴影层级
 
-Phase 2 (P1 剩余) ✅
-  13. ✅ index.css 全局 transition 规则（覆盖所有 button/select/input）
-  14. ✅ SessionListPanel 会话项 + FileTreePanel 节点 transition 补充
-  15. ✅ 布局属性从 inline style → Tailwind className（主要组件已完成）
+Phase 2 — 微交互 + 间距落实（第6~7层）✅
+  ✅ 8. 审查全组件 transition 覆盖（补漏）— 全局 CSS 规则覆盖所有 button/select/input
+  ✅ 9. 间距 token 替换硬编码 — 主要组件用 Tailwind 间距类，剩余硬编码并入后续深挖
 
-Phase 3 (动画) ✅
-  16. ✅ 安装 framer-motion
-  17. ✅ 消息 staggered entry（spring 动画，交错 30ms/条，最多 300ms）
-  18. ✅ 折叠 height 动画（motion.div layout + spring 过渡）
-  +    ✅ 侧栏内容 fade-in（motion.div opacity 0→1）
+Phase 3 — 阴影 + 排版 + 密度 ✅
+  ✅ 10. 阴影系统完善 — 补充 --crai-shadow-minimal token，现有 shadow 层级覆盖基础需求
+  ⬜ 11. 排版细节（line-height, letter-spacing）— 需视觉审查，并入后续区域深挖
+  ⬜ 12. 内容密度审计 — 需视觉审查，并入后续区域深挖
 
-Phase 4 (可选) ✅
-  19. ✅ 字体分层（--crai-font-sans/serif/mono token，Markdown 正文 serif，代码 mono）
-  20. ✅ 阴影体系扩展（--crai-shadow-elevated，用于弹窗/次级模态）
-  21. ✅ 专用输出卡片（ToolOutputCard 组件，支持 file/search/code/default 四种变体）
+--- 已完成的打磨（图标、动画、卡片、输出组件）---
+
+已做（作为旧 Phase 0~4 完成）：
+  ✅ lucide-react + framer-motion
+  ✅ UI 原语（Icon/Button/Card/Dropdown/cn/ToolOutputCard）
+  ✅ 全界面 emoji → lucide icons 替换
+  ✅ ActivityTimeline 卡片化 + 折叠动画
+  ✅ 消息 staggered entry + 侧栏 fade-in
+  ✅ 字体分层（sans/serif/mono）
+  ✅ 阴影扩展（shadow-card/elevated）
+  ✅ 全局 transition 规则
 ```

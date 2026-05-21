@@ -10,32 +10,11 @@
 
 /* ── 暗色模式覆盖 ── */
 .dark {
-  --crai-bg: #0f172a;
-  --crai-bg-secondary: #1e293b;
-  --crai-bg-tertiary: #334155;
-  --crai-fg: #f1f5f9;
-  --crai-fg-secondary: #94a3b8;
-  --crai-fg-tertiary: #64748b;
-  --crai-accent: #818cf8;
-  --crai-border: #334155;
-  --crai-msg-user-bg: #6366f1;
-  --crai-msg-assistant-bg: #1e293b;
-  --crai-msg-assistant-fg: #f1f5f9;
-  --crai-md-code-bg: #1e293b;
-  --crai-md-code-border: #334155;
-  --crai-md-code-header-bg: #334155;
-  --crai-md-table-border: #334155;
-  --crai-md-table-header-bg: #1e293b;
-  --crai-md-blockquote-bg: #1e293b;
-  --crai-md-inline-code-bg: #334155;
-  --crai-md-heading-color: #f1f5f9;
-  --crai-input-bg: #1e293b;
-  --crai-input-border: #334155;
-  --crai-md-code-fg: #f1f5f9;
-  --crai-md-table-fg: #f1f5f9;
-  --crai-md-table-body-bg: #1e293b;
-  --crai-btn-hover-bg: #6366f1;
-  --crai-scrollbar-color: #64748b;
+  --crai-bg: oklch(0.2 0.005 270);
+  --crai-fg: oklch(0.92 0.005 270);
+  --crai-accent: oklch(0.65 0.20 293);
+  --crai-success: oklch(0.60 0.17 145);
+  --crai-destructive: oklch(0.70 0.19 22);
 }
 
 /* ── 基础全局样式 ── */
@@ -70,6 +49,12 @@ body {
 /* ── 发送按钮 ── */
 .crai-send-btn {
   transition: background-color 0.15s, opacity 0.2s;
+}
+
+/* ── 全局焦点环（取代 outline: none） ── */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--crai-ring-width, 2px) var(--crai-ring);
 }
 
 /* ── 全局微交互：所有按钮和可点击元素默认过渡 ── */
