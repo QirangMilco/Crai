@@ -341,7 +341,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       // ── 目录浏览（不需要 runtime） ──
 
       case 'dir:browse': {
-        const result = browseDir(msg.path)
+        const result = browseDir(msg.path, { showFiles: msg.showFiles })
         ws.send(JSON.stringify({ type: 'dir:browse:data', ...result } satisfies ServerMessage))
         break
       }

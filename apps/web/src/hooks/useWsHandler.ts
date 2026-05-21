@@ -3,6 +3,14 @@ import type { ChatMessage } from '../types/messages'
 import { useChatStore } from '../store/chat'
 import { debugLog } from '../utils/debug'
 
+interface BrowseData {
+  path: string
+  dirs: string[]
+  files?: Array<{ name: string; path: string; size: number; mtime: number; isDirectory: boolean }>
+  parent?: string
+  error?: string
+}
+
 interface WsHandlers {
   send: (msg: any) => void
   onSessionId: (id: string) => void
@@ -16,7 +24,7 @@ interface WsHandlers {
   onSessionMode: (mode: string) => void
   onKnownModels: (known: any, firstParty: any, levels: any, defaults: any) => void
   onRequestInput: (id: string, question: string, options?: string[], meta?: Record<string, unknown>) => void
-  onDirBrowse: (data: { path: string; dirs: string[]; parent?: string; error?: string }) => void
+  onDirBrowse: (data: BrowseData) => void
   setCurrentModel: (m: string) => void
 }
 
@@ -129,7 +137,7 @@ export function useWsHandler(h: WsHandlers) {
         store.getState().appendSystemMessage(`⚠ ${msg.message}`)
         break
       case 'dir:browse:data':
-        h.onDirBrowse({ path: msg.path, dirs: msg.dirs, parent: msg.parent, error: msg.error })
+        h.onDirBrowse({ path: msg.path, dirs: msg.dirs, files: msg.files, parent: msg.parent, error: msg.error })
         break
       case 'session:title':
         h.onSessionTitle(msg.sessionId, msg.title)

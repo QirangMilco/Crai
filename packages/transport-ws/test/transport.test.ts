@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import type { ExtensionContext, RuntimeHandle, Session } from '@crai/core'
 import { EVENTS, createId } from '@crai/core'
 import { WebSocket } from 'ws'
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { createWsTransport, browseDir } from '../src/index'
@@ -396,5 +396,39 @@ describe('browseDir', () => {
   it('系统敏感目录的子目录也被拒绝', () => {
     const result = browseDir('/etc/ssl')
     assert.equal(result.error, '不允许浏览此目录')
+  })
+
+  it('showFiles 时返回文件列表', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'crai-test-'))
+    mkdirSync(join(tmp, 'sub1'))
+    writeFileSync(join(tmp, 'readme.md'), '# hello', 'utf-8')
+    writeFileSync(join(tmp, 'index.ts'), 'export const x = 1', 'utf-8')
+
+    const result = browseDir(tmp, { showFiles: true })
+    assert.ok(result.dirs.includes('sub1'))
+    assert.ok(Array.isArray(result.files))
+    const readme = result.files!.find(f => f.name === 'readme.md')
+    assert.ok(readme, '应包含 readme.md')
+    assert.equal(readme!.isDirectory, false)
+    assert.equal(readme!.size, 7, 'readme.md 大小')
+    assert.ok(readme!.mtime > 0, '应有修改时间')
+
+    const indexTs = result.files!.find(f => f.name === 'index.ts')
+    assert.ok(indexTs, '应包含 index.ts')
+    assert.equal(indexTs!.size, 18, 'index.ts 大小')
+    assert.equal(indexTs!.isDirectory, false)
+
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('showFiles 默认不返回文件', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'crai-test-'))
+    writeFileSync(join(tmp, 'test.txt'), 'content', 'utf-8')
+    mkdirSync(join(tmp, 'dir'))
+
+    const result = browseDir(tmp)
+    assert.equal(result.files, undefined, 'files 应为 undefined')
+
+    rmSync(tmp, { recursive: true, force: true })
   })
 })

@@ -36,7 +36,7 @@
 { type: 'workspace:config:data', config: { provider?, model?, security?: { mode? } } }
 
 // 目录浏览响应
-{ type: 'dir:browse:data', path: string, dirs: string[], parent?: string, error?: string }
+{ type: 'dir:browse:data', path: string, dirs: string[], files?: Array<{name, path, size, mtime, isDirectory}>, parent?: string, error?: string }
 
 // 错误
 { type: 'error', message: string }
@@ -69,7 +69,8 @@
 { type: 'workspace:config:set', config: { provider?, model?, security?: { mode? } } }
 
 // 目录浏览
-{ type: 'dir:browse', path?: string }
+{ type: 'dir:browse', path?: string, showFiles?: boolean }
+//   showFiles: 是否同时返回文件列表（默认 false）
 
 // 用户输入响应
 { type: 'resolve:input', id: string, value: string }

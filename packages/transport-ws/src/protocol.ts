@@ -114,11 +114,13 @@ export interface SessionUpdateMessage {
   thinkingLevel?: string
 }
 
-/** 客户端请求浏览指定路径的目录结构（只返回子目录，不含文件）。 */
+/** 客户端请求浏览指定路径的目录结构。 */
 export interface DirBrowseMessage {
   type: 'dir:browse'
   /** 浏览的路径。为空时返回平台根目录列表。 */
   path?: string
+  /** 是否同时返回文件列表（默认 false，仅返回目录）。 */
+  showFiles?: boolean
 }
 
 /** 客户端请求服务端用工具模型为 session 生成标题。 */
@@ -250,25 +252,31 @@ export type ServerMessage =
   | ConfigKnownModelsDataMessage
 
 /** 目录浏览响应。 */
+export interface DirBrowseDataMessage {
+  type: 'dir:browse:data'
+  /** 当前浏览的目录路径。 */
+  path: string
+  /** 当前目录下的子目录名列表。 */
+  dirs: string[]
+  /** 文件列表（仅当请求中 showFiles=true 时返回）。 */
+  files?: Array<{
+    name: string
+    path: string
+    size: number
+    mtime: number
+    isDirectory: boolean
+  }>
+  /** 父目录路径。在根目录时为 undefined。 */
+  parent?: string
+  /** 错误信息。 */
+  error?: string
+}
 
 /** session 标题生成响应。 */
 export interface SessionTitleMessage {
   type: 'session:title'
   sessionId: string
   title: string
-}
-
-/** 目录浏览响应。 */
-export interface DirBrowseDataMessage {
-  type: 'dir:browse:data'
-  /** 当前浏览的目录路径。 */
-  path: string
-  /** 当前目录下的子目录名列表（不含文件）。 */
-  dirs: string[]
-  /** 父目录路径。在根目录时为 undefined。 */
-  parent?: string
-  /** 错误信息。 */
-  error?: string
 }
 
 /** 已知模型与第一方 provider 信息响应。 */

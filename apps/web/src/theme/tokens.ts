@@ -151,6 +151,14 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-gap', label: '组件间距', group: 'layout', type: 'size', defaultValue: '12px', max: 60 },
   { name: '--crai-panel-width', label: '面板宽度', group: 'layout', type: 'size', defaultValue: '320px', min: 160, max: 600 },
 
+  // ── 侧栏 ──
+  { name: '--crai-sidebar-fixed-bar-width', label: '固定栏宽度', group: 'layout', type: 'size', defaultValue: '36px', min: 24, max: 64, description: '侧栏收起时固定栏的宽度' },
+  { name: '--crai-sidebar-min-width', label: '侧栏最小宽度', group: 'layout', type: 'size', defaultValue: '160px', min: 100, max: 300 },
+  { name: '--crai-sidebar-max-width', label: '侧栏最大宽度', group: 'layout', type: 'size', defaultValue: '520px', min: 300, max: 800 },
+  { name: '--crai-sidebar-handle-width', label: '拖拽手柄宽度', group: 'layout', type: 'size', defaultValue: '4px', min: 2, max: 12 },
+  { name: '--crai-sidebar-handle-color', label: '拖拽手柄颜色', group: 'layout', type: 'color', defaultValue: 'var(--crai-border)', description: '拖拽手柄 hover 时的颜色' },
+  { name: '--crai-sidebar-header-height', label: '面板头部高度', group: 'layout', type: 'size', defaultValue: '36px', min: 24, max: 60 },
+
   // ── 思考过程 ──
   { name: '--crai-thinking-bg', label: '背景', group: 'thinking-block', type: 'color', defaultValue: '#f3f4f6' },
   { name: '--crai-thinking-fg', label: '标题色', group: 'thinking-block', type: 'color', defaultValue: '#6b7280' },
