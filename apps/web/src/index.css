@@ -80,6 +80,10 @@ button, [role="button"], select, input[type="text"], input[type="search"] {
   background-color: var(--crai-accent) !important;
   color: #fff !important;
 }
+.crai-locate-flash {
+  background-color: color-mix(in oklch, var(--crai-accent) 12%, transparent);
+  transition: background-color 0.3s;
+}
 /* ── KaTeX 公式居中 ── */
 .katex-display {
   display: flex;

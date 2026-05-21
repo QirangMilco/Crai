@@ -43,6 +43,8 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-scrollbar-color', label: '滚动条颜色', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 20%, var(--crai-bg))' },
   { name: '--crai-ring', label: '焦点环色', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-accent) 50%, transparent)', description: '输入框/按钮聚焦时的外环颜色' },
   { name: '--crai-ring-width', label: '焦点环宽度', group: 'base', type: 'size', defaultValue: '2px', min: 0, max: 6, description: '聚焦外环的厚度' },
+  { name: '--crai-border-width', label: '通用边框宽度', group: 'base', type: 'size', defaultValue: '1px', min: 0, max: 8 },
+  { name: '--crai-shadow-bubble', label: '气泡阴影', group: 'base', type: 'text', defaultValue: '0 1px 2px rgba(0,0,0,0.05)', description: '消息气泡阴影' },
   { name: '--crai-shadow-panel', label: '面板阴影', group: 'base', type: 'text', defaultValue: '0 4px 6px rgba(0,0,0,0.07)', description: 'Inspector/Config 面板阴影' },
   { name: '--crai-shadow-modal', label: '模态框阴影', group: 'base', type: 'text', defaultValue: '0 10px 25px rgba(0,0,0,0.1)', description: '弹窗/对话框阴影' },
 
@@ -53,6 +55,7 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-msg-user-font-size', label: '用户消息字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
   { name: '--crai-msg-ai-font-size', label: 'AI 消息字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
   { name: '--crai-input-font-size', label: '文本区字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
+  { name: '--crai-toolbar-font-size', label: '工具栏字号', group: 'input-bar', type: 'size', defaultValue: '11px', max: 20, description: '输入框底部选择菜单的字号' },
   { name: '--crai-md-paragraph-font-size', label: '正文字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32, description: 'Markdown 段落文字大小' },
 
   // ── 字体 ──
@@ -154,7 +157,6 @@ export const TOKENS: TokenDef[] = [
   // 🔧 工具栏
   // ============================================================
   { name: '--crai-btn-radius', label: '按钮圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius-sm)', ref: '--crai-radius-sm' },
-  { name: '--crai-btn-height', label: '按钮高度', group: 'input-bar', type: 'size', defaultValue: '32px', max: 80, description: '发送按钮和工具栏的高度' },
   { name: '--crai-btn-font-size', label: '按钮字号', group: 'font-size', type: 'size', defaultValue: '13px', max: 24 },
   { name: '--crai-btn-color', label: '按钮文字色', group: 'input-bar', type: 'color', defaultValue: '#ffffff' },
   { name: '--crai-btn-hover-bg', label: '悬停背景色', group: 'input-bar', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-accent) 85%, #000)' },
@@ -181,12 +183,12 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-shadow-elevated', label: '抬高阴影', group: 'layout', type: 'text', defaultValue: '0 4px 12px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)', description: '弹窗/次级模态阴影' },
   { name: '--crai-shadow-minimal', label: '极浅阴影', group: 'layout', type: 'text', defaultValue: '0 0 0 1px rgba(0,0,0,0.04)', description: '仅 1px ring，用于分隔/嵌入元素' },
   { name: '--crai-transition-fast', label: '过渡速度', group: 'layout', type: 'size', defaultValue: '0.15s', min: 0.05, max: 0.5, description: '通用微交互过渡时长' },
-  { name: '--crai-space-xxs', label: '间距 XXS', group: 'spacing', type: 'size', defaultValue: '2px', max: 8, description: '极细微间距' },
-  { name: '--crai-space-xs', label: '间距 XS', group: 'spacing', type: 'size', defaultValue: '4px', max: 16 },
-  { name: '--crai-space-sm', label: '间距 SM', group: 'spacing', type: 'size', defaultValue: '8px', max: 24 },
-  { name: '--crai-space-md', label: '间距 MD', group: 'spacing', type: 'size', defaultValue: '12px', max: 32 },
-  { name: '--crai-space-lg', label: '间距 LG', group: 'spacing', type: 'size', defaultValue: '16px', max: 48 },
-  { name: '--crai-space-xl', label: '间距 XL', group: 'spacing', type: 'size', defaultValue: '24px', max: 64 },
+  { name: '--crai-space-xxs', label: '极小间距', group: 'spacing', type: 'size', defaultValue: '2px', max: 8, description: '图标与文字间隙' },
+  { name: '--crai-space-xs', label: '特小间距', group: 'spacing', type: 'size', defaultValue: '4px', max: 16, description: '元素内部紧密间距' },
+  { name: '--crai-space-sm', label: '小间距', group: 'spacing', type: 'size', defaultValue: '8px', max: 24, description: '元素之间基本间距' },
+  { name: '--crai-space-md', label: '中间距', group: 'spacing', type: 'size', defaultValue: '12px', max: 32, description: '组件内部宽松间距' },
+  { name: '--crai-space-lg', label: '大间距', group: 'spacing', type: 'size', defaultValue: '16px', max: 48, description: '组件之间间距' },
+  { name: '--crai-space-xl', label: '特大间距', group: 'spacing', type: 'size', defaultValue: '24px', max: 64, description: '区域之间间距' },
 
   // ── 思考过程 ──
   { name: '--crai-thinking-bg', label: '背景', group: 'thinking-block', type: 'color', defaultValue: 'var(--crai-bg-3)', ref: '--crai-bg-3' },

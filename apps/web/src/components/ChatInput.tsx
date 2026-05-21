@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send } from 'lucide-react'
-import { Icon } from './ui/Icon'
+import { useState, useRef, useEffect } from 'react'
+import { Send, Brain, Bot, Zap, HelpCircle, Shield } from 'lucide-react'
+import { Icon, Select } from './ui'
 
 interface Props {
   onSend: (text: string, model?: string) => void
@@ -55,12 +55,10 @@ function getAvailableThinkingLevels(provider: string, configLevels?: Record<stri
   return THINKING_LEVELS.filter((tl) => levels.includes(tl.value))
 }
 
-const LEVEL_LABEL_MAP = Object.fromEntries(THINKING_LEVELS.map((tl) => [tl.value, tl.label]))
-
-const SESSION_MODES: Array<{ value: string; label: string }> = [
-  { value: 'execute', label: '操作' },
-  { value: 'ask', label: '询问' },
-  { value: 'safe', label: '只读' },
+const SESSION_MODES = [
+  { value: 'execute', label: '操作', icon: Zap, iconColor: 'var(--crai-accent)' },
+  { value: 'ask', label: '询问', icon: HelpCircle, iconColor: 'var(--crai-fg-60)' },
+  { value: 'safe', label: '只读', icon: Shield, iconColor: 'var(--crai-success)' },
 ]
 
 export function ChatInput({ onSend, disabled, className = '', models, currentModel, onModelChange, thinkingLevel, onThinkingLevelChange, sessionMode, onModeChange, providerThinkingLevels, defaultThinkingLevels }: Props) {
@@ -146,122 +144,87 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
             overflowY: 'hidden',
           }}
         />
-        {/* 工具栏：思考深度 + 模式 */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '0 12px',
-            minHeight: 28,
-          }}>
-          {/* 思考深度 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <span style={{ fontSize: 11, color: 'var(--crai-fg-tertiary)', whiteSpace: 'nowrap' }}>思考</span>
-            {(() => {
-              // 根据当前模型获取可用的思考深度
-              const curProvider = models?.find((m) => m.name === currentModel)?.provider ?? ''
-              const availableLevels = getAvailableThinkingLevels(curProvider, providerThinkingLevels)
-              // 当前 thinkingLevel 不在可用列表中时，使用该 provider 的默认思考深度
-              const fallbackLevel = (curProvider && defaultThinkingLevels?.[curProvider]) ?? availableLevels[0]?.value ?? 'off'
-              const effectiveLevel = availableLevels.some((l) => l.value === thinkingLevel) ? thinkingLevel : fallbackLevel
-              // 同步：回传有效值到父组件
-              if (effectiveLevel !== thinkingLevel) {
-                queueMicrotask(() => onThinkingLevelChange?.(effectiveLevel))
-              }
-              return availableLevels.map((tl) => (
-                <button
-                  key={tl.value}
-                  onClick={() => onThinkingLevelChange?.(tl.value)}
-                  style={{
-                    fontSize: 11,
-                    padding: '1px 5px',
-                    borderRadius: 4,
-                    border: 'none',
-                    cursor: 'pointer',
-                    backgroundColor: effectiveLevel === tl.value ? 'var(--crai-accent)' : 'transparent',
-                    color: effectiveLevel === tl.value ? '#fff' : 'var(--crai-fg-tertiary)',
-                    fontWeight: effectiveLevel === tl.value ? 600 : 400,
-                  }}>
-                  {tl.label}
-                </button>
-              ))
-            })()}
-          </div>
-          {/* 分隔线 */}
-          <span style={{ width: 1, height: 14, backgroundColor: 'var(--crai-border)', margin: '0 6px' }} />
-          {/* 模式 */}
-          {SESSION_MODES.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => onModeChange?.(m.value)}
-              style={{
-                fontSize: 11,
-                padding: '1px 6px',
-                borderRadius: 4,
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: sessionMode === m.value ? 'var(--crai-accent)' : 'transparent',
-                color: sessionMode === m.value ? '#fff' : 'var(--crai-fg-tertiary)',
-                fontWeight: sessionMode === m.value ? 600 : 400,
-              }}>
-              {m.label}
-            </button>
-          ))}
-        </div>
+        {/* 底部工具栏：模式 · 思考 · 模型 · 发送 */}
         <div
           data-token-group="input-bar"
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 8,
+            justifyContent: 'space-between',
+            gap: 6,
             padding: '0 12px 8px',
-            height: 'var(--crai-btn-height, 32px)',
+            minHeight: 28,
           }}>
-          {models && models.length > 0 && (
-            <select
-              value={currentModel ?? ''}
-              onChange={(e) => onModelChange?.(e.target.value)}
+          {/* 左侧：模式 */}
+          <Select
+            value={sessionMode ?? 'execute'}
+            onChange={(v) => onModeChange?.(v)}
+            options={SESSION_MODES}
+            placeholder="模式"
+            className="shrink-0"
+            style={{ padding: '2px 6px', maxWidth: 90 }}
+          />
+          {/* 右侧：思考 + 模型 + 发送 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+            {(() => {
+              const curProvider = models?.find((m) => m.name === currentModel)?.provider ?? ''
+              const availableLevels = getAvailableThinkingLevels(curProvider, providerThinkingLevels)
+              const fallbackLevel = (curProvider && defaultThinkingLevels?.[curProvider]) ?? availableLevels[0]?.value ?? 'off'
+              const effectiveLevel = availableLevels.some((l) => l.value === thinkingLevel) ? thinkingLevel : fallbackLevel
+              if (effectiveLevel !== thinkingLevel) {
+                queueMicrotask(() => onThinkingLevelChange?.(effectiveLevel))
+              }
+              return (
+                <Select
+                  icon={Brain}
+                  value={effectiveLevel}
+                  onChange={(v) => onThinkingLevelChange?.(v)}
+                  options={availableLevels}
+                  placeholder="思考"
+                  className="shrink-0"
+                  style={{ padding: '2px 6px', maxWidth: 80 }}
+                />
+              )
+            })()}
+            {models && models.length > 0 && (
+              <Select
+                icon={Bot}
+                value={currentModel ?? ''}
+                onChange={(v) => onModelChange?.(v)}
+                options={models.map((m) => ({
+                  value: m.name,
+                  label: `${m.provider}/${m.name}`,
+                }))}
+                placeholder="选择模型"
+                className="shrink-0"
+                style={{ padding: '2px 6px', maxWidth: 160 }}
+              />
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={disabled || !text.trim()}
+              className="crai-send-btn"
+              data-token-group="font-size radius input-bar"
               style={{
-                backgroundColor: 'transparent',
-                color: 'var(--crai-fg-secondary)',
-                fontSize: 12,
-                border: '1px solid var(--crai-border)',
+                backgroundColor: 'var(--crai-accent)',
                 borderRadius: 'var(--crai-btn-radius, 8px)',
-                padding: '0 8px',
-                height: 'var(--crai-btn-height, 32px)',
-                maxWidth: 180,
-                outline: 'none',
-                cursor: 'pointer',
-              }}>
-              {models.map((m) => (
-                <option key={`${m.provider}:${m.name}`} value={m.name}>
-                  {m.provider}/{m.name.length > 20 ? m.name.slice(0, 20) + '…' : m.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <button
-            onClick={handleSubmit}
-            disabled={disabled || !text.trim()}
-            className="crai-send-btn"
-            style={{
-              backgroundColor: 'var(--crai-accent)',
-              borderRadius: 'var(--crai-btn-radius, 8px)',
-              height: 'var(--crai-btn-height, 32px)',
-              fontSize: 'var(--crai-btn-font-size, 13px)',
-              lineHeight: 'var(--crai-btn-height, 32px)',
-              padding: '0 20px',
-              fontWeight: 500,
-              color: 'var(--crai-btn-color)',
-              opacity: disabled || !text.trim() ? 0.4 : 1,
-              border: 'none',
-              cursor: disabled || !text.trim() ? 'default' : 'pointer',
-            }}
-          >
-            <Icon icon={Send} size="sm" /> 发送
-          </button>
+                height: 28,
+                fontSize: 'var(--crai-btn-font-size, 12px)',
+                padding: '0 14px',
+                fontWeight: 500,
+                color: 'var(--crai-btn-color)',
+                opacity: disabled || !text.trim() ? 0.4 : 1,
+                border: 'none',
+                cursor: disabled || !text.trim() ? 'default' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Icon icon={Send} size="sm" /> 发送
+            </button>
+          </div>
         </div>
       </div>
     </div>

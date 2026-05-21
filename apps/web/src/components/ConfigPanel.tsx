@@ -7,6 +7,7 @@
  *  - "获取模型"按钮调用 Models API 自动填充
  */
 import { useState, useCallback, useEffect } from 'react'
+import { Select } from './ui'
 
 // 由服务端 knownModels prop 提供，见 config:known-models 协议。
 // 不再硬编码。
@@ -414,20 +415,18 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
         <div>
           <div className="text-xs font-medium mb-2" style={{ color: 'var(--crai-fg-secondary)' }}>工具模型</div>
           <div className="text-[10px] mb-1.5" style={{ color: 'var(--crai-fg-tertiary)' }}>用于标题生成、对话摘要等辅助任务。不设置时使用对话默认模型。</div>
-          <select
+          <Select
             value={editToolModel}
-            onChange={e => {
-              const val = e.target.value
-              setEditToolModel(val)
-              send({ type: 'config:set', config: { toolModel: val || undefined } })
+            onChange={v => {
+              setEditToolModel(v)
+              send({ type: 'config:set', config: { toolModel: v || undefined } })
             }}
-            className="w-full px-2.5 py-1.5 rounded text-xs outline-none"
-            style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}>
-            <option value="">使用默认模型</option>
-            {allModelOptions.map(opt => (
-              <option key={opt.label} value={opt.label}>{opt.label}</option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: '使用默认模型' },
+              ...allModelOptions.map(opt => ({ value: opt.label, label: opt.label })),
+            ]}
+            placeholder="使用默认模型"
+          />
         </div>
       </div>
 

@@ -9,7 +9,7 @@
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { X, ArrowDown, ArrowUp } from 'lucide-react'
-import { Icon } from '../ui/Icon'
+import { Icon, Select } from '../ui'
 
 interface SessionSummary {
   id: string
@@ -143,19 +143,16 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
 
         {/* 排序 + 新建 */}
         <div className="flex items-center gap-1">
-          <select
+          <Select
             value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="flex-1 text-[10px] px-1.5 py-1 rounded outline-none"
-            style={{
-              backgroundColor: 'var(--crai-bg-secondary)',
-              color: 'var(--crai-fg-secondary)',
-              border: '1px solid var(--crai-border)',
-            }}
-          >
-            <option value="createdAt">时间</option>
-            <option value="title">标题</option>
-          </select>
+            onChange={(v) => setSortKey(v as SortKey)}
+            options={[
+              { value: 'createdAt', label: '时间' },
+              { value: 'title', label: '标题' },
+            ]}
+            className="flex-1"
+            style={{ fontSize: 10 }}
+          />
           <button
             onClick={toggleSortDir}
             className="text-[10px] px-1.5 py-1 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-tertiary)]"
