@@ -2,9 +2,9 @@
  * InspectorPanel — 主题控制系统。
  *
  * 重组后分三区：
- * 1. 基色调色（5 个基色 + 表面预览）
- * 2. 样式控制（字号、行高、圆角、间距、布局等非色 token）
- * 3. 高级（衍生色，默认折叠）
+ * 1. 颜色（基色 + 衍生色）
+ * 2. 表面层级预览
+ * 3. 样式（字号、行高、圆角、间距、布局等非色 token）
  */
 import { useState, useEffect, useMemo } from 'react'
 import {
@@ -36,7 +36,6 @@ export function InspectorPanel({ onClose }: Props) {
   const [activeStyle, setActiveStyle] = useState<string>('Crai 默认样式')
   const [userColorPresets, setUserColorPresets] = useState<Array<{ name: string; tokens: Record<string, string> }>>([])
   const [userStylePresets, setUserStylePresets] = useState<Array<{ name: string; tokens: Record<string, string> }>>([])
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [showColors, setShowColors] = useState(true)
   const [showPreview, setShowPreview] = useState(true)
   const [showStyle, setShowStyle] = useState(true)
@@ -303,22 +302,6 @@ export function InspectorPanel({ onClose }: Props) {
           )}
         </div>
 
-        {/* ── 4. 高级：衍生色 ── */}
-        <div className="px-3 pb-3">
-          <button
-            onClick={() => setShowAdvanced((s) => !s)}
-            className="w-full flex items-center justify-between px-2 py-1.5 rounded text-[11px] font-medium"
-            style={{ color: 'var(--crai-fg-secondary)' }}
-          >
-            <span>高级 · 衍生色</span>
-            <span className="text-[10px]">{showAdvanced ? '▼' : '▶'}</span>
-          </button>
-          {showAdvanced && (
-            <div className="space-y-0.5">
-              {derivedColorTokens.map((token) => <TokenControl key={token.name} token={token} onChange={forceUpdate as any} />)}
-            </div>
-          )}
-        </div>
       </div>
 
       <div className="px-4 py-2 border-t text-[10px] shrink-0" style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}>修改实时生效</div>
