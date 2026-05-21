@@ -45,6 +45,11 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-input-font-size', label: '文本区字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
   { name: '--crai-md-paragraph-font-size', label: '正文字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32, description: 'Markdown 段落文字大小' },
 
+  // ── 字体 ──
+  { name: '--crai-font-sans', label: 'UI 字体', group: 'font-size', type: 'text', defaultValue: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif", description: '界面元素字体（按钮、标签、侧栏）' },
+  { name: '--crai-font-serif', label: '正文字体', group: 'font-size', type: 'text', defaultValue: "Georgia, 'Noto Serif SC', serif", description: '长文本阅读字体（助手消息正文）' },
+  { name: '--crai-font-mono', label: '等宽字体', group: 'font-size', type: 'text', defaultValue: "'SF Mono', Monaco, 'Cascadia Code', 'Fira Code', monospace", description: '代码和工具参数的字体' },
+
   // ============================================================
   // 📏 行高（基础行高 + 继承链）
   // ============================================================
@@ -161,6 +166,7 @@ export const TOKENS: TokenDef[] = [
 
   // ── UI 原语 ──
   { name: '--crai-shadow-card', label: '卡片阴影', group: 'layout', type: 'text', defaultValue: '0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)', description: '卡片容器的阴影' },
+  { name: '--crai-shadow-elevated', label: '抬高阴影', group: 'layout', type: 'text', defaultValue: '0 4px 12px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.04)', description: '弹窗/次级模态的阴影' },
   { name: '--crai-transition-fast', label: '过渡速度', group: 'layout', type: 'size', defaultValue: '0.15s', min: 0.05, max: 0.5, description: '通用微交互过渡时长' },
   { name: '--crai-space-xxs', label: '间距 XXS', group: 'spacing', type: 'size', defaultValue: '2px', max: 8, description: '极细微间距' },
   { name: '--crai-space-xs', label: '间距 XS', group: 'spacing', type: 'size', defaultValue: '4px', max: 16 },

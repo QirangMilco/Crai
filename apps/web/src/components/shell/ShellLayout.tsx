@@ -18,6 +18,7 @@
  *   --crai-sidebar-header-height: 面板头部高度（默认 36px）
  */
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { FixedBar } from './FixedBar'
 import { ResizeHandle } from './ResizeHandle'
 import { getAllSidePanels } from './PanelRegistry'
@@ -131,7 +132,12 @@ export function ShellLayout({ children, send }: Props) {
     if (side !== hoveredSide) return null
     const panels = side === 'left' ? leftPanels : rightPanels
     return (
-      <div
+      <motion.div
+        key={side}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.12 }}
         className="flex flex-col h-full overflow-hidden"
         style={{ backgroundColor: 'var(--crai-bg)', width: side === 'left' ? leftWidth : rightWidth }}
       >
@@ -155,7 +161,7 @@ export function ShellLayout({ children, send }: Props) {
             </div>
           </div>
         ))}
-      </div>
+      </motion.div>
     )
   }, [hoveredSide, leftPanels, rightPanels, leftWidth, rightWidth, send])
 

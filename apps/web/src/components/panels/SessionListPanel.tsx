@@ -8,6 +8,8 @@
  * - 新建/删除/选中会话
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { X, ArrowDown, ArrowUp } from 'lucide-react'
+import { Icon } from '../ui/Icon'
 
 interface SessionSummary {
   id: string
@@ -131,10 +133,10 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] px-1 opacity-50 hover:opacity-100"
+              className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 opacity-50 hover:opacity-100 transition-opacity duration-150"
               style={{ color: 'var(--crai-fg-tertiary)' }}
             >
-              ✕
+              <Icon icon={X} size="xs" />
             </button>
           )}
         </div>
@@ -156,14 +158,14 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
           </select>
           <button
             onClick={toggleSortDir}
-            className="text-[10px] px-1.5 py-1 rounded"
+            className="text-[10px] px-1.5 py-1 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-tertiary)]"
             style={{
               color: 'var(--crai-fg-secondary)',
               border: '1px solid var(--crai-border)',
             }}
             title={sortDir === 'desc' ? '降序' : '升序'}
           >
-            {sortDir === 'desc' ? '↓' : '↑'}
+            <Icon icon={sortDir === 'desc' ? ArrowDown : ArrowUp} size="xs" />
           </button>
           <button
             onClick={onNew}
@@ -190,7 +192,7 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
               {(groups.get(label) ?? []).map((s) => (
                 <div
                   key={s.id}
-                  className="group flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer"
+                  className="group flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer transition-colors duration-150"
                   style={{
                     backgroundColor: s.id === currentSessionId ? 'var(--crai-bg-tertiary)' : 'transparent',
                     color: 'var(--crai-fg)',
@@ -202,10 +204,10 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
                   </span>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(s.id) }}
-                    className="text-[10px] px-1 opacity-0 group-hover:opacity-60 hover:opacity-100"
+                    className="p-0.5 opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity duration-150"
                     style={{ color: confirmDelete === s.id ? 'var(--crai-destructive)' : 'var(--crai-fg-tertiary)' }}
                   >
-                    {confirmDelete === s.id ? '确认?' : '✕'}
+                    {confirmDelete === s.id ? <span className="text-[10px]">确认?</span> : <Icon icon={X} size="xs" />}
                   </button>
                 </div>
               ))}

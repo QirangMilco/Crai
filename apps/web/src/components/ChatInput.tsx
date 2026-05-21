@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { Send } from 'lucide-react'
+import { Icon } from './ui/Icon'
 
 interface Props {
   onSend: (text: string, model?: string) => void
@@ -258,7 +260,7 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
               cursor: disabled || !text.trim() ? 'default' : 'pointer',
             }}
           >
-            发送
+            <Icon icon={Send} size="sm" /> 发送
           </button>
         </div>
       </div>

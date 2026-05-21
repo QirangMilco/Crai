@@ -14,6 +14,8 @@
  *   />
  */
 import { useState, useRef, useEffect } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { Icon } from './Icon'
 import { cn } from './cn'
 
 export interface DropdownItem<T extends string = string> {
@@ -57,7 +59,7 @@ export function Dropdown<T extends string = string>({
         className="flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors duration-150"
         style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-secondary)' }}
       >
-        {label} <span className="text-[10px]">▼</span>
+        {label} <Icon icon={ChevronDown} size="xs" />
       </button>
       {open && (
         <div

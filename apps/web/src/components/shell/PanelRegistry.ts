@@ -11,8 +11,8 @@ export interface PanelDef {
   id: string
   /** 显示名（固定栏 tooltip 等） */
   label: string
-  /** 固定栏图标（emoji） */
-  icon: string
+  /** 固定栏图标（lucide ReactNode 或 emoji 字符串） */
+  icon: React.ReactNode
   /** 默认放置侧（未配置时使用） */
   defaultSide: 'left' | 'right'
   /** 是否默认可见 */

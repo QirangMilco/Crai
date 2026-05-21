@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { Ban, ShieldCheck, Shield } from 'lucide-react'
+import { Icon } from './ui/Icon'
 
 interface Props {
   id: string
@@ -46,16 +48,16 @@ export function ConfirmBar({ id, question, options, meta, onResolve }: Props) {
       </div>
       <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
         <button onClick={() => onResolve(id, 'deny')}
-          style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid var(--crai-border)', backgroundColor: 'transparent', color: 'var(--crai-fg-secondary)', fontSize: 12, cursor: 'pointer' }}>
-          拒绝
+          style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid var(--crai-border)', backgroundColor: 'transparent', color: 'var(--crai-fg-secondary)', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <Icon icon={Ban} size="xs" />拒绝
         </button>
         <button onClick={() => onResolve(id, 'allow')}
-          style={{ padding: '6px 14px', borderRadius: 6, border: 'none', backgroundColor: 'var(--crai-accent)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>
-          允许
+          style={{ padding: '6px 14px', borderRadius: 6, border: 'none', backgroundColor: 'var(--crai-accent)', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <Icon icon={ShieldCheck} size="xs" />允许
         </button>
         <button onClick={() => onResolve(id, 'allow', true)}
-          style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid var(--crai-accent)', backgroundColor: 'transparent', color: 'var(--crai-accent)', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          始终允许
+          style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid var(--crai-accent)', backgroundColor: 'transparent', color: 'var(--crai-accent)', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <Icon icon={Shield} size="xs" />始终允许
         </button>
       </div>
     </div>

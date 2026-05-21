@@ -11,6 +11,11 @@
  * - 点击目录展开/折叠，点击文件可选中
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
+import {
+  ChevronRight, Folder, File, FileCode, FileImage, FileJson, FileText,
+  Terminal, ArrowUp, X, LoaderCircle,
+} from 'lucide-react'
+import { Icon, cn } from '../ui'
 
 interface DirEntry {
   path: string
@@ -67,19 +72,26 @@ function isTextFile(name: string): boolean {
   return !!ext && ['md', 'txt', 'json', 'js', 'ts', 'tsx', 'jsx', 'css', 'html', 'yml', 'yaml', 'toml', 'py', 'rs', 'go', 'java', 'c', 'cpp', 'h', 'hpp', 'rb', 'php', 'sh', 'bash', 'zsh', 'fish', 'xml', 'svg', 'vue', 'svelte', 'astro', 'sql', 'graphql', 'env', 'gitignore', 'editorconfig', 'prettierrc', 'eslintrc'].includes(ext)
 }
 
-function fileIcon(name: string, isDirectory: boolean): string {
-  if (isDirectory) return '📁'
+function fileIconComponent(name: string, isDirectory: boolean): React.ReactNode {
+  if (isDirectory) return <Icon icon={Folder} size="sm" className="shrink-0" style={{ color: 'var(--crai-accent)' }} />
   const ext = name.split('.').pop()?.toLowerCase()
-  if (['js', 'ts', 'tsx', 'jsx', 'vue', 'svelte'].includes(ext ?? '')) return '🟦'
-  if (['json', 'yml', 'yaml', 'toml', 'xml'].includes(ext ?? '')) return '📋'
-  if (['md', 'txt', 'rst'].includes(ext ?? '')) return '📝'
-  if (['css', 'scss', 'less', 'html', 'svg'].includes(ext ?? '')) return '🎨'
-  if (['py', 'rb', 'rs', 'go', 'java'].includes(ext ?? '')) return '⚙️'
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico'].includes(ext ?? '')) return '🖼️'
-  if (['sh', 'bash', 'zsh', 'fish'].includes(ext ?? '')) return '💻'
-  if (['env', 'gitignore', 'editorconfig'].includes(ext ?? '')) return '🔧'
-  if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext ?? '')) return '📄'
-  return '📄'
+  if (['js', 'ts', 'tsx', 'jsx', 'vue', 'svelte'].includes(ext ?? ''))
+    return <Icon icon={FileCode} size="sm" className="shrink-0" style={{ color: '#22c55e' }} />
+  if (['json', 'yml', 'yaml', 'toml', 'xml'].includes(ext ?? ''))
+    return <Icon icon={FileJson} size="sm" className="shrink-0" style={{ color: '#f59e0b' }} />
+  if (['md', 'txt', 'rst'].includes(ext ?? ''))
+    return <Icon icon={FileText} size="sm" className="shrink-0" style={{ color: '#6366f1' }} />
+  if (['css', 'scss', 'less', 'html', 'svg'].includes(ext ?? ''))
+    return <Icon icon={FileImage} size="sm" className="shrink-0" style={{ color: '#ec4899' }} />
+  if (['py', 'rb', 'rs', 'go', 'java'].includes(ext ?? ''))
+    return <Icon icon={Terminal} size="sm" className="shrink-0" style={{ color: '#0ea5e9' }} />
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'ico'].includes(ext ?? ''))
+    return <Icon icon={FileImage} size="sm" className="shrink-0" style={{ color: '#8b5cf6' }} />
+  if (['sh', 'bash', 'zsh', 'fish'].includes(ext ?? ''))
+    return <Icon icon={Terminal} size="sm" className="shrink-0" style={{ color: '#10b981' }} />
+  if (['env', 'gitignore', 'editorconfig'].includes(ext ?? ''))
+    return <Icon icon={File} size="sm" className="shrink-0" style={{ color: '#94a3b8' }} />
+  return <Icon icon={File} size="sm" className="shrink-0" style={{ color: 'var(--crai-fg-tertiary)' }} />
 }
 
 function buildTree(path: string, dirs: string[], files: DirEntry['files'], existingChildren: TreeNode[] | null): TreeNode[] {
@@ -204,7 +216,7 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
     if (!node.isDirectory) {
       // 文件节点
       return (
-        <div key={node.path} className="flex items-center gap-1 px-1 rounded cursor-default hover:opacity-80"
+        <div key={node.path} className="flex items-center gap-1 px-1 rounded cursor-default hover:opacity-80 transition-opacity duration-150"
           style={{
             paddingLeft: `${12 + depth * 14}px`,
             paddingTop: 2,
@@ -214,8 +226,8 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
           title={`${node.path}\n${node.size ? formatSize(node.size) : ''}${node.mtime ? `  ${formatTime(node.mtime)}` : ''}`}
         >
           <span className="shrink-0 text-[10px] w-3 text-center" style={{ color: 'var(--crai-fg-tertiary)' }} />
-          <span className="shrink-0">{fileIcon(node.name, false)}</span>
-          <span className="flex-1 text-xs truncate ml-0.5">{node.name}</span>
+          {fileIconComponent(node.name, false)}
+          <span className="flex-1 text-xs truncate ml-1">{node.name}</span>
           {node.size != null && (
             <span className="text-[9px] shrink-0" style={{ color: 'var(--crai-fg-tertiary)' }}>
               {formatSize(node.size)}
@@ -228,7 +240,7 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
     // 目录节点
     return (
       <div key={node.path}>
-        <div className="flex items-center gap-1 px-1 rounded cursor-pointer hover:opacity-80"
+        <div className="flex items-center gap-1 px-1 rounded cursor-pointer hover:opacity-80 transition-opacity duration-150"
           style={{
             paddingLeft: `${8 + depth * 14}px`,
             paddingTop: 2,
@@ -238,11 +250,14 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
           onClick={() => handleToggle(node.path, true)}
           title={node.path}
         >
-          <span className="shrink-0 text-[10px] w-3 text-center" style={{ color: 'var(--crai-fg-tertiary)' }}>
-            {node.loading ? '⌛' : (isOpen ? '▼' : (hasChildren ? '▶' : '▸'))}
+          <span className="shrink-0 text-[10px] w-3 flex items-center justify-center" style={{ color: 'var(--crai-fg-tertiary)' }}>
+            {node.loading
+              ? <Icon icon={LoaderCircle} size="xs" className="animate-spin" />
+              : <Icon icon={ChevronRight} size="xs" className={cn(isOpen && 'rotate-90', 'transition-transform duration-150')} />
+            }
           </span>
-          <span className="shrink-0">{fileIcon(node.name, true)}</span>
-          <span className="text-xs truncate ml-0.5">{node.name}</span>
+          {fileIconComponent(node.name, true)}
+          <span className="text-xs truncate ml-1">{node.name}</span>
         </div>
         {isOpen && node.children && node.children.length > 0 && (
           <div>{node.children.map((child) => renderNode(child, depth + 1))}</div>
@@ -262,7 +277,7 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
           }}
           title={currentPath}
         >
-          <span className="shrink-0">📂</span>
+          <Icon icon={Folder} size="sm" className="shrink-0" style={{ color: 'var(--crai-accent)' }} />
           <span className="truncate">{currentDirName}</span>
         </div>
 
@@ -279,9 +294,9 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
           />
           {search && (
             <button onClick={() => setSearch('')}
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] px-1 opacity-50 hover:opacity-100"
+              className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 opacity-50 hover:opacity-100 transition-opacity duration-150"
               style={{ color: 'var(--crai-fg-tertiary)' }}>
-              ✕
+              <Icon icon={X} size="xs" />
             </button>
           )}
         </div>
@@ -292,9 +307,10 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
             setCurrentPath(parent)
             send({ type: 'dir:browse', path: parent, showFiles: true })
           }}
-            className="w-full text-[10px] text-left px-2 py-1 rounded"
+            className="w-full text-[10px] text-left flex items-center gap-1 px-2 py-1 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-tertiary)]"
             style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
-            ⬆ 上级目录
+            <Icon icon={ArrowUp} size="xs" />
+            上级目录
           </button>
         )}
       </div>

@@ -1,4 +1,6 @@
-import { memo, useCallback } from 'react'
+import { memo } from 'react'
+import { X } from 'lucide-react'
+import { Icon } from '../ui/Icon'
 import type { ActivityItem } from '../../types/messages'
 
 const toolNameMap: Record<string, string> = {
@@ -39,7 +41,7 @@ export const ActivityDetail = memo(function ActivityDetail({ activity, onClose }
           maxWidth: 700,
           maxHeight: '80vh',
           overflow: 'auto',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          boxShadow: 'var(--crai-shadow-elevated)',
         }}>
         {/* 标题行 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -57,9 +59,9 @@ export const ActivityDetail = memo(function ActivityDetail({ activity, onClose }
             onClick={onClose}
             style={{
               background: 'none', border: 'none', color: 'var(--crai-fg-tertiary)',
-              fontSize: 20, cursor: 'pointer', padding: '0 4px',
+              cursor: 'pointer', padding: '0 4px', display: 'flex',
             }}>
-            ✕
+            <Icon icon={X} size="md" />
           </button>
         </div>
 

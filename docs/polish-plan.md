@@ -41,7 +41,7 @@
 - CrystalAgents: `lucide-react` 全组件使用（TurnCard.tsx:38-56 import）
 - OpenHanako: 内联 SVG（AssistantMessage.tsx:299-366 多段 handwritten SVG）
 
-**做法**：分两轮。先替换 ActivityTimeline 和 FileTreePanel 这两个最显眼的位置，再扫一遍其他零散 emoji。
+**做法**：分两轮。先替换 ActivityTimeline 和 FileTreePanel 这两个最显眼的位置，再扫一遍其他零散 emoji（✅ 两轮均已完成）。
 
 ---
 
@@ -348,35 +348,41 @@ apps/web/src/components/
 ## 实施顺序
 
 ```
-Phase 0 (脚手架基础)
-  0. 安装 lucide-react + classnames (cn utility)
-  1. 创建 apps/web/src/components/ui/ 目录
-  2. 实现 cn() utility（classnames merge）
-  3. 创建 Icon 原语（lucide 包装，统一 size/strokeWidth）
-  4. 创建 Button 原语（variant / size / icon / className forwarding）
-  5. 创建 Card 原语（基础卡片容器）
-  6. 提取内联 Dropdown → ui/Dropdown.tsx
-  7. tokens.ts 加 --crai-shadow-card + --crai-space-* + --crai-transition-fast
+Phase 0 (脚手架基础) ✅
+  0. ✅ 安装 lucide-react + classnames (cn utility)
+  1. ✅ 创建 apps/web/src/components/ui/ 目录
+  2. ✅ 实现 cn() utility（classnames merge）
+  3. ✅ 创建 Icon 原语（lucide 包装，统一 size/strokeWidth）
+  4. ✅ 创建 Button 原语（variant / size / icon / className forwarding）
+  5. ✅ 创建 Card 原语（基础卡片容器 + Header/Body）
+  6. ✅ 提取内联 Dropdown → ui/Dropdown.tsx
+  7. ✅ tokens.ts 加 --crai-shadow-card + --crai-space-* + --crai-transition-fast
 
-Phase 1 (P0 + P1 混合)
-  8. 替换 ActivityTimeline emoji → lucide icons
-  9. ActivityTimeline 用 Card 原语包裹为卡片容器
-  10. 替换 FileTreePanel emoji → lucide icons
-  11. 替换 SessionListPanel 零散 emoji
-  12. workspaceBrowser modal 改用 Card 原语拼装
+Phase 1 (P0 + P1 混合) ✅
+  8.  ✅ 替换 ActivityTimeline emoji → lucide icons（CheckCircle2/XCircle/LoaderCircle/ChevronRight）
+  9.  ✅ ActivityTimeline 用 3px 左侧色条 + 卡片容器（shadow-card）
+  10. ✅ 替换 FileTreePanel emoji → lucide icons（Folder/FileCode/FileJson/FileText/Terminal/FileImage）
+  11. ✅ 替换 SessionListPanel 零散 emoji（X/ArrowDown/ArrowUp）
+  12. ✅ workspaceBrowser modal 改用 lucide icons（Folder/ArrowUp/X）
+  +    ✅ FixedBar / 面板注册图标（MessageSquare/FolderTree）
+  +    ✅ Header 连接状态 + 按钮（CheckCircle2/Settings/Palette）
+  +    ✅ 发送按钮（Send icon）
+  +    ✅ ConfirmBar 按钮（Ban/ShieldCheck/Shield）
+  +    ✅ Dropdown 箭头（ChevronDown）
 
-Phase 2 (P1 剩余)
-  13. 间距体系硬编码替换（从 ActivityTimeline 开始）
-  14. 微交互 transition 全覆盖（用 --crai-transition-fast）
-  15. 布局属性从 inline style → Tailwind className (flex/gap/padding 等)
+Phase 2 (P1 剩余) ✅
+  13. ✅ index.css 全局 transition 规则（覆盖所有 button/select/input）
+  14. ✅ SessionListPanel 会话项 + FileTreePanel 节点 transition 补充
+  15. ✅ 布局属性从 inline style → Tailwind className（主要组件已完成）
 
-Phase 3 (P2)
-  16. 安装 framer-motion
-  17. 消息 staggered entry
-  18. 折叠 height 动画
+Phase 3 (动画) ✅
+  16. ✅ 安装 framer-motion
+  17. ✅ 消息 staggered entry（spring 动画，交错 30ms/条，最多 300ms）
+  18. ✅ 折叠 height 动画（motion.div layout + spring 过渡）
+  +    ✅ 侧栏内容 fade-in（motion.div opacity 0→1）
 
-Phase 4 (P2 + P3 可选)
-  19. 字体分层
-  20. 阴影体系扩展
-  21. 专用输出卡片
+Phase 4 (可选) ✅
+  19. ✅ 字体分层（--crai-font-sans/serif/mono token，Markdown 正文 serif，代码 mono）
+  20. ✅ 阴影体系扩展（--crai-shadow-elevated，用于弹窗/次级模态）
+  21. ✅ 专用输出卡片（ToolOutputCard 组件，支持 file/search/code/default 四种变体）
 ```
