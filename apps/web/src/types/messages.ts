@@ -78,6 +78,14 @@ export interface SessionDataMsg {
   type: 'session:data'
   sessionId: string
   messages: Array<{ id: string; role: string; text: string; createdAt: number }>
+  todos?: TodoItem[]
+}
+
+export interface TodoItem {
+  id: string
+  content: string
+  activeForm?: string
+  status: 'pending' | 'in_progress' | 'completed'
 }
 
 // ── Client → Server ──

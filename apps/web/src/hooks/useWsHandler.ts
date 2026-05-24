@@ -130,6 +130,7 @@ export function useWsHandler(h: WsHandlers) {
         }))
         if (msg.metadata?.thinkingLevel) h.onThinkingLevel(String(msg.metadata.thinkingLevel))
         if (msg.metadata?.mode) h.onSessionMode(String(msg.metadata.mode))
+        if (msg.todos) store.getState().setTodos(msg.todos)
         store.getState().mergeServerData(incoming)
         break
       }

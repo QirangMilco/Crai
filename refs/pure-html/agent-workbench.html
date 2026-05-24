@@ -1,0 +1,2453 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="human-approachable">
+<head>
+    <script data-od-sandbox-shim>
+        (function() {
+            function makeStore() {
+                var data = {};
+                var api = {
+                    getItem: function(k) { return Object.prototype.hasOwnProperty.call(data, k) ? data[k] :
+                            null; },
+                    setItem: function(k, v) { data[k] = String(v); },
+                    removeItem: function(k) { delete data[k]; },
+                    clear: function() { data = {}; },
+                    key: function(i) { return Object.keys(data)[i] || null; }
+                };
+                Object.defineProperty(api, 'length', { get: function() { return Object.keys(data).length; } });
+                return api;
+            }
+
+            function tryShim(name) {
+                var works = false;
+                try { works = !!window[name] && typeof window[name].getItem === 'function';
+                    void window[name].length; } catch (_) { works = false; }
+                if (works) return;
+                try { Object.defineProperty(window, name, { configurable: true, value: makeStore() }); } catch (
+                    _) { try { window[name] = makeStore(); } catch (__) {} }
+            }
+            tryShim('localStorage');
+            tryShim('sessionStorage');
+            document.addEventListener('click', (e) => {
+                if (!e.target || !(e.target instanceof Element)) return;
+                var link = e.target.closest('a[href]');
+                if (!link) return;
+                var href = link.getAttribute('href');
+                if (href === null) return;
+                var isAnchor = href.startsWith('#') || href === '';
+                if (isAnchor) {
+                    e.preventDefault();
+                    if (href === '' || href === '#') {
+                        window.scrollTo({ top: 0 });
+                        history.replaceState(null, '', ' ');
+                    } else {
+                        var targetId = href.slice(1);
+                        var target = targetId ? document.getElementById(targetId) : null;
+                        if (target) {
+                            target.scrollIntoView();
+                            location.hash === href && history.replaceState(null, '', ' ');
+                            location.hash = href;
+                        }
+                    }
+                } else if (link.getAttribute('target') === '_blank') {
+                    e.preventDefault();
+                    let safe = false;
+                    try {
+                        var url = new URL(href, location.href);
+                        safe =
+                            url.protocol === 'http:' ||
+                            url.protocol === 'https:' ||
+                            url.protocol === 'mailto:';
+                    } catch (_) {}
+                    safe && window.open(href, '_blank', 'noopener,noreferrer');
+                }
+            });
+        })();
+    </script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>对话 · Aura</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css"
+    crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" crossorigin="anonymous">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" crossorigin="anonymous">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"
+    crossorigin="anonymous">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js" crossorigin="anonymous">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js" crossorigin="anonymous">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" crossorigin="anonymous">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" crossorigin="anonymous">
+    </script>
+    <style>
+        /* ===== Default theme: Human / Approachable ===== */
+        :root {
+            --bg: oklch(98% 0.004 240);
+            --surface: oklch(100% 0 0);
+            --fg: oklch(20% 0.02 240);
+            --muted: oklch(50% 0.018 240);
+            --border: oklch(90% 0.006 240);
+            --accent: oklch(56% 0.12 170);
+            --accent-soft: oklch(88% 0.06 170);
+            --bg-hover: oklch(95% 0.005 240);
+            --bg-secondary: oklch(94% 0.005 240);
+            --code-bg: oklch(22% 0.02 240);
+            --code-fg: oklch(85% 0.01 240);
+            --code-inline-bg: oklch(94% 0.005 240);
+            --mode-readonly: oklch(50% 0.12 250);
+            --mode-readonly-soft: oklch(88% 0.06 250);
+            --mode-ask: oklch(50% 0.12 170);
+            --mode-ask-soft: oklch(88% 0.06 170);
+            --mode-execute: oklch(50% 0.16 35);
+            --mode-execute-soft: oklch(88% 0.08 35);
+            --tool-card-bg: oklch(97% 0.005 220);
+            --tool-card-border: oklch(88% 0.02 220);
+            --tool-card-icon: oklch(48% 0.08 220);
+            --radius: 14px;
+            --font-display: "Avenir Next", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+            --font-mono: "SF Mono", "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+            --msg-max-width: 900px;
+            --msg-inner-max: 860px;
+            --input-max-width: 900px;
+        }
+
+        /* ===== 极简 Minimal ===== */
+        [data-theme="minimal"] {
+            --bg: oklch(99% 0.001 250);
+            --surface: oklch(100% 0 0);
+            --fg: oklch(15% 0.01 250);
+            --muted: oklch(48% 0.01 250);
+            --border: oklch(92% 0.003 250);
+            --accent: oklch(52% 0.02 250);
+            --accent-soft: oklch(90% 0.01 250);
+            --bg-hover: oklch(96% 0.003 250);
+            --bg-secondary: oklch(95% 0.003 250);
+            --code-bg: oklch(20% 0.01 250);
+            --code-fg: oklch(88% 0.003 250);
+            --code-inline-bg: oklch(94% 0.003 250);
+            --mode-readonly: oklch(48% 0.10 250);
+            --mode-readonly-soft: oklch(90% 0.04 250);
+            --mode-ask: oklch(48% 0.10 170);
+            --mode-ask-soft: oklch(90% 0.04 170);
+            --mode-execute: oklch(48% 0.14 35);
+            --mode-execute-soft: oklch(90% 0.06 35);
+            --tool-card-bg: oklch(98% 0.003 220);
+            --tool-card-border: oklch(90% 0.015 220);
+            --tool-card-icon: oklch(48% 0.06 220);
+        }
+
+        /* ===== 黑夜 Dark ===== */
+        [data-theme="dark"] {
+            --bg: oklch(16% 0.01 250);
+            --surface: oklch(20% 0.01 250);
+            --fg: oklch(90% 0.005 250);
+            --muted: oklch(62% 0.01 250);
+            --border: oklch(28% 0.01 250);
+            --accent: oklch(64% 0.14 220);
+            --accent-soft: oklch(26% 0.06 220);
+            --bg-hover: oklch(24% 0.01 250);
+            --bg-secondary: oklch(22% 0.01 250);
+            --code-bg: oklch(12% 0.01 250);
+            --code-fg: oklch(82% 0.005 250);
+            --code-inline-bg: oklch(26% 0.01 250);
+            --mode-readonly: oklch(68% 0.12 250);
+            --mode-readonly-soft: oklch(24% 0.06 250);
+            --mode-ask: oklch(68% 0.12 170);
+            --mode-ask-soft: oklch(24% 0.06 170);
+            --mode-execute: oklch(68% 0.16 35);
+            --mode-execute-soft: oklch(24% 0.08 35);
+            --tool-card-bg: oklch(20% 0.01 220);
+            --tool-card-border: oklch(30% 0.02 220);
+            --tool-card-icon: oklch(60% 0.08 220);
+        }
+
+        /* ===== 暖橙 Warm Orange ===== */
+        [data-theme="warm-orange"] {
+            --bg: oklch(97% 0.01 60);
+            --surface: oklch(100% 0.005 60);
+            --fg: oklch(22% 0.02 40);
+            --muted: oklch(48% 0.02 40);
+            --border: oklch(90% 0.01 55);
+            --accent: oklch(55% 0.15 45);
+            --accent-soft: oklch(88% 0.08 45);
+            --bg-hover: oklch(94% 0.01 55);
+            --bg-secondary: oklch(93% 0.01 50);
+            --code-bg: oklch(22% 0.02 40);
+            --code-fg: oklch(85% 0.01 50);
+            --code-inline-bg: oklch(93% 0.01 50);
+            --mode-readonly: oklch(48% 0.10 250);
+            --mode-readonly-soft: oklch(88% 0.04 250);
+            --mode-ask: oklch(48% 0.10 170);
+            --mode-ask-soft: oklch(88% 0.04 170);
+            --mode-execute: oklch(48% 0.14 35);
+            --mode-execute-soft: oklch(88% 0.06 35);
+            --tool-card-bg: oklch(97% 0.006 50);
+            --tool-card-border: oklch(88% 0.02 50);
+            --tool-card-icon: oklch(48% 0.08 50);
+        }
+
+        /* ===== 森林 Forest ===== */
+        [data-theme="forest"] {
+            --bg: oklch(97% 0.01 145);
+            --surface: oklch(100% 0.004 145);
+            --fg: oklch(20% 0.02 145);
+            --muted: oklch(45% 0.03 145);
+            --border: oklch(90% 0.01 145);
+            --accent: oklch(48% 0.14 155);
+            --accent-soft: oklch(88% 0.06 155);
+            --bg-hover: oklch(94% 0.01 145);
+            --bg-secondary: oklch(93% 0.01 145);
+            --code-bg: oklch(20% 0.02 150);
+            --code-fg: oklch(85% 0.01 150);
+            --code-inline-bg: oklch(93% 0.01 145);
+            --mode-readonly: oklch(48% 0.10 250);
+            --mode-readonly-soft: oklch(88% 0.04 250);
+            --mode-ask: oklch(48% 0.10 170);
+            --mode-ask-soft: oklch(88% 0.04 170);
+            --mode-execute: oklch(48% 0.14 35);
+            --mode-execute-soft: oklch(88% 0.06 35);
+            --tool-card-bg: oklch(97% 0.006 155);
+            --tool-card-border: oklch(88% 0.02 155);
+            --tool-card-icon: oklch(48% 0.08 155);
+        }
+
+        /* ===== 樱 Sakura ===== */
+        [data-theme="sakura"] {
+            --bg: oklch(97% 0.008 350);
+            --surface: oklch(100% 0.004 350);
+            --fg: oklch(22% 0.015 350);
+            --muted: oklch(50% 0.02 350);
+            --border: oklch(90% 0.01 350);
+            --accent: oklch(55% 0.16 350);
+            --accent-soft: oklch(88% 0.08 350);
+            --bg-hover: oklch(94% 0.008 350);
+            --bg-secondary: oklch(93% 0.008 350);
+            --code-bg: oklch(22% 0.015 350);
+            --code-fg: oklch(85% 0.01 350);
+            --code-inline-bg: oklch(93% 0.008 350);
+            --mode-readonly: oklch(48% 0.10 250);
+            --mode-readonly-soft: oklch(88% 0.04 250);
+            --mode-ask: oklch(48% 0.10 170);
+            --mode-ask-soft: oklch(88% 0.04 170);
+            --mode-execute: oklch(48% 0.14 35);
+            --mode-execute-soft: oklch(88% 0.06 35);
+            --tool-card-bg: oklch(97% 0.006 350);
+            --tool-card-border: oklch(88% 0.02 350);
+            --tool-card-icon: oklch(48% 0.08 350);
+        }
+
+        /* ===== Claude ===== */
+        [data-theme="claude"] {
+            --bg: oklch(96% 0.006 85);
+            --surface: oklch(99% 0.003 85);
+            --fg: oklch(12% 0.01 85);
+            --muted: oklch(40% 0.01 85);
+            --border: oklch(91% 0.008 85);
+            --accent: oklch(52% 0.14 35);
+            --accent-soft: oklch(88% 0.07 35);
+            --bg-hover: oklch(93% 0.006 85);
+            --bg-secondary: oklch(92% 0.006 85);
+            --code-bg: oklch(18% 0.01 85);
+            --code-fg: oklch(85% 0.005 85);
+            --code-inline-bg: oklch(92% 0.006 85);
+            --mode-readonly: oklch(45% 0.10 250);
+            --mode-readonly-soft: oklch(88% 0.04 250);
+            --mode-ask: oklch(45% 0.10 170);
+            --mode-ask-soft: oklch(88% 0.04 170);
+            --mode-execute: oklch(45% 0.14 35);
+            --mode-execute-soft: oklch(88% 0.06 35);
+            --tool-card-bg: oklch(96% 0.006 80);
+            --tool-card-border: oklch(88% 0.02 80);
+            --tool-card-icon: oklch(48% 0.08 80);
+        }
+
+        /* ===== OpenAI ===== */
+        [data-theme="openai"] {
+            --bg: oklch(14% 0.005 250);
+            --surface: oklch(19% 0.005 250);
+            --fg: oklch(92% 0.003 250);
+            --muted: oklch(65% 0.01 250);
+            --border: oklch(27% 0.01 250);
+            --accent: oklch(56% 0.16 170);
+            --accent-soft: oklch(23% 0.08 170);
+            --bg-hover: oklch(23% 0.005 250);
+            --bg-secondary: oklch(21% 0.005 250);
+            --code-bg: oklch(10% 0.005 250);
+            --code-fg: oklch(82% 0.003 250);
+            --code-inline-bg: oklch(25% 0.005 250);
+            --mode-readonly: oklch(68% 0.12 250);
+            --mode-readonly-soft: oklch(23% 0.06 250);
+            --mode-ask: oklch(68% 0.12 170);
+            --mode-ask-soft: oklch(23% 0.06 170);
+            --mode-execute: oklch(68% 0.16 35);
+            --mode-execute-soft: oklch(23% 0.08 35);
+            --tool-card-bg: oklch(19% 0.005 220);
+            --tool-card-border: oklch(29% 0.02 220);
+            --tool-card-icon: oklch(60% 0.08 220);
+        }
+
+        /* ===== 小红书 Xiaohongshu ===== */
+        [data-theme="xiaohongshu"] {
+            --bg: oklch(98% 0.003 0);
+            --surface: oklch(100% 0 0);
+            --fg: oklch(18% 0.01 0);
+            --muted: oklch(48% 0.01 15);
+            --border: oklch(92% 0.003 10);
+            --accent: oklch(50% 0.22 22);
+            --accent-soft: oklch(90% 0.08 22);
+            --bg-hover: oklch(95% 0.003 10);
+            --bg-secondary: oklch(94% 0.003 10);
+            --code-bg: oklch(20% 0.01 10);
+            --code-fg: oklch(88% 0.003 10);
+            --code-inline-bg: oklch(94% 0.003 10);
+            --mode-readonly: oklch(48% 0.10 250);
+            --mode-readonly-soft: oklch(88% 0.04 250);
+            --mode-ask: oklch(48% 0.10 170);
+            --mode-ask-soft: oklch(88% 0.04 170);
+            --mode-execute: oklch(48% 0.14 35);
+            --mode-execute-soft: oklch(88% 0.06 35);
+            --tool-card-bg: oklch(98% 0.003 20);
+            --tool-card-border: oklch(90% 0.015 20);
+            --tool-card-icon: oklch(48% 0.08 20);
+        }
+
+        /* ===== PlayStation ===== */
+        [data-theme="playstation"] {
+            --bg: oklch(18% 0.03 255);
+            --surface: oklch(23% 0.03 255);
+            --fg: oklch(94% 0.003 255);
+            --muted: oklch(68% 0.02 255);
+            --border: oklch(30% 0.03 255);
+            --accent: oklch(60% 0.18 240);
+            --accent-soft: oklch(28% 0.08 240);
+            --bg-hover: oklch(26% 0.03 255);
+            --bg-secondary: oklch(24% 0.03 255);
+            --code-bg: oklch(12% 0.02 255);
+            --code-fg: oklch(82% 0.005 255);
+            --code-inline-bg: oklch(27% 0.03 255);
+            --mode-readonly: oklch(68% 0.12 250);
+            --mode-readonly-soft: oklch(26% 0.06 250);
+            --mode-ask: oklch(68% 0.12 170);
+            --mode-ask-soft: oklch(26% 0.06 170);
+            --mode-execute: oklch(68% 0.16 35);
+            --mode-execute-soft: oklch(26% 0.08 35);
+            --tool-card-bg: oklch(22% 0.03 240);
+            --tool-card-border: oklch(32% 0.03 240);
+            --tool-card-icon: oklch(62% 0.08 240);
+        }
+
+        /* ===== Notion ===== */
+        [data-theme="notion"] {
+            --bg: oklch(98% 0.002 90);
+            --surface: oklch(100% 0 0);
+            --fg: oklch(16% 0.01 90);
+            --muted: oklch(52% 0.01 90);
+            --border: oklch(93% 0.003 90);
+            --accent: oklch(48% 0.06 250);
+            --accent-soft: oklch(90% 0.03 250);
+            --bg-hover: oklch(95% 0.002 90);
+            --bg-secondary: oklch(94% 0.002 90);
+            --code-bg: oklch(20% 0.01 90);
+            --code-fg: oklch(88% 0.003 90);
+            --code-inline-bg: oklch(94% 0.002 90);
+            --mode-readonly: oklch(48% 0.10 250);
+            --mode-readonly-soft: oklch(88% 0.04 250);
+            --mode-ask: oklch(48% 0.10 170);
+            --mode-ask-soft: oklch(88% 0.04 170);
+            --mode-execute: oklch(48% 0.14 35);
+            --mode-execute-soft: oklch(88% 0.06 35);
+            --tool-card-bg: oklch(98% 0.003 230);
+            --tool-card-border: oklch(90% 0.015 230);
+            --tool-card-icon: oklch(48% 0.06 230);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html,
+        body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: var(--font-body);
+            font-size: 15px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+            transition: background 0.35s ease, color 0.35s ease;
+        }
+        .app {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* ===== Sidebars ===== */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            z-index: 40;
+            width: 300px;
+            height: 100vh;
+            background: var(--surface);
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), background 0.35s ease;
+            display: flex;
+            flex-direction: column;
+            will-change: transform;
+        }
+        .sidebar--left {
+            left: 0;
+            transform: translateX(-100%);
+            border-right: 1px solid var(--border);
+        }
+        .sidebar--right {
+            right: 0;
+            transform: translateX(100%);
+            border-left: 1px solid var(--border);
+        }
+        .sidebar.is-visible {
+            transform: translateX(0);
+        }
+        .sidebar-header {
+            padding: 16px 16px 8px;
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.4px;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+        .ws-selector {
+            padding: 6px 14px 4px;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .ws-current {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: var(--bg-hover);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: background 0.1s;
+        }
+        .ws-current:hover {
+            background: var(--bg-secondary);
+        }
+        .ws-current .ws-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ws-current .ws-arrow {
+            width: 14px;
+            height: 14px;
+            stroke: var(--muted);
+            fill: none;
+            stroke-width: 2;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .ws-current .ws-arrow.open {
+            transform: rotate(180deg);
+        }
+        .ws-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 14px;
+            right: 14px;
+            z-index: 45;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px oklch(0% 0 0 / 0.08);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-4px);
+            transition: opacity 0.15s, transform 0.15s;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .ws-dropdown.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .ws-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+        .ws-dropdown-item:hover {
+            background: var(--bg-hover);
+        }
+        .ws-dropdown-item.active {
+            background: var(--accent-soft);
+            font-weight: 500;
+        }
+        .ws-dropdown-item .ws-del {
+            margin-left: auto;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 20px;
+            text-align: center;
+            display: none;
+        }
+        .ws-dropdown-item:hover .ws-del {
+            display: block;
+        }
+        .ws-dropdown-item .ws-del:hover {
+            color: #ef4444;
+            background: oklch(95% 0.01 20);
+        }
+        .ws-dropdown-new {
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--muted);
+            transition: background 0.1s, color 0.1s;
+        }
+        .ws-dropdown-new:hover {
+            background: var(--bg-hover);
+            color: var(--fg);
+        }
+        .ws-dropdown-new svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.8;
+        }
+
+        .search-wrap {
+            padding: 8px 14px;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .search-input {
+            width: 100%;
+            padding: 7px 10px 7px 32px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            font-family: var(--font-body);
+            font-size: 12px;
+            color: var(--fg);
+            outline: none;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .search-input:focus {
+            border-color: var(--accent);
+            background: var(--surface);
+        }
+        .search-input::placeholder {
+            color: oklch(68% 0.008 240);
+        }
+        .search-icon {
+            position: absolute;
+            left: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            stroke: var(--muted);
+            fill: none;
+            stroke-width: 2;
+            pointer-events: none;
+        }
+        .sidebar-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0;
+        }
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 9px 14px 9px 20px;
+            cursor: pointer;
+            transition: background 0.1s;
+            position: relative;
+        }
+        .sidebar-item:hover {
+            background: var(--bg-hover);
+        }
+        .sidebar-item.active {
+            background: var(--accent-soft);
+        }
+        .sidebar-item.active::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 7px;
+            bottom: 7px;
+            width: 3px;
+            background: var(--accent);
+            border-radius: 0 3px 3px 0;
+        }
+        .sidebar-item.is-filtered-out {
+            display: none;
+        }
+        .sidebar-item-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .sidebar-item-title {
+            font-size: 13px;
+            font-weight: 500;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-item-preview {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-item-time {
+            font-size: 10px;
+            color: var(--muted);
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        .filter-empty {
+            padding: 24px 14px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            display: none;
+        }
+        .new-conv-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-top: 1px solid var(--border);
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--muted);
+            transition: background 0.1s, color 0.1s;
+            flex-shrink: 0;
+        }
+        .new-conv-btn:hover {
+            background: var(--bg-hover);
+            color: var(--fg);
+        }
+        .new-conv-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.8;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            cursor: pointer;
+            border-radius: 0;
+            transition: background 0.1s;
+        }
+        .file-item:hover {
+            background: var(--bg-hover);
+        }
+        .file-item-icon {
+            width: 16px;
+            height: 16px;
+            stroke: var(--muted);
+            fill: none;
+            stroke-width: 1.8;
+            flex-shrink: 0;
+        }
+        .file-item-name {
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-item-name code {
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+        .file-item-size {
+            font-size: 10px;
+            color: var(--muted);
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        .file-folder>.file-item-name {
+            font-weight: 500;
+        }
+        .edge-trigger {
+            position: fixed;
+            top: 0;
+            z-index: 30;
+            width: 8px;
+            height: 100vh;
+            cursor: default;
+            transition: background 0.2s;
+        }
+        .edge-trigger--left {
+            left: 0;
+        }
+        .edge-trigger--right {
+            right: 0;
+        }
+        .edge-trigger:hover {
+            background: oklch(90% 0.006 240 / 0.4);
+        }
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 35;
+            background: oklch(0% 0 0 / 0.12);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .sidebar-overlay.is-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* ===== Main ===== */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            min-width: 0;
+            position: relative;
+        }
+        .conv-header {
+            padding: 0 28px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+            background: oklch(99% 0.002 240 / 0.55);
+            backdrop-filter: blur(18px) saturate(1.3);
+            -webkit-backdrop-filter: blur(18px) saturate(1.3);
+            border-bottom: 1px solid var(--border);
+            transition: background 0.35s ease, border-color 0.35s ease;
+        }
+        .conv-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            flex: 1;
+        }
+        .ws-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            background: var(--bg-secondary);
+            padding: 3px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.2px;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+        .conv-title {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--fg);
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .conv-title-sep {
+            color: oklch(78% 0.005 240);
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .conv-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        .conv-header-status {
+            font-size: 11px;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 450;
+            padding: 3px 10px 3px 8px;
+            border-radius: 20px;
+            background: var(--bg-hover);
+        }
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: inline-block;
+            animation: pulse-dot 2.4s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1)
+            }
+            50% {
+                opacity: 0.55;
+                transform: scale(0.85)
+            }
+        }
+        .settings-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            transition: background 0.15s, color 0.15s;
+        }
+        .settings-btn:hover {
+            background: var(--bg-hover);
+            color: var(--fg);
+        }
+        .settings-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.8;
+        }
+        .settings-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 55;
+            background: oklch(0% 0 0 / 0.15);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .settings-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .settings-panel {
+            position: fixed;
+            right: 28px;
+            top: 68px;
+            z-index: 56;
+            width: 340px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 12px 40px oklch(0% 0 0 / 0.1);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+            transform: translateY(-4px);
+        }
+        .settings-panel.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .settings-header {
+            padding: 16px 18px 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .settings-header .title {
+            font-size: 14px;
+            font-weight: 600;
+            font-family: var(--font-display);
+        }
+        .settings-header .close-settings {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            transition: background 0.1s;
+        }
+        .settings-header .close-settings:hover {
+            background: var(--bg-hover);
+        }
+        .settings-body {
+            padding: 8px 0;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+        .settings-group {
+            padding: 12px 18px;
+            border-bottom: 1px solid oklch(96% 0.003 240);
+        }
+        .settings-group:last-child {
+            border-bottom: none;
+        }
+        .settings-group-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 8px;
+        }
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 13px;
+        }
+        .settings-row select {
+            font-size: 12px;
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+            color: var(--fg);
+            outline: none;
+            cursor: pointer;
+            font-family: var(--font-body);
+            transition: border-color 0.2s;
+            min-width: 140px;
+        }
+        .settings-row select:focus {
+            border-color: var(--accent);
+        }
+        .settings-theme-hint {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+        .settings-theme-swatch {
+            display: inline-flex;
+            gap: 4px;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        .settings-theme-swatch span {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        /* ===== Messages — centered, optimized width ===== */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 28px 0;
+            scroll-behavior: smooth;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .messages>*:last-child {
+            margin-bottom: 16px;
+        }
+        .messages-inner {
+            width: 100%;
+            max-width: var(--msg-max-width);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Standard message — user right, ai left */
+        .msg {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 18px;
+            animation: msg-fade 0.25s ease;
+            max-width: var(--msg-inner-max);
+        }
+        .msg.msg-user {
+            flex-direction: row;
+            align-self: flex-end;
+        }
+
+        @keyframes msg-fade {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .msg-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 9px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            margin-top: 2px;
+        }
+        .msg-avatar.user-avatar {
+            background: var(--bg-secondary);
+            color: var(--muted);
+        }
+        .msg-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .msg.msg-user .msg-body {
+            flex: 0 0 auto;
+        }
+        .msg.msg-ai .msg-body {
+            text-align: left;
+        }
+        .msg-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 3px;
+            letter-spacing: 0.2px;
+        }
+        .msg.msg-user .msg-name {
+            text-align: right;
+        }
+        .msg.msg-ai .msg-name {
+            text-align: left;
+        }
+        .msg-content {
+            font-size: 14px;
+            line-height: 1.7;
+            word-wrap: break-word;
+            text-align: left;
+        }
+        .msg.msg-user .msg-content {
+            text-align: left;
+        }
+
+        .msg-content p {
+            margin-bottom: 6px;
+        }
+        .msg-content p:last-child {
+            margin-bottom: 0;
+        }
+        .msg-content ul,
+        .msg-content ol {
+            margin: 5px 0;
+            padding-left: 22px;
+        }
+        .msg-content li {
+            margin-bottom: 2px;
+        }
+        .msg-content blockquote {
+            border-left: 3px solid var(--accent);
+            padding-left: 14px;
+            color: var(--muted);
+            margin: 6px 0;
+        }
+        .msg-content a {
+            color: var(--accent);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .msg-content a:hover {
+            opacity: 0.75;
+        }
+        .msg-content strong {
+            font-weight: 600;
+        }
+        .msg-content code {
+            background: var(--code-inline-bg);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+        }
+        .msg-content pre {
+            margin: 10px 0;
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        .msg-content pre code {
+            background: var(--code-bg);
+            color: var(--code-fg);
+            padding: 14px 18px;
+            display: block;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            border-radius: var(--radius);
+        }
+        .msg-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        .msg-content th,
+        .msg-content td {
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .msg-content th {
+            background: var(--bg-hover);
+            font-weight: 600;
+        }
+        .msg-content tr:nth-child(even) {
+            background: var(--bg);
+        }
+        .msg-content ul.task-list {
+            list-style: none;
+            padding-left: 0;
+        }
+        .msg-content .task-list-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            margin-bottom: 3px;
+        }
+        .msg-content .task-list-item input[type="checkbox"] {
+            margin-top: 4px;
+            accent-color: var(--accent);
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            cursor: default;
+        }
+        .msg-content .katex {
+            font-size: 1.05em;
+        }
+        .msg-content .katex-display {
+            margin: 10px 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+        .media-placeholder {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-hover);
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 10px 14px;
+            margin: 6px 0;
+            cursor: default;
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .media-placeholder svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--muted);
+            fill: none;
+            stroke-width: 1.6;
+            flex-shrink: 0;
+        }
+        .media-placeholder .media-label {
+            font-weight: 500;
+            color: var(--fg);
+        }
+        .media-placeholder .media-meta {
+            font-size: 11px;
+        }
+        .media-placeholder.image-preview {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 14px;
+        }
+        .media-placeholder.image-preview .preview-box {
+            width: 100%;
+            height: 100px;
+            background: oklch(90% 0.005 240);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        /* ===== Thinking & Tool cards — centered ===== */
+        .msg-thinking,
+        .msg-tool {
+            max-width: var(--msg-inner-max);
+            margin-bottom: 18px;
+            align-self: center;
+            width: 100%;
+        }
+        .msg-thinking {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg);
+            overflow: hidden;
+            transition: background 0.35s ease, border-color 0.35s ease;
+        }
+        .thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.1s;
+        }
+        .thinking-header:hover {
+            background: var(--bg-hover);
+        }
+        .thinking-header .arrow {
+            width: 12px;
+            height: 12px;
+            stroke: var(--muted);
+            fill: none;
+            stroke-width: 2;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .thinking-header .arrow.open {
+            transform: rotate(90deg);
+        }
+        .thinking-header .label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--muted);
+            letter-spacing: 0.3px;
+        }
+        .thinking-header .status-badge {
+            margin-left: auto;
+            font-size: 10px;
+            color: var(--accent);
+            background: var(--accent-soft);
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        .thinking-body {
+            padding: 0 16px 12px;
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--muted);
+        }
+        .thinking-body.collapsed {
+            display: none;
+        }
+        .thinking-body .msg-content {
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .thinking-body .msg-content code {
+            background: var(--code-inline-bg);
+        }
+
+        .msg-tool {
+            border: 1px solid var(--tool-card-border);
+            border-radius: var(--radius);
+            background: var(--tool-card-bg);
+            overflow: hidden;
+            transition: background 0.35s ease, border-color 0.35s ease;
+        }
+        .tool-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 16px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.1s;
+        }
+        .tool-header:hover {
+            background: oklch(95% 0.008 220);
+        }
+        .tool-header .tool-icon {
+            width: 16px;
+            height: 16px;
+            stroke: var(--tool-card-icon);
+            fill: none;
+            stroke-width: 1.8;
+            flex-shrink: 0;
+        }
+        .tool-header .tool-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--fg);
+        }
+        .tool-header .tool-status {
+            margin-left: auto;
+            font-size: 11px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+        .tool-status.completed {
+            background: oklch(90% 0.06 145);
+            color: oklch(35% 0.12 145);
+        }
+        .tool-status.running {
+            background: oklch(90% 0.06 85);
+            color: oklch(35% 0.12 85);
+        }
+        .tool-status.error {
+            background: oklch(90% 0.08 20);
+            color: oklch(40% 0.14 20);
+        }
+
+        .tool-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: oklch(0% 0 0 / 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .tool-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .tool-detail {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 24px;
+            max-width: 560px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px oklch(0% 0 0 / 0.15);
+        }
+        .tool-detail h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .tool-detail .meta {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 16px;
+        }
+        .tool-detail pre {
+            background: var(--code-bg);
+            color: var(--code-fg);
+            padding: 14px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .tool-detail .close-btn {
+            margin-top: 16px;
+            padding: 8px 20px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: transparent;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--muted);
+            transition: background 0.1s;
+        }
+        .tool-detail .close-btn:hover {
+            background: var(--bg-hover);
+        }
+
+        /* ===== Input area ===== */
+        .input-area {
+            flex-shrink: 0;
+            background: transparent;
+            padding: 0 28px 8px;
+        }
+        .input-container {
+            max-width: var(--input-max-width);
+            margin: 0 auto;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 2px 8px oklch(0% 0 0 / 0.03);
+            overflow: visible;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-container:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+        .input-top {
+            padding: 8px 14px 4px;
+        }
+        .input-top textarea {
+            width: 100%;
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: var(--font-body);
+            font-size: 14px;
+            line-height: 1.5;
+            background: transparent;
+            color: var(--fg);
+            padding: 4px 0;
+            min-height: 22px;
+            max-height: 100px;
+        }
+        .input-top textarea::placeholder {
+            color: oklch(70% 0.008 240);
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px 8px;
+            flex-wrap: wrap;
+        }
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .toolbar-center {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 0;
+        }
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        .dropdown-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 500;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            background: transparent;
+            cursor: pointer;
+            transition: background 0.1s, border-color 0.1s;
+            white-space: nowrap;
+            position: relative;
+            color: var(--fg);
+        }
+        .dropdown-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border);
+        }
+        .dropdown-btn svg {
+            width: 12px;
+            height: 12px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+        }
+        .dropdown-btn .mode-icon {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        .dropdown-btn[data-mode="readonly"] {
+            color: var(--mode-readonly);
+        }
+        .dropdown-btn[data-mode="readonly"]:hover {
+            background: var(--mode-readonly-soft);
+            border-color: var(--mode-readonly);
+        }
+        .dropdown-btn[data-mode="ask"] {
+            color: var(--mode-ask);
+        }
+        .dropdown-btn[data-mode="ask"]:hover {
+            background: var(--mode-ask-soft);
+            border-color: var(--mode-ask);
+        }
+        .dropdown-btn[data-mode="execute"] {
+            color: var(--mode-execute);
+        }
+        .dropdown-btn[data-mode="execute"]:hover {
+            background: var(--mode-execute-soft);
+            border-color: var(--mode-execute);
+        }
+
+        /* ===== Dropdown menu — unified checkmark ===== */
+        .select-dropdown {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            margin-bottom: 4px;
+            z-index: 50;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px oklch(0% 0 0 / 0.08);
+            min-width: 150px;
+            max-height: 200px;
+            overflow-y: auto;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(4px);
+            transition: opacity 0.15s, transform 0.15s;
+        }
+        .select-dropdown.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .select-dropdown-item {
+            padding: 7px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.1s;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--fg);
+        }
+        .select-dropdown-item:hover {
+            background: var(--bg-hover);
+        }
+        .select-dropdown-item.active {
+            background: var(--bg-hover);
+            font-weight: 500;
+        }
+        .select-dropdown-item .hint {
+            font-size: 10px;
+            color: var(--muted);
+            margin-left: auto;
+        }
+        .select-dropdown-item .mode-icon-sm {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+        .select-dropdown-item .check-icon {
+            width: 14px;
+            height: 14px;
+            stroke: var(--accent);
+            fill: none;
+            stroke-width: 2.5;
+            flex-shrink: 0;
+            visibility: hidden;
+        }
+        .select-dropdown-item.active .check-icon {
+            visibility: visible;
+        }
+
+        .select-dropdown-item[data-mode="readonly"] .mode-icon-sm {
+            stroke: var(--mode-readonly);
+        }
+        .select-dropdown-item[data-mode="ask"] .mode-icon-sm {
+            stroke: var(--mode-ask);
+        }
+        .select-dropdown-item[data-mode="execute"] .mode-icon-sm {
+            stroke: var(--mode-execute);
+        }
+
+        /* ===== Send button ===== */
+        .btn-send {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.15s, opacity 0.15s;
+            flex-shrink: 0;
+        }
+        .btn-send:hover {
+            transform: scale(1.04);
+        }
+        .btn-send:active {
+            transform: scale(0.96);
+        }
+        .btn-send svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* ===== ToDo ===== */
+        .todo-floating {
+            position: relative;
+        }
+        .todo-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            cursor: default;
+            font-size: 12px;
+            color: var(--muted);
+            white-space: nowrap;
+            box-shadow: 0 1px 4px oklch(0% 0 0 / 0.02);
+            transition: border-color 0.1s, background 0.1s;
+        }
+        .todo-btn:hover {
+            border-color: var(--accent);
+            background: var(--bg);
+        }
+        .todo-btn .todo-summary {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .todo-btn .todo-current {
+            max-width: 100px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--fg);
+            font-weight: 500;
+        }
+        .todo-btn .todo-counter {
+            font-size: 11px;
+            color: var(--muted);
+            background: var(--bg-hover);
+            padding: 0 7px;
+            border-radius: 8px;
+            line-height: 18px;
+        }
+        .todo-btn .todo-progress-mini {
+            width: 40px;
+            height: 4px;
+            background: oklch(90% 0.006 240);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .todo-btn .todo-progress-mini-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+        .todo-btn .todo-chevron {
+            width: 14px;
+            height: 14px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            transition: transform 0.2s;
+        }
+        .todo-float-panel {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            margin-bottom: 8px;
+            width: 300px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 8px 24px oklch(0% 0 0 / 0.1);
+            max-height: 320px;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+        .todo-float-panel.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+        .todo-float-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: var(--font-display);
+        }
+        .todo-float-header .todo-count {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 450;
+        }
+        .todo-float-body {
+            overflow-y: auto;
+            padding: 6px 0;
+            flex: 1;
+        }
+        .todo-float-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 16px;
+            font-size: 12px;
+            transition: background 0.1s;
+        }
+        .todo-float-item:hover {
+            background: var(--bg-hover);
+        }
+        .todo-float-item input[type="checkbox"] {
+            accent-color: var(--accent);
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .todo-float-item .todo-text {
+            flex: 1;
+            line-height: 1.4;
+        }
+        .todo-float-item .todo-text.done {
+            text-decoration: line-through;
+            color: var(--muted);
+        }
+        .todo-float-item .todo-tag {
+            font-size: 9px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            background: var(--bg-hover);
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 260px;
+            }
+            .conv-header {
+                padding: 0 18px;
+            }
+            .messages {
+                padding: 14px 18px 0;
+            }
+            .input-area {
+                padding: 0 18px 8px;
+            }
+            .msg,
+            .msg-thinking,
+            .msg-tool {
+                max-width: 100%;
+            }
+            .msg-content {
+                font-size: 13px;
+            }
+            .edge-trigger {
+                width: 6px;
+            }
+            .settings-panel {
+                right: 14px;
+                top: 60px;
+                width: 290px;
+            }
+            .toolbar {
+                gap: 4px;
+            }
+            .toolbar-center {
+                flex: 0 1 auto;
+            }
+        }
+        @media (max-width: 430px) {
+            .sidebar {
+                width: 88vw;
+            }
+            .conv-header {
+                height: 52px;
+                padding: 0 14px;
+            }
+            .conv-title {
+                font-size: 14px;
+            }
+            .ws-badge {
+                font-size: 10px;
+            }
+            .settings-panel {
+                right: 10px;
+                top: 56px;
+                width: calc(100vw - 20px);
+            }
+            .toolbar-left,
+            .toolbar-center,
+            .toolbar-right {
+                width: 100%;
+                justify-content: center;
+            }
+            .toolbar-center {
+                order: 1;
+            }
+            .toolbar-left {
+                order: 2;
+            }
+            .toolbar-right {
+                order: 3;
+            }
+            .todo-float-panel {
+                left: auto;
+                right: 0;
+                transform: none;
+                width: 280px;
+            }
+        }
+        @media (min-width: 1440px) {
+            :root {
+                --msg-max-width: 960px;
+                --msg-inner-max: 920px;
+                --input-max-width: 960px;
+            }
+            .msg-content {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app" id="app">
+        <!-- Sidebars -->
+        <aside class="sidebar sidebar--left" id="leftSidebar">
+            <div class="sidebar-header">工作区</div>
+            <div class="ws-selector">
+                <div class="ws-current" id="wsCurrent"><span class="ws-name" id="wsCurrentName">设计系统</span>
+                    <svg class="ws-arrow" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="ws-dropdown" id="wsDropdown"><div id="wsDropdownList"></div><div class="ws-dropdown-new" id="wsNewBtn"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新建工作区</div></div>
+            </div>
+            <div class="search-wrap">
+                <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="search-input" id="conversationSearch" type="text" placeholder="搜索会话…" autocomplete="off">
+            </div>
+            <div class="sidebar-body" id="conversationList"></div>
+            <div class="new-conv-btn" id="newConvBtn"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新建会话</div>
+        </aside>
+        <aside class="sidebar sidebar--right" id="rightSidebar">
+            <div class="sidebar-header">项目文件</div>
+            <div class="sidebar-body" id="fileList">
+                <div class="file-item file-folder"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="file-item-name">components /</span></div>
+                <div class="file-item" style="padding-left:38px;"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="file-item-name"><code>Button.jsx</code></span><span class="file-item-size">2.4 KB</span></div>
+                <div class="file-item" style="padding-left:38px;"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="file-item-name"><code>Input.tsx</code></span><span class="file-item-size">3.1 KB</span></div>
+                <div class="file-item file-folder"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="file-item-name">styles /</span></div>
+                <div class="file-item" style="padding-left:38px;"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="file-item-name"><code>tokens.css</code></span><span class="file-item-size">5.7 KB</span></div>
+                <div class="file-item file-folder"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="file-item-name">pages /</span></div>
+                <div class="file-item" style="padding-left:38px;"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="file-item-name"><code>index.html</code></span><span class="file-item-size">1.2 KB</span></div>
+                <div class="file-item" style="padding-left:38px;"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="file-item-name"><code>dashboard.tsx</code></span><span class="file-item-size">8.9 KB</span></div>
+                <div class="file-item" style="border-top:1px solid var(--border); margin-top:6px; padding-top:10px;"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="file-item-name"><code>package.json</code></span><span class="file-item-size">0.3 KB</span></div>
+                <div class="file-item"><svg class="file-item-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="file-item-name"><code>README.md</code></span><span class="file-item-size">0.8 KB</span></div>
+            </div>
+        </aside>
+        <div class="sidebar-overlay" id="overlay"></div>
+        <div class="edge-trigger edge-trigger--left" id="leftTrigger"></div>
+        <div class="edge-trigger edge-trigger--right" id="rightTrigger"></div>
+        <div class="settings-overlay" id="settingsOverlay"></div>
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-header"><span class="title">Agent 设置</span><button class="close-settings" id="closeSettings">✕</button></div>
+            <div class="settings-body">
+                <div class="settings-group">
+                    <div class="settings-group-label">主题配色</div>
+                    <div class="settings-row">
+                        <span>当前主题</span>
+                        <select id="themeSelect">
+                            <option value="human-approachable">默认 (Human)</option>
+                            <option value="minimal">极简</option>
+                            <option value="dark">黑夜</option>
+                            <option value="warm-orange">暖橙</option>
+                            <option value="forest">森林</option>
+                            <option value="sakura">樱</option>
+                            <option value="claude">Claude</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="xiaohongshu">小红书</option>
+                            <option value="playstation">PlayStation</option>
+                            <option value="notion">Notion</option>
+                        </select>
+                    </div>
+                    <div class="settings-theme-hint" id="themeHint">切换主题将即时生效，偏好会自动保存。</div>
+                </div>
+                <div class="settings-group">
+                    <div class="settings-group-label">模型</div>
+                    <div class="settings-row"><span>当前模型</span><select><option selected>GPT-4o</option><option>Claude 3.5 Sonnet</option><option>Gemini Pro</option></select></div>
+                </div>
+            </div>
+        </div>
+        <div class="tool-overlay" id="toolOverlay"><div class="tool-detail"><h3 id="toolDetailName">Read</h3><div class="meta" id="toolDetailMeta">调用时间：刚刚</div><pre id="toolDetailCode">...</pre><button class="close-btn" id="toolDetailClose">关闭</button></div></div>
+
+        <main class="main">
+            <header class="conv-header">
+                <div class="conv-header-left"><span class="ws-badge" id="wsBadge">设计系统</span><span class="conv-title-sep">/</span><span class="conv-title" id="convTitle">设计系统讨论</span></div>
+                <div class="conv-header-actions">
+                    <button class="settings-btn" id="settingsBtn" aria-label="设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+                    <span class="conv-header-status"><span class="status-dot"></span>Agent 在线</span>
+                </div>
+            </header>
+
+            <div class="messages" id="messageList">
+                <div class="messages-inner" id="messageInner"></div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <div class="input-top"><textarea id="msgInput" rows="1" placeholder="输入消息…" autofocus></textarea></div>
+                    <div class="toolbar">
+                        <div class="toolbar-left">
+                            <div class="dropdown-btn" id="modeSelect" data-mode="ask">
+                                <svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>询问
+                                <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                                <div class="select-dropdown" id="modeDropdown">
+                                    <div class="select-dropdown-item" data-mode="readonly"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><svg class="mode-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 只读 <span class="hint">仅查看</span></div>
+                                    <div class="select-dropdown-item active" data-mode="ask"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><svg class="mode-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> 询问 <span class="hint">推荐</span></div>
+                                    <div class="select-dropdown-item" data-mode="execute"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><svg class="mode-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> 执行 <span class="hint">运行指令</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="toolbar-center">
+                            <div class="todo-floating" id="todoFloating">
+                                <button class="todo-btn" id="todoBtn">
+                                    <span class="todo-summary"><span class="todo-current" id="todoCurrent">响应式适配</span><span class="todo-counter" id="todoCounter">8/11</span></span>
+                                    <span class="todo-progress-mini"><span class="todo-progress-mini-fill" id="todoProgressMini" style="width:73%"></span></span>
+                                    <svg class="todo-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                                </button>
+                                <div class="todo-float-panel" id="todoFloatPanel">
+                                    <div class="todo-float-header"><span>待办事项</span><span class="todo-count" id="todoFloatCount">8/11 完成</span></div>
+                                    <div class="todo-float-body" id="todoFloatBody"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="toolbar-right">
+                            <div class="dropdown-btn" id="modelSelect">4o<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                                <div class="select-dropdown" id="modelDropdown">
+                                    <div class="select-dropdown-item active" data-model="gpt4o"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>GPT-4o <span class="hint">推荐</span></div>
+                                    <div class="select-dropdown-item" data-model="claude"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Claude 3.5 Sonnet</div>
+                                    <div class="select-dropdown-item" data-model="gemini"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Gemini Pro</div>
+                                </div>
+                            </div>
+                            <div class="dropdown-btn" id="depthSelect">中<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                                <div class="select-dropdown" id="depthDropdown">
+                                    <div class="select-dropdown-item" data-depth="quick"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>快速 <span class="hint">节省 token</span></div>
+                                    <div class="select-dropdown-item active" data-depth="medium"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>中等 <span class="hint">平衡</span></div>
+                                    <div class="select-dropdown-item" data-depth="deep"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>深度 <span class="hint">最佳结果</span></div>
+                                </div>
+                            </div>
+                            <button class="btn-send" id="sendBtn" title="发送 (Enter)" aria-label="发送"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // ===== Theme system =====
+            const THEME_KEY = 'aura-theme';
+            const themeSelect = document.getElementById('themeSelect');
+            const themeHint = document.getElementById('themeHint');
+
+            const themeDescriptions = {
+                'human-approachable': '亲和、圆润、现代 — 适合消费级工具与市场平台',
+                'minimal': '极简白底、克制灰调 — 最少的视觉噪音',
+                'dark': '深邃暗色、柔和蓝光 — 适合夜间长时间使用',
+                'warm-orange': '暖调奶油底、活力橙点缀 — 温暖而有能量',
+                'forest': '淡绿基调、深绿强调 — 宁静自然的阅读氛围',
+                'sakura': '浅粉底、樱红强调 — 柔和浪漫的东亚美学',
+                'claude': '羊皮纸暖底、赤陶色点缀 — 文学感与知性并存',
+                'openai': '深黑底、OpenAI 绿 — 技术感与 AI 原生审美',
+                'xiaohongshu': '纯白底、小红书红 — 年轻活力的社交电商风格',
+                'playstation': '深蓝底、PS 蓝光 — 沉浸式游戏体验',
+                'notion': '暖白底、极简蓝灰 — 安静、克制的生产力工具风'
+            };
+
+            function getSavedTheme() {
+                try {
+                    const v = localStorage.getItem(THEME_KEY);
+                    if (v && themeDescriptions[v]) return v;
+                } catch (_) {}
+                return 'human-approachable';
+            }
+
+            function applyTheme(id) {
+                document.documentElement.setAttribute('data-theme', id);
+                if (themeSelect) themeSelect.value = id;
+                if (themeHint) themeHint.textContent = themeDescriptions[id] || '';
+                try { localStorage.setItem(THEME_KEY, id); } catch (_) {}
+            }
+
+            const saved = getSavedTheme();
+            applyTheme(saved);
+
+            if (themeSelect) {
+                themeSelect.addEventListener('change', function() {
+                    applyTheme(this.value);
+                });
+            }
+
+            const messageInner = document.getElementById('messageInner');
+            const msgInput = document.getElementById('msgInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const leftSidebar = document.getElementById('leftSidebar');
+            const rightSidebar = document.getElementById('rightSidebar');
+            const overlay = document.getElementById('overlay');
+            const leftTrigger = document.getElementById('leftTrigger');
+            const rightTrigger = document.getElementById('rightTrigger');
+            const conversationList = document.getElementById('conversationList');
+            const searchInput = document.getElementById('conversationSearch');
+            const wsBadge = document.getElementById('wsBadge');
+            const convTitle = document.getElementById('convTitle');
+            const newConvBtn = document.getElementById('newConvBtn');
+            const wsCurrent = document.getElementById('wsCurrent');
+            const wsCurrentName = document.getElementById('wsCurrentName');
+            const wsDropdown = document.getElementById('wsDropdown');
+            const wsDropdownList = document.getElementById('wsDropdownList');
+            const wsNewBtn = document.getElementById('wsNewBtn');
+            const settingsBtn = document.getElementById('settingsBtn');
+            const settingsOverlay = document.getElementById('settingsOverlay');
+            const settingsPanel = document.getElementById('settingsPanel');
+            const closeSettings = document.getElementById('closeSettings');
+            const modeSelect = document.getElementById('modeSelect');
+            const modelSelect = document.getElementById('modelSelect');
+            const modelDropdown = document.getElementById('modelDropdown');
+            const depthSelect = document.getElementById('depthSelect');
+            const depthDropdown = document.getElementById('depthDropdown');
+            const todoFloating = document.getElementById('todoFloating');
+            const todoCurrent = document.getElementById('todoCurrent');
+            const todoCounter = document.getElementById('todoCounter');
+            const todoProgressMini = document.getElementById('todoProgressMini');
+            const todoFloatPanel = document.getElementById('todoFloatPanel');
+            const todoFloatBody = document.getElementById('todoFloatBody');
+            const todoFloatCount = document.getElementById('todoFloatCount');
+
+            // ===== Sidebar =====
+            let leftOpen = false,
+                rightOpen = false,
+                sidebarTimer = null;
+
+            function setLeft(v) { leftOpen = v;
+                leftSidebar.classList.toggle('is-visible', v);
+                overlay.classList.toggle('is-visible', leftOpen || rightOpen); }
+
+            function setRight(v) { rightOpen = v;
+                rightSidebar.classList.toggle('is-visible', v);
+                overlay.classList.toggle('is-visible', leftOpen || rightOpen); }
+            leftTrigger.addEventListener('mouseenter', () => { clearTimeout(sidebarTimer);
+                setLeft(true); });
+            rightTrigger.addEventListener('mouseenter', () => { clearTimeout(sidebarTimer);
+                setRight(true); });
+            leftSidebar.addEventListener('mouseenter', () => { clearTimeout(sidebarTimer); });
+            rightSidebar.addEventListener('mouseenter', () => { clearTimeout(sidebarTimer); });
+
+            function hideBothDelayed() { clearTimeout(sidebarTimer);
+                sidebarTimer = setTimeout(() => { setLeft(false);
+                    setRight(false); }, 300); }
+            leftSidebar.addEventListener('mouseleave', (e) => { if (!leftOpen) return; const r = leftSidebar
+                    .getBoundingClientRect(); if (e.clientX < r.left + 8 || e.clientX > r.right) hideBothDelayed(); });
+            rightSidebar.addEventListener('mouseleave', () => { if (rightOpen) hideBothDelayed(); });
+            overlay.addEventListener('click', () => { setLeft(false);
+                setRight(false);
+                clearTimeout(sidebarTimer); });
+            document.addEventListener('mouseleave', hideBothDelayed);
+
+            // ===== Workspace =====
+            const workspaces = { design: { label: '设计系统', convs: [{ title: '设计系统讨论',
+                        preview: '好的，那我们把强调色调成墨绿...', time: '刚刚' }, { title: '色彩体系规划',
+                        preview: '主色/辅色/中性色三级体系', time: '1h' }, { title: '组件库设计',
+                        preview: '按钮、输入框、选择器一共 48 个', time: '昨天' }, { title: '设计原则文档',
+                        preview: '一致性、可用性、可访问性', time: '2d' }] }, api: { label: 'API 集成', convs: [{ title: 'Stripe 集成',
+                        preview: '参考 webhook 设计模式', time: '2h' }, { title: 'RESTful 规范对齐',
+                        preview: '决定统一用 /v2/ 命名空间', time: '5h' }, { title: '认证方案',
+                        preview: 'JWT + refresh token', time: '昨天' }] }, dashboard: { label: '数据看板', convs: [{ title: '看板初稿',
+                        preview: 'MONTHLY_RUN_RATE 用面积图', time: '3d' }, { title: '图表组件选型',
+                        preview: 'ECharts vs D3 vs 自绘', time: '4d' }] }, experiments: { label: '实验配置', convs: [{ title: '配置 & 实验',
+                        preview: 'temperature: 0.7 · top_p: 0.9', time: '5d' }, { title: 'A/B 测试框架',
+                        preview: '实验组/对照组分流逻辑', time: '1w' }, { title: '日志分析',
+                        preview: 'token 用量与延迟统计', time: '1w' }] } };
+            let wsOrder = ['design', 'api', 'dashboard', 'experiments'],
+                activeWsId = 'design',
+                activeConvIndex = 0;
+
+            function getWs(id) { return workspaces[id]; }
+
+            function renderWsDropdown() { let h = '';
+                wsOrder.forEach(id => { const a = id === activeWsId;
+                    h +=
+                        `<div class="ws-dropdown-item${a?' active':''}" data-ws="${id}"><span>${workspaces[id].label}</span><button class="ws-del" data-ws="${id}">✕</button></div>`
+                        ; });
+                wsDropdownList.innerHTML = h;
+                wsDropdownList.querySelectorAll('.ws-dropdown-item').forEach(item => { item.addEventListener('click',
+                        function(e) { if (e.target.closest('.ws-del')) return; const id = this.dataset.ws; if (
+                            id !== activeWsId) { activeWsId = id;
+                            activeConvIndex = 0;
+                            updateWsUI();
+                            hideWsDropdown(); } }); });
+                wsDropdownList.querySelectorAll('.ws-del').forEach(btn => { btn.addEventListener('click', function(e) {
+                        e.stopPropagation(); const id = this.dataset.ws; if (wsOrder.length <= 1) return; const idx =
+                            wsOrder.indexOf(id); if (idx > -1) wsOrder.splice(idx, 1); delete workspaces[
+                            id]; if (activeWsId === id) { activeWsId = wsOrder[Math.min(idx, wsOrder.length -
+                                1)];
+                            activeConvIndex = 0; }
+                        updateWsUI();
+                        renderWsDropdown(); }); }); }
+
+            function hideWsDropdown() { wsDropdown.classList.remove('show');
+                wsCurrent.querySelector('.ws-arrow').classList.remove('open'); }
+            wsCurrent.addEventListener('click', () => { const o = wsDropdown.classList.contains('show');
+                hideWsDropdown(); if (!o) { renderWsDropdown();
+                    wsDropdown.classList.add('show');
+                    wsCurrent.querySelector('.ws-arrow').classList.add('open'); } });
+            document.addEventListener('click', (e) => { if (!e.target.closest('.ws-selector')) hideWsDropdown(); });
+            wsNewBtn.addEventListener('click', () => { const n = prompt('新工作区名称：'); if (!n || !n.trim()) return; const id =
+                    'ws_' + Date.now();
+                workspaces[id] = { label: n.trim(), convs: [] };
+                wsOrder.push(id);
+                activeWsId = id;
+                activeConvIndex = 0;
+                updateWsUI();
+                hideWsDropdown(); });
+
+            function updateWsUI() { const ws = getWs(activeWsId);
+                wsCurrentName.textContent = ws ? ws.label : '（无）';
+                wsBadge.textContent = ws ? ws.label : '';
+                renderConversations();
+                filterConversations(); }
+
+            function renderConversations() { const ws = getWs(activeWsId); if (!ws) { conversationList.innerHTML =
+                        '<div class="filter-empty" id="filterEmpty">没有会话</div>'; return; } let h = '';
+                ws.convs.forEach((conv, i) => { h +=
+                        `<div class="sidebar-item${i===activeConvIndex?' active':''}" data-index="${i}"><div class="sidebar-item-content"><div class="sidebar-item-title">${conv.title}</div><div class="sidebar-item-preview">${conv.preview}</div></div><div class="sidebar-item-time">${conv.time}</div></div>`
+                        ; });
+                h += '<div class="filter-empty" id="filterEmpty">没有匹配的会话</div>';
+                conversationList.innerHTML = h; const conv = ws.convs[activeConvIndex >= ws.convs.length ? 0 :
+                    activeConvIndex];
+                convTitle.textContent = conv ? conv.title : '';
+                document.querySelectorAll('#conversationList > .sidebar-item').forEach(item => { item.addEventListener(
+                        'click', function() { document.querySelectorAll('#conversationList > .sidebar-item')
+                            .forEach(i => i.classList.remove('active'));
+                            this.classList.add('active');
+                            activeConvIndex = parseInt(this.dataset.index); const c = ws.convs[
+                                activeConvIndex];
+                            convTitle.textContent = c.title; if (window.innerWidth < 768) setLeft(false); }); }); }
+
+            function filterConversations() { const q = searchInput.value.trim().toLowerCase(); const items = document
+                    .querySelectorAll('#conversationList > .sidebar-item'); let v = 0;
+                items.forEach(item => { const t = item.querySelector('.sidebar-item-title')?.textContent?.toLowerCase() ||
+                        ''; const p = item.querySelector('.sidebar-item-preview')?.textContent?.toLowerCase() || ''; const
+                        m = !q || t.includes(q) || p.includes(q);
+                    item.classList.toggle('is-filtered-out', !m); if (m) v++; }); const e = document.getElementById(
+                    'filterEmpty'); if (e) e.style.display = q && v === 0 ? 'block' : 'none'; }
+            let isComposing = false;
+            searchInput.addEventListener('compositionstart', () => { isComposing = true; });
+            searchInput.addEventListener('compositionend', () => { isComposing = false;
+                filterConversations(); });
+            searchInput.addEventListener('input', () => { if (!isComposing) filterConversations(); });
+            newConvBtn.addEventListener('click', () => { const ws = getWs(activeWsId); if (!ws) return;
+                ws.convs.unshift({ title: '新对话', preview: '开始新的会话…', time: '刚刚' });
+                activeConvIndex = 0;
+                renderConversations();
+                filterConversations(); });
+
+            function showSettings(v) { settingsOverlay.classList.toggle('show', v);
+                settingsPanel.classList.toggle('show', v); }
+            settingsBtn.addEventListener('click', () => showSettings(true));
+            closeSettings.addEventListener('click', () => showSettings(false));
+            settingsOverlay.addEventListener('click', () => showSettings(false));
+
+            // ===== Mode =====
+            const modeIcons = {
+                readonly: '<svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+                ask: '<svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+                execute: '<svg class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+            };
+            const modeLabels = { readonly: '只读', ask: '询问', execute: '执行' };
+            const modePlaceholders = { readonly: '浏览消息 — 仅查看', ask: '输入消息…', execute: '输入指令 / 代码…' };
+
+            function setMode(mode) {
+                modeSelect.dataset.mode = mode;
+                modeSelect.innerHTML = modeIcons[mode] + modeLabels[mode] +
+                    '<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg><div class="select-dropdown" id="modeDropdown"></div>';
+                const dd = modeSelect.querySelector('.select-dropdown');
+                dd.id = 'modeDropdown';
+                dd.innerHTML = `
+                <div class="select-dropdown-item" data-mode="readonly"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><svg class="mode-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 只读 <span class="hint">仅查看</span></div>
+                <div class="select-dropdown-item" data-mode="ask"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><svg class="mode-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg> 询问 <span class="hint">推荐</span></div>
+                <div class="select-dropdown-item" data-mode="execute"><svg class="check-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><svg class="mode-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> 执行 <span class="hint">运行指令</span></div>
+              `;
+                dd.querySelectorAll('.select-dropdown-item').forEach(item => {
+                    item.classList.toggle('active', item.dataset.mode === mode);
+                    item.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        setMode(this.dataset.mode);
+                        dd.classList.remove('show');
+                        msgInput.placeholder = modePlaceholders[this.dataset.mode] || '输入消息…';
+                        msgInput.focus();
+                    });
+                });
+                msgInput.placeholder = modePlaceholders[mode] || '输入消息…';
+            }
+            modeSelect.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const dd = this.querySelector('.select-dropdown');
+                const oc = dd.classList.contains('show');
+                closeAllSelects();
+                if (!oc) dd.classList.add('show');
+            });
+            setMode('ask');
+
+            // ===== Model & Depth =====
+            modelSelect.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const dd = this.querySelector('.select-dropdown');
+                const oc = dd.classList.contains('show');
+                closeAllSelects();
+                if (!oc) dd.classList.add('show');
+            });
+            modelDropdown.querySelectorAll('.select-dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const model = this.dataset.model;
+                    const ls = { gpt4o: '4o', claude: 'Claude', gemini: 'Gemini' };
+                    modelSelect.childNodes[0].textContent = ls[model] || model;
+                    modelDropdown.querySelectorAll('.select-dropdown-item').forEach(i => i.classList.remove(
+                        'active'));
+                    this.classList.add('active');
+                    modelDropdown.classList.remove('show');
+                });
+            });
+
+            depthSelect.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const dd = this.querySelector('.select-dropdown');
+                const oc = dd.classList.contains('show');
+                closeAllSelects();
+                if (!oc) dd.classList.add('show');
+            });
+            depthDropdown.querySelectorAll('.select-dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const dep = this.dataset.depth;
+                    const ls = { quick: '快速', medium: '中', deep: '深度' };
+                    depthSelect.childNodes[0].textContent = ls[dep] || dep;
+                    depthDropdown.querySelectorAll('.select-dropdown-item').forEach(i => i.classList.remove(
+                        'active'));
+                    this.classList.add('active');
+                    depthDropdown.classList.remove('show');
+                });
+            });
+
+            function closeAllSelects() { document.querySelectorAll('.select-dropdown').forEach(d => d.classList.remove(
+                    'show')); }
+            document.addEventListener('click', closeAllSelects);
+
+            // ===== ToDo =====
+            const todoItems = [
+                { text: '完成沉浸式对话布局', tag: 'P0', done: true },
+                { text: '实现边缘触发侧栏', tag: 'P0', done: true },
+                { text: '集成代码高亮渲染', tag: 'P0', done: true },
+                { text: '添加数学公式支持', tag: 'P1', done: true },
+                { text: '工作区下拉选择器', tag: 'P0', done: true },
+                { text: '思考过程可折叠卡片', tag: 'P0', done: true },
+                { text: '工具调用浮动详情', tag: 'P0', done: true },
+                { text: 'ToDo 面板（输入框侧）', tag: 'P0', done: true },
+                { text: '设置浮窗', tag: 'P0', done: true },
+                { text: '多主题配色切换', tag: 'P1', done: true },
+                { text: '响应式适配', tag: 'P1', done: false },
+                { text: '暗色模式', tag: 'P2', done: false },
+            ];
+
+            function renderTodoUI() {
+                let un = 0,
+                    fu = null;
+                todoItems.forEach(i => { if (i.done) un++;
+                    else if (!fu) fu = i; });
+                const t = todoItems.length,
+                    p = t ? Math.round(un / t * 100) : 0;
+                todoCurrent.textContent = fu ? fu.text : '✓ 全部完成';
+                todoCounter.textContent = `${un}/${t}`;
+                todoProgressMini.style.width = p + '%';
+                let h = '';
+                todoItems.forEach((it, i) => { h +=
+                        `<div class="todo-float-item"><input type="checkbox" ${it.done?'checked':''} data-index="${i}"><span class="todo-text${it.done?' done':''}">${it.text}</span><span class="todo-tag">${it.tag}</span></div>`
+                        ; });
+                todoFloatBody.innerHTML = h;
+                todoFloatCount.textContent = `${un}/${t} 完成`;
+                todoFloatBody.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.addEventListener('change',
+                        function() { const idx = parseInt(this.dataset.index);
+                        todoItems[idx].done = this.checked;
+                        renderTodoUI(); }); });
+            }
+            renderTodoUI();
+            let th = null;
+            todoFloating.addEventListener('mouseenter', () => { clearTimeout(th);
+                todoFloatPanel.classList.add('show'); });
+            todoFloating.addEventListener('mouseleave', () => { th = setTimeout(() => { todoFloatPanel.classList.remove(
+                    'show'); }, 200); });
+
+            // ===== Messages =====
+            function rm(t) { t = t.replace(/\$\$([\s\S]+?)\$\$/g, (_, tx) => { try { return katex.renderToString(tx.trim(),
+                        { displayMode: true, throwOnError: false }) } catch (e) { return `<div class="katex-error">${tx}</div>` } });
+                t = t.replace(/\$(.+?)\$/g, (_, tx) => { try { return katex.renderToString(tx.trim(), { displayMode: false,
+                            throwOnError: false }) } catch (e) { return `<span class="katex-error">${tx}</span>` } }); return t; }
+
+            function rmph(h) { return h.replace(/<img[^>]+src="([^"]+)"[^>]*alt="([^"]*)"[^>]*\/?>/g, (_, s, alt) => { const
+                    ds = s.startsWith('http') ? s : '/files/' + s; return `<div class="media-placeholder image-preview"><div class="preview-box">📷 ${alt||'图片'}</div><div><span class="media-label">${alt||'未命名图片'}</span><span class="media-meta"> · ${ds}</span></div></div>`
+                    ; }); }
+
+            function rfc(t) { return t.replace(/\[([^\]]+\.(pdf|zip|ai|psd|fig|sketch|md))\]/ig, (_, n) => { const e = n.split(
+                    '.').pop().toUpperCase(); return `<div class="media-placeholder"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="media-label">${n}</span><span class="media-meta">${e} · 预览占位</span></div>`
+                    ; }); }
+
+            function rmd(t) { marked.setOptions({ breaks: false, gfm: true }); let h = marked.parse(t);
+                h = rm(h);
+                h = rmph(h);
+                h = rfc(h); return h; }
+
+            function addMsg(c, u) {
+                const msg = document.createElement('div');
+                msg.className = 'msg' + (u ? ' msg-user' : ' msg-ai');
+                const av = document.createElement('div');
+                av.className = 'msg-avatar' + (u ? ' user-avatar' : '');
+                av.textContent = u ? '你' : 'A';
+                const body = document.createElement('div');
+                body.className = 'msg-body';
+                const nm = document.createElement('div');
+                nm.className = 'msg-name';
+                nm.textContent = u ? '你' : 'Aura';
+                const cd = document.createElement('div');
+                cd.className = 'msg-content';
+                cd.innerHTML = rmd(c);
+                body.appendChild(nm);
+                body.appendChild(cd);
+                msg.appendChild(av);
+                msg.appendChild(body);
+                messageInner.appendChild(msg);
+                messageInner.parentElement.scrollTop = messageInner.parentElement.scrollHeight;
+                if (typeof Prism !== 'undefined') { Prism.highlightAllUnder(cd); }
+            }
+
+            function addThinking(c, s) { const card = document.createElement('div');
+                card.className = 'msg-thinking'; const hdr = document.createElement('div');
+                hdr.className = 'thinking-header';
+                hdr.innerHTML =
+                    `<svg class="arrow closed" viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg><span class="label">思考过程</span><span class="status-badge">${s||'完成'}</span>`
+                    ; const bd = document.createElement('div');
+                bd.className = 'thinking-body collapsed';
+                bd.innerHTML = `<div class="msg-content">${rmd(c)}</div>`; if (typeof Prism !== 'undefined') { Prism
+                    .highlightAllUnder(bd); }
+                hdr.addEventListener('click', () => { bd.classList.toggle('collapsed');
+                    hdr.querySelector('.arrow').classList.toggle('open'); });
+                card.appendChild(hdr);
+                card.appendChild(bd);
+                messageInner.appendChild(card);
+                messageInner.parentElement.scrollTop = messageInner.parentElement.scrollHeight; }
+
+            function addTool(n, a, r, s) { const card = document.createElement('div');
+                card.className = 'msg-tool'; const hdr = document.createElement('div');
+                hdr.className = 'tool-header';
+                hdr.innerHTML =
+                    `<svg class="tool-icon" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg><span class="tool-name">${n}</span><span class="tool-status ${s||'completed'}">${s||'完成'}</span>`
+                    ; const d = { name: n, args: a, result: r, time: new Date().toLocaleString() };
+                hdr.addEventListener('click', () => { document.getElementById('toolDetailName').textContent = d.name;
+                    document.getElementById('toolDetailMeta').textContent = '调用：' + d.time + ' · 参数：' + JSON.stringify(
+                        d.args, null, 2);
+                    document.getElementById('toolDetailCode').textContent = d.result || '(无)';
+                    document.getElementById('toolOverlay').classList.add('show'); });
+                card.appendChild(hdr);
+                messageInner.appendChild(card);
+                messageInner.parentElement.scrollTop = messageInner.parentElement.scrollHeight; }
+            document.getElementById('toolDetailClose').addEventListener('click', () => { document.getElementById(
+                'toolOverlay').classList.remove('show'); });
+            document.getElementById('toolOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) e
+                    .currentTarget.classList.remove('show'); });
+
+            setTimeout(() => { addMsg('好的，我来开始设计这个沉浸式工作台。', false); }, 60);
+            setTimeout(() => { addThinking('用户需求：\n1. 全屏对话\n2. 边缘触发侧栏\n3. Markdown 渲染…', '已完成'); }, 200);
+            setTimeout(() => { addTool('renderLayout', { sidebarWidth: 300 }, '侧栏布局渲染成功', 'completed'); }, 400);
+            setTimeout(() => {
+                addMsg(
+                    `---\n\n## Markdown 渲染演示\n\n### 代码块\n\`\`\`python\ndef fibonacci(n):\n    if n <= 1: return n\n    a, b = 0, 1\n    for _ in range(2, n + 1):\n        a, b = b, a + b\n    return b\n\`\`\`\n\n### 数学公式\n行内：$e^{i\\pi} + 1 = 0$\n\n块级：\n$$\\nabla \\times \\mathbf{B} = \\mu_0 \\mathbf{J} + \\mu_0 \\varepsilon_0 \\frac{\\partial \\mathbf{E}}{\\partial t}$$\n\n### 表格\n| 特性 | 状态 | 优先级 |\n|------|------|--------|\n| 代码高亮 | ✅ | P0 |\n| 数学公式 | ✅ | P1 |\n\n### 任务列表\n- [x] 完成通用布局\n- [x] 实现侧栏交互\n- [ ] 添加代码高亮\n- [ ] 单元测试\n\n### 图片预览占位\n![沉浸式布局草图](sketch-v2.png)\n\n### 文件预览占位\n[design-system-v2.pdf]`,
+                    false);
+            }, 600);
+
+            function send() { const t = msgInput.value.trim(); if (!t) return;
+                addMsg(t, true);
+                msgInput.value = '';
+                msgInput.style.height = 'auto';
+                setTimeout(() => { addMsg(getAutoReply(t), false); }, 500 + Math.random() * 400); }
+            sendBtn.addEventListener('click', send);
+            msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault();
+                    send(); } });
+            msgInput.addEventListener('input', () => { msgInput.style.height = 'auto';
+                msgInput.style.height = msgInput.scrollHeight + 'px'; });
+
+            function getAutoReply(t) { const l = t.toLowerCase(); if (l.includes('hello') || l.includes('hi') || l.includes(
+                    '你好')) return '你好！有什么我可以帮你的吗？😊'; if (l.includes('code') || l.includes('代码')) return '```javascript\nconsole.log("Hello");\n```\n这是示例代码。'; if (
+                    l.includes('math') || l.includes('公式')) return '行内公式：$\\sin^2 x + \\cos^2 x = 1$'; if (l.includes('table') ||
+                    l.includes('表格')) return '| A | B |\n|---|---|\n| 1 | 2 |'; return '收到：「' + t.slice(0, 40) + (t.length >
+                    40 ? '…' : '') + '」'; }
+
+            updateWsUI();
+            filterConversations();
+        })();
+    </script>
+</body>
+</html>

@@ -64,6 +64,7 @@ function findLastAssistantIndex(msgs: ChatMessage[]): number | undefined {
 
 export interface ChatStore {
   messages: ChatMessage[]
+  todos: Array<{ id: string; content: string; activeForm?: string; status: 'pending' | 'in_progress' | 'completed' }>
 
   /** 创建用户消息 + 空助理消息占位符。 */
   appendPlaceholders: (text: string, ts: number, sessionId?: string | null) => void
@@ -85,6 +86,9 @@ export interface ChatStore {
   /** 合并服务端 session:data。 */
   mergeServerData: (incoming: ChatMessage[]) => void
 
+  /** 设置 TODO 列表。 */
+  setTodos: (todos: ChatStore['todos']) => void
+
   /** 节流清空 buffer。通常在 model.completed 或 turn_end 时调用。 */
   flushBuffer: () => void
 
@@ -97,6 +101,7 @@ export interface ChatStore {
 
 export const useChatStore = create<ChatStore>((set) => ({
   messages: [],
+  todos: [],
 
   appendPlaceholders: (text: string, ts: number, _sessionId?: string | null) => {
     set((s) => ({
@@ -238,8 +243,10 @@ export const useChatStore = create<ChatStore>((set) => ({
       _sb.flushTimer = null
     }
     _sb.text = ''
-    set({ messages: [] })
+    set({ messages: [], todos: [] })
   },
+
+  setTodos: (todos) => set({ todos }),
 
   appendSystemMessage: (text: string) => {
     set((s) => ({

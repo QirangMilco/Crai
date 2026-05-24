@@ -22,7 +22,17 @@
 
 // Session 操作响应
 { type: 'session:id', id: string }
-{ type: 'session:data', sessionId: string, messages: ChatMessage[] }
+{ type: 'session:data', sessionId: string, messages: ChatMessage[], todos?: TodoItem[], metadata?: Record<string, unknown> }
+
+其中消息格式 ChatMessage 同上。todos 字段可选，结构：
+```typescript
+interface TodoItem {
+  id: string
+  content: string
+  activeForm?: string
+  status: 'pending' | 'in_progress' | 'completed'
+}
+```
 { type: 'session:list:data', sessions: Array<{ id, title?, createdAt, updatedAt }> }
 { type: 'session:title', sessionId: string, title: string }
 

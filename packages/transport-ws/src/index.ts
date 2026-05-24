@@ -150,6 +150,14 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           }
         } catch { /* 静默 */ }
         const result = await rt.prompt({ type: 'text', text: msg.text }, opts)
+        // 发送更新后的会话数据（含 TODO 列表）
+        ws.send(JSON.stringify({
+          type: 'session:data',
+          sessionId: result.session.id,
+          messages: [],
+          todos: result.session.todos,
+          metadata: result.session.metadata,
+        } satisfies ServerMessage))
         if (!sessionId) {
           // 新 session 的 session:id 已在上面发送，这里不需要重复发
           // 但需要更新 currentSessionId（已在上面设置）
@@ -229,6 +237,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           sessionId: msg.sessionId,
           messages: filteredMessages,
           metadata: session?.metadata,
+          todos: session?.todos,
         } satisfies ServerMessage))
         break
       }

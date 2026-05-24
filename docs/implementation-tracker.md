@@ -9,6 +9,7 @@
 - 核心稳定：core + runtime + tools 能力集较完整
 - 配置：变体配置（dev/prod 隔离）+ 全局配置 + 工作区配置（仅 security）
 - 不需要环境变量，全配置文件驱动
+- Plan+ToDo 功能：todo-write 内置工具、plan 模式系统提示、前端 TodoDisplay 组件
 - 下一步：Web UI 完善（markdown 渲染、会话历史、工作区选择器）
 
 ## 已完成

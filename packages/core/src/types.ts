@@ -73,6 +73,16 @@ export interface Session {
   updatedAt: Timestamp
   title?: string
   metadata?: Metadata
+  /** TODO 列表，由 todo-write 工具管理 */
+  todos?: TodoItem[]
+}
+
+/** TODO 项，三态状态机 */
+export interface TodoItem {
+  id: string
+  content: string
+  activeForm?: string
+  status: 'pending' | 'in_progress' | 'completed'
 }
 
 export interface BaseMessage {

@@ -233,6 +233,8 @@ export interface SessionDataMessage {
   messages: Array<{ id: string; role: string; text: string; createdAt: number; blocks?: any[] }>
   /** session 元数据，含 thinkingLevel、mode 等。 */
   metadata?: Record<string, unknown>
+  /** 会话 TODO 列表。 */
+  todos?: Array<{ id: string; content: string; activeForm?: string; status: 'pending' | 'in_progress' | 'completed' }>
 }
 
 export type ServerMessage =

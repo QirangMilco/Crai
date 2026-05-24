@@ -47,6 +47,7 @@ import { bootstrapRuntimeExtensions, setupExtension } from './bootstrap'
 import { buildRuntimeContext } from './contextBuilder'
 import { runTurn, type TurnRunnerDeps } from './turnRunner'
 import { SessionManager } from './sessionManager'
+import { createTodoWriteTool } from './todoTool'
 import { BUILTIN_STORAGE_NAME, DEFAULT_PIPELINE_NAME } from './constants'
 import { createTraceCollector, type TraceMode } from './trace'
 
@@ -281,10 +282,22 @@ async function handlePrompt(
   if (mode && session.metadata?.mode !== mode) {
     if (!session.metadata) session = { ...session, metadata: {} }
     ;(session as any).metadata!.mode = mode
+    // plan 模式附加系统提示
+    if (mode === 'plan') {
+      const { PLAN_MODE_SYSTEM_PROMPT } = await import('./planModePrompt')
+      const existing = (session as any).metadata!.system ?? ''
+      const planPrompt = existing
+        ? `${existing}\n\n${PLAN_MODE_SYSTEM_PROMPT}`
+        : PLAN_MODE_SYSTEM_PROMPT
+      ;(session as any).metadata!.system = planPrompt
+    }
+    deps.sessions.update(session)
   }
   const inputText = typeof input === 'string' ? input : (input as any)?.text
   deps.traceCollector?.note(`prompt — ${JSON.stringify(inputText ?? input)}`)
   const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel, compressionThreshold, compressionKeepTokens)
+  // 持久化 turn 结束后 session 的变更（如 tool 对 todos 的修改）
+  deps.sessions.update(result.session)
 
   return {
     session: result.session,
@@ -425,6 +438,19 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       if (storage) await storage.deleteSession(sessionId)
       deps.sessions.delete(sessionId)
     },
+    registerTool(tool: ToolDefinition & { execute: ToolHandler['execute'] }) {
+      const provider: ToolProvider = {
+        name: `builtin:${tool.name}`,
+        listTools() {
+          return [{ name: tool.name, description: tool.description, inputSchema: tool.inputSchema, safetyLevel: tool.safetyLevel }]
+        },
+        getTool(name: string) {
+          if (name !== tool.name) return undefined
+          return { definition: { name: tool.name, description: tool.description, inputSchema: tool.inputSchema, safetyLevel: tool.safetyLevel }, execute: tool.execute }
+        },
+      }
+      return deps.registries.tools.register(provider.name, provider)
+    },
     listMessages: async (sessionId) => {
       const storages = deps.registries.storages.list()
       const storage = storages[0]?.value
@@ -483,6 +509,10 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     unloadExtension: (name) => handleUnloadExtension(deps, loadedExtensions, name),
     dispose: () => handleDispose(deps, loadedExtensions, runtimeId),
   }
+
+  // 注册内置工具
+  const todoHandler = createTodoWriteTool()
+  runtime.registerTool({ ...todoHandler.definition, execute: todoHandler.execute })
 
   // 初始引导使用 tracked registries，扩展注册的资源可被批量清理
   const bootstrapDisposables = new Set<Disposable>()

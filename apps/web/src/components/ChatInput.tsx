@@ -59,6 +59,7 @@ const SESSION_MODES = [
   { value: 'execute', label: '操作', icon: Zap, iconColor: 'var(--crai-accent)' },
   { value: 'ask', label: '询问', icon: HelpCircle, iconColor: 'var(--crai-fg-60)' },
   { value: 'safe', label: '只读', icon: Shield, iconColor: 'var(--crai-success)' },
+  { value: 'plan', label: '计划', icon: Bot, iconColor: 'var(--crai-fg-60)' },
 ]
 
 export function ChatInput({ onSend, disabled, className = '', models, currentModel, onModelChange, thinkingLevel, onThinkingLevelChange, sessionMode, onModeChange, providerThinkingLevels, defaultThinkingLevels }: Props) {

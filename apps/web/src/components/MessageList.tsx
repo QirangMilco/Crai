@@ -7,6 +7,8 @@ import { useRef, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { ChatMessage } from '../types/messages'
 import { MessageBubble } from './MessageBubble'
+import { TodoDisplay } from './TodoDisplay'
+import { useChatStore } from '../store/chat'
 
 interface Props {
   messages: ChatMessage[]
@@ -20,11 +22,14 @@ export function MessageList({ messages, className = '' }: Props) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
 
+  const todos = useChatStore((s) => s.todos)
+
   return (
     <div className={`flex-1 overflow-y-auto px-[var(--crai-chat-padding)] mx-auto ${className}`}
       style={{ maxWidth: 'var(--crai-chat-max-width)', width: '100%', paddingBottom: 'var(--crai-gap, 0px)' }}
     >
       <div className="w-full">
+        {todos.length > 0 && <TodoDisplay todos={todos} />}
         <AnimatePresence mode="popLayout">
           {messages.map((msg, idx) => (
             <motion.div
