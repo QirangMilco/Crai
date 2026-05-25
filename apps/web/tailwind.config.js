@@ -7,5 +7,5 @@ export default {
       // Tailwind 类名通过 CSS 变量引用
     },
   },
-  plugins: [],
+  plugins: [require('@tailwindcss/typography')],
 }

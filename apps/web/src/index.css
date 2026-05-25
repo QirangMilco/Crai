@@ -2,22 +2,31 @@
 @tailwind utilities;
 
 /* ============================================================
-   Crai Design Token System
+   Crai Design Token System — 基于 crystalagents 视觉符号
    ============================================================
    Token 默认值由 @/theme/tokens.ts 的 applyTokens() 设置。
    CSS 中只做 var() 引用。数值修改在 Inspector 中进行。
    ============================================================ */
 
-/* ── 暗色模式覆盖 ── */
+/* ── 暗色模式覆盖（只覆盖 6 基色，衍生色自动计算） ── */
 .dark {
   --crai-bg: oklch(0.2 0.005 270);
   --crai-fg: oklch(0.92 0.005 270);
+  --crai-foreground-rgb: 227, 226, 229;
   --crai-accent: oklch(0.65 0.20 293);
+  --crai-accent-rgb: 118, 92, 147;
+  --crai-info: oklch(0.70 0.16 70);
   --crai-success: oklch(0.60 0.17 145);
   --crai-destructive: oklch(0.70 0.19 22);
+  --crai-destructive-rgb: 200, 80, 70;
+  --crai-info-rgb: 200, 140, 60;
+  --crai-success-rgb: 50, 140, 80;
 }
 
 /* ── 基础全局样式 ── */
+html {
+  font-size: var(--crai-font-size, 15px);
+}
 body {
   font-family: var(--crai-font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif);
   -webkit-font-smoothing: antialiased;
@@ -25,46 +34,49 @@ body {
 }
 
 /* ── 滚动条 ── */
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--crai-scrollbar-color);
-  border-radius: 3px;
+  background: var(--crai-scrollbar-color, color-mix(in oklch, var(--crai-fg, #333) 12%, var(--crai-bg, #fff)));
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--crai-fg-secondary);
+  background: color-mix(in oklch, var(--crai-fg, #333) 20%, var(--crai-bg, #fff));
 }
 
-/* ── 消息动画 ── */
+/* ── 消息入场动画 ── */
 @keyframes msg-enter {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .msg-enter {
-  animation: msg-enter 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  animation: msg-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
-
-
 
 /* ── 发送按钮 ── */
 .crai-send-btn {
   transition: background-color 0.15s, opacity 0.2s;
 }
 
-/* ── 全局焦点环（取代 outline: none） ── */
+/* ── 输入框容器聚焦提升 ── */
+[data-token-group="input-box"]:focus-within {
+  box-shadow: var(--crai-shadow-elevated, 0 2px 8px rgba(0,0,0,0.06)) !important;
+}
+
+/* ── 全局焦点环 ── */
 :focus-visible {
   outline: none;
   box-shadow: 0 0 0 var(--crai-ring-width, 2px) var(--crai-ring);
 }
 
-/* ── 全局微交互：所有按钮和可点击元素默认过渡 ── */
+/* ── 全局微交互 ── */
 button, [role="button"], select, input[type="text"], input[type="search"] {
   transition: color 0.15s, background-color 0.15s, border-color 0.15s, opacity 0.15s, box-shadow 0.15s;
 }
 
 /* ── 可交互卡片 hover ── */
 [data-interactive="true"]:hover {
-  border-color: var(--crai-border-hover);
+  border-color: color-mix(in oklch, var(--crai-fg, #333) 15%, var(--crai-bg, #fff));
 }
 .crai-send-btn:hover:not(:disabled) {
   background-color: var(--crai-btn-hover-bg) !important;
@@ -84,6 +96,7 @@ button, [role="button"], select, input[type="text"], input[type="search"] {
   background-color: color-mix(in oklch, var(--crai-accent) 12%, transparent);
   transition: background-color 0.3s;
 }
+
 /* ── KaTeX 公式居中 ── */
 .katex-display {
   display: flex;
@@ -92,6 +105,8 @@ button, [role="button"], select, input[type="text"], input[type="search"] {
   overflow-y: hidden;
   margin: 0.8em 0;
 }
+
+/* ── Inspector 滑块 ── */
 .inspector-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -114,17 +129,35 @@ button, [role="button"], select, input[type="text"], input[type="search"] {
   cursor: pointer;
 }
 
-/* ── 工具调用动画 ── */
-@keyframes crai-think-pulse {
-  0%, 80%, 100% { opacity: 0.4; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1); }
-}
-
-/* ── 助手消息 Markdown 正文用衬线字体 ── */
+/* ── Markdown 正文：通过 @tailwindcss/typography 的 prose 类渲染 ── */
 .markdown-content {
-  font-family: var(--crai-font-serif, Georgia, 'Noto Serif SC', serif);
   font-size: var(--crai-msg-ai-font-size, 16px);
   line-height: var(--crai-msg-ai-line-height, 1.75);
+}
+
+/* ── prose-sm 定制（在 Tailwind 默认 prose 上微调） ── */
+.prose-sm {
+  --tw-prose-body: var(--crai-fg);
+  --tw-prose-headings: var(--crai-fg);
+  --tw-prose-links: var(--crai-accent);
+  --tw-prose-bold: var(--crai-fg);
+  --tw-prose-code: var(--crai-fg);
+  --tw-prose-pre-bg: var(--crai-bg-3);
+  --tw-prose-quote-borders: var(--crai-accent);
+  --tw-prose-quotes: var(--crai-fg-60);
+  --tw-prose-th-borders: var(--crai-border);
+  --tw-prose-td-borders: var(--crai-border);
+}
+.prose-sm code {
+  background-color: var(--crai-bg-5);
+  padding: 0.125em 0.3em;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+.prose-sm pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 /* ── 代码块用等宽字体 ── */

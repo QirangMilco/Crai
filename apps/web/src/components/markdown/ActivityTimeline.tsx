@@ -12,7 +12,6 @@ import { Icon } from '../ui/Icon'
 import { cn } from '../ui/cn'
 import type { ActivityItem } from '../../types/messages'
 import { ActivityDetail } from './ActivityDetail'
-import { ToolOutputCard } from '../ui/ToolOutputCard'
 
 const STATUS_COLORS: Record<string, string> = {
   running: 'var(--crai-accent)',
@@ -74,7 +73,7 @@ function StatusIcon({ activity }: { activity: ActivityItem }) {
   return <Icon icon={CheckCircle2} size="sm" style={{ color: 'var(--crai-tool-success)' }} />
 }
 
-/** 单个活动行（卡片模式）。 */
+/** 单个活动行。 */
 const ActivityRow = memo(function ActivityRow({
   activity,
   onOpenDetail,
@@ -113,7 +112,7 @@ const ActivityRow = memo(function ActivityRow({
     ? (toolNameMap[activity.toolName ?? ''] ?? activity.displayName ?? activity.toolName ?? '工具')
     : '思考'
   const argLabel = activity.type === 'tool' ? formatToolArg(activity) : ''
-  const borderColor = isError ? 'var(--crai-tool-error)' : STATUS_COLORS[activity.status] || 'var(--crai-border)'
+  const statusColor = isError ? 'var(--crai-tool-error)' : STATUS_COLORS[activity.status] || 'var(--crai-border)'
 
   const handleClick = useCallback(() => {
     if (activity.type === 'thinking' && isDone) {
@@ -124,104 +123,99 @@ const ActivityRow = memo(function ActivityRow({
   }, [activity, isDone, onOpenDetail])
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, x: -6 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
       onClick={handleClick}
       className={cn(
-        'flex items-stretch gap-0 rounded-lg overflow-hidden cursor-pointer',
-        'transition-shadow duration-150',
-        'hover:shadow-[var(--crai-shadow-card)]',
+        'group cursor-pointer rounded-md transition-colors duration-150',
+        'hover:bg-[var(--crai-bg-3)]',
         isDone && 'cursor-pointer',
       )}
-      style={{ border: '1px solid var(--crai-border)' }}
     >
-      {/* 左侧状态色条 */}
-      <div
-        className="shrink-0 transition-colors duration-150"
-        style={{ width: 3, backgroundColor: borderColor }}
-      />
+      {/* 顶栏：箭头+图标+标签+耗时 */}
+      <div className="flex items-center gap-2 py-1 px-1.5">
+        {/* 展开箭头（仅 thinking 类型可折叠） */}
+        {activity.type === 'thinking' && isDone ? (
+          <motion.div
+            initial={false}
+            animate={{ rotate: localCollapsed ? 0 : 90 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="shrink-0 flex items-center justify-center"
+            style={{ width: 16, height: 16, color: 'var(--crai-fg-40)' }}
+          >
+            <Icon icon={ChevronRight} size="xs" />
+          </motion.div>
+        ) : (
+          <div className="shrink-0" style={{ width: 16 }} />
+        )}
 
-      {/* 内容区 */}
-      <div className="flex-1 flex items-start gap-2.5 px-3 py-2.5 min-w-0"
-        style={{
-          fontSize: 'var(--crai-tool-font-size, 13px)',
-          color: 'var(--crai-tool-fg)',
-          lineHeight: 'var(--crai-tool-line-height)',
-        }}
-      >
         {/* 状态图标 */}
-        <div className="shrink-0 mt-0.5">
+        <div className="shrink-0 flex items-center justify-center" style={{ color: statusColor }}>
           <StatusIcon activity={activity} />
         </div>
 
-        {/* 详情 */}
-        <div className="flex-1 min-w-0 space-y-0.5">
-          {/* 标题行 */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-medium text-sm">{label}</span>
-            {argLabel && (
-              <span className="truncate max-w-[160px] text-xs"
-                style={{ color: 'var(--crai-fg-tertiary)' }}>
-                <Icon icon={ChevronRight} size="xs" className="inline mr-0.5" />
-                {argLabel.length > 28 ? argLabel.slice(0, 28) + '…' : argLabel}
-              </span>
-            )}
-            {/* 右上角状态 */}
-            <span className="ml-auto text-xs shrink-0" style={{ color: 'var(--crai-fg-tertiary)' }}>
-              {activity.status === 'running' && (
-                <>{elapsed > 0 ? `${elapsed}s` : <Icon icon={LoaderCircle} size="xs" className="animate-spin inline" />}</>
-              )}
+        {/* 标签 + 参数 */}
+        <div className="flex-1 flex items-center gap-1.5 min-w-0 text-xs"
+          style={{ color: 'var(--crai-fg)' }}
+        >
+          <span className="font-medium shrink-0">{label}</span>
+          {argLabel && (
+            <span className="truncate text-xs" style={{ color: 'var(--crai-fg-40)' }}>
+              <Icon icon={ChevronRight} size="xs" className="inline mr-0.5" />
+              {argLabel.length > 28 ? argLabel.slice(0, 28) + '…' : argLabel}
             </span>
-          </div>
-
-          {/* 思考内容（可折叠，带 height 动画） */}
-          {activity.type === 'thinking' && activity.content && (
-            <motion.div
-              layout
-              initial={false}
-              className="text-xs overflow-hidden"
-              style={{
-                color: 'var(--crai-fg-tertiary)',
-                whiteSpace: localCollapsed ? 'nowrap' : 'pre-wrap',
-              }}
-              animate={{
-                height: localCollapsed ? '1.4em' : 'auto',
-                opacity: 1,
-              }}
-              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            >
-              {localCollapsed
-                ? (activity.content.length > 80 ? activity.content.slice(0, 80) + '…' : activity.content)
-                : activity.content
-              }
-            </motion.div>
-          )}
-
-          {/* 意图文本（仅 tool） */}
-          {activity.type === 'tool' && activity.intent && !isError && (
-            <div className="text-xs truncate" style={{ color: 'var(--crai-fg-tertiary)' }}>
-              {activity.intent}
-            </div>
-          )}
-
-          {/* 工具结果卡片 */}
-          {activity.type === 'tool' && activity.status === 'completed' && activity.content && (
-            <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-              <ToolOutputCard
-                toolName={activity.toolName}
-                result={activity.content}
-              />
-            </div>
-          )}
-
-          {/* 错误 */}
-          {isError && activity.error && (
-            <div className="text-xs" style={{ color: 'var(--crai-tool-error)' }}>
-              {activity.error.length > 80 ? activity.error.slice(0, 80) + '…' : activity.error}
-            </div>
           )}
         </div>
+
+        {/* 耗时 */}
+        <div className="shrink-0 text-xs tabular-nums" style={{ color: 'var(--crai-fg-40)' }}>
+          {activity.status === 'running' ? (
+            <>{elapsed > 0 ? `${elapsed}s` : <Icon icon={LoaderCircle} size="xs" className="animate-spin inline" />}</>
+          ) : null}
+        </div>
       </div>
-    </div>
+
+      {/* 下方内容区（缩进对齐） */}
+      <div className="ml-[37px] pb-1 pr-1.5">
+        {/* 思考内容（可折叠） */}
+        {activity.type === 'thinking' && activity.content && (
+          <motion.div
+            initial={false}
+            className="text-xs overflow-hidden"
+            style={{
+              color: 'var(--crai-fg-40)',
+              whiteSpace: localCollapsed ? 'nowrap' : 'pre-wrap',
+            }}
+            animate={{
+              height: localCollapsed ? '1.4em' : 'auto',
+              opacity: 1,
+            }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+          >
+            {localCollapsed
+              ? (activity.content.length > 80 ? activity.content.slice(0, 80) + '…' : activity.content)
+              : activity.content
+            }
+          </motion.div>
+        )}
+
+        {/* 意图文本（仅 tool） */}
+        {activity.type === 'tool' && activity.intent && !isError && (
+          <div className="text-xs truncate" style={{ color: 'var(--crai-fg-40)' }}>
+            {activity.intent}
+          </div>
+        )}
+
+        {/* 错误 */}
+        {isError && activity.error && (
+          <div className="text-xs" style={{ color: 'var(--crai-tool-error)' }}>
+            {activity.error.length > 80 ? activity.error.slice(0, 80) + '…' : activity.error}
+          </div>
+        )}
+      </div>
+    </motion.div>
   )
 })
 

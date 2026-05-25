@@ -92,3 +92,26 @@ export function TodoDisplay({ todos }: { todos: TodoItem[] }) {
     </div>
   )
 }
+
+/** 工具栏紧凑版：只显示折叠态的进度条，hover 时 title 显示完整内容。 */
+export function TodoBar({ todos }: { todos: TodoItem[] }) {
+  if (!todos || todos.length === 0) return null
+  const completed = todos.filter((t) => t.status === 'completed').length
+  const total = todos.length
+  const preview = pickPreview(todos)
+  const tooltip = todos.map((t) => {
+    const icon = t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '⟳' : '○'
+    return `${icon} ${displayText(t)}`
+  }).join('\n')
+  return (
+    <button
+      className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] transition-colors duration-150 hover:bg-[var(--crai-bg-3)]"
+      style={{ color: 'var(--crai-fg-40)', maxWidth: 200 }}
+      title={tooltip}
+    >
+      <span>☑</span>
+      <span className="truncate max-w-[100px]">{preview}</span>
+      <span className="shrink-0 tabular-nums">{completed}/{total}</span>
+    </button>
+  )
+}

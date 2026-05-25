@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Brain, Bot, Zap, HelpCircle, Shield } from 'lucide-react'
+import { Send, Zap, HelpCircle, Shield } from 'lucide-react'
 import { Icon, Select } from './ui'
+import { useChatStore } from '../store/chat'
+import { TodoBar } from './TodoDisplay'
 
 interface Props {
   onSend: (text: string, model?: string) => void
@@ -110,6 +112,7 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
       }}>
       <div
         data-token-group="input-box"
+        className="transition-shadow duration-150"
         style={{
           backgroundColor: 'var(--crai-input-bg)',
           border: 'var(--crai-input-border-width, 1px) solid var(--crai-input-border)',
@@ -145,28 +148,34 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
             overflowY: 'hidden',
           }}
         />
-        {/* 底部工具栏：模式 · 思考 · 模型 · 发送 */}
+        {/* 底部工具栏：左(模式) | 中(todo) | 右(思考+模型+发送) */}
         <div
           data-token-group="input-bar"
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
             gap: 6,
             padding: '0 12px 8px',
             minHeight: 28,
-          }}>
-          {/* 左侧：模式 */}
+          }}
+        >
+          {/* 左：模式 */}
           <Select
             value={sessionMode ?? 'execute'}
             onChange={(v) => onModeChange?.(v)}
             options={SESSION_MODES}
             placeholder="模式"
             className="shrink-0"
-            style={{ padding: '2px 6px', maxWidth: 90 }}
+            style={{ backgroundColor: 'transparent', border: 'none', padding: '2px 4px', maxWidth: 90 }}
           />
-          {/* 右侧：思考 + 模型 + 发送 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+
+          {/* 中：todo 进度（柔性撑开） */}
+          <div className="flex-1 flex justify-center min-w-0">
+            <TodoBar todos={useChatStore((s) => s.todos)} />
+          </div>
+
+          {/* 右：思考 + 模型 + 发送 */}
+          <div className="flex items-center gap-1 shrink-0">
             {(() => {
               const curProvider = models?.find((m) => m.name === currentModel)?.provider ?? ''
               const availableLevels = getAvailableThinkingLevels(curProvider, providerThinkingLevels)
@@ -177,19 +186,17 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
               }
               return (
                 <Select
-                  icon={Brain}
                   value={effectiveLevel}
                   onChange={(v) => onThinkingLevelChange?.(v)}
                   options={availableLevels}
                   placeholder="思考"
                   className="shrink-0"
-                  style={{ padding: '2px 6px', maxWidth: 80 }}
+                  style={{ backgroundColor: 'transparent', border: 'none', padding: '2px 4px', maxWidth: 70 }}
                 />
               )
             })()}
             {models && models.length > 0 && (
               <Select
-                icon={Bot}
                 value={currentModel ?? ''}
                 onChange={(v) => onModelChange?.(v)}
                 options={models.map((m) => ({
@@ -198,7 +205,7 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
                 }))}
                 placeholder="选择模型"
                 className="shrink-0"
-                style={{ padding: '2px 6px', maxWidth: 160 }}
+                style={{ backgroundColor: 'transparent', border: 'none', padding: '2px 4px', maxWidth: 150 }}
               />
             )}
             <button
@@ -209,21 +216,19 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
               style={{
                 backgroundColor: 'var(--crai-accent)',
                 borderRadius: 'var(--crai-btn-radius, 8px)',
+                width: 28,
                 height: 28,
-                fontSize: 'var(--crai-btn-font-size, 12px)',
-                padding: '0 14px',
-                fontWeight: 500,
                 color: 'var(--crai-btn-color)',
                 opacity: disabled || !text.trim() ? 0.4 : 1,
                 border: 'none',
                 cursor: disabled || !text.trim() ? 'default' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4,
-                whiteSpace: 'nowrap',
+                justifyContent: 'center',
               }}
+              title="发送 (Enter)"
             >
-              <Icon icon={Send} size="sm" /> 发送
+              <Icon icon={Send} size="sm" />
             </button>
           </div>
         </div>

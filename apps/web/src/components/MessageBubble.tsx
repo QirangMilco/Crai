@@ -1,3 +1,10 @@
+/**
+ * MessageBubble — 消息气泡组件。
+ *
+ * 用户消息：彩色气泡，右对齐。
+ * AI 消息：无气泡背景，直接展示在消息流中（类 CrystalAgents 风格）。
+ * 错误消息：警告样式。
+ */
 import { memo } from 'react'
 import type { ChatMessage } from '../types/messages'
 import { MarkdownRenderer } from './markdown/MarkdownRenderer'
@@ -21,43 +28,56 @@ function Bubble({ msg }: Props) {
       style={{ marginBottom: 'var(--crai-msg-gap, 8px)' }}
       data-token-group={isUser ? 'user-msg' : 'ai-msg'}
     >
-      <div
-        style={{
-          backgroundColor: isError
-            ? 'var(--crai-tool-error)'
-            : isUser
-              ? 'var(--crai-msg-user-bg)'
-              : 'var(--crai-msg-assistant-bg)',
-          color: isError
-            ? '#fff'
-            : isUser
-              ? 'var(--crai-msg-user-fg)'
-              : 'var(--crai-msg-assistant-fg)',
-          borderRadius: isUser ? 'var(--crai-msg-user-radius)' : 'var(--crai-msg-assistant-radius)',
-          fontSize: isUser ? 'var(--crai-msg-user-font-size)' : 'var(--crai-msg-ai-font-size)',
-          lineHeight: isUser ? 'var(--crai-msg-user-line-height)' : 'var(--crai-msg-ai-line-height)',
-          boxShadow: 'var(--crai-shadow-bubble)',
-          padding: 'var(--crai-msg-padding-y, 12px) var(--crai-msg-padding-x, 16px)',
-          width: isUser ? undefined : '100%',
-          maxWidth: isUser ? 'var(--crai-msg-user-max-width)' : isError ? '100%' : 'var(--crai-msg-max-width)',
-        }}>
-        {isUser ? (
+      {isUser ? (
+        <div
+          style={{
+            backgroundColor: 'var(--crai-msg-user-bg)',
+            color: 'var(--crai-msg-user-fg)',
+            borderRadius: 'var(--crai-msg-user-radius)',
+            fontSize: 'var(--crai-msg-user-font-size)',
+            lineHeight: 'var(--crai-msg-user-line-height)',
+            boxShadow: 'var(--crai-shadow-bubble)',
+            padding: 'var(--crai-msg-padding-y, 12px) var(--crai-msg-padding-x, 16px)',
+            maxWidth: 'var(--crai-msg-user-max-width)',
+          }}
+        >
           <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-        ) : isError ? (
-          <div style={{ fontSize: 13 }}>{msg.text}</div>
-        ) : (
-          <>
-            {msg.activities && msg.activities.length > 0 && (
-              <ActivityTimeline activities={msg.activities} />
-            )}
-            {msg.text ? (
+        </div>
+      ) : isError ? (
+        <div
+          style={{
+            backgroundColor: 'var(--crai-tool-error)',
+            color: '#fff',
+            borderRadius: 'var(--crai-msg-assistant-radius)',
+            fontSize: 13,
+            padding: '8px 14px',
+            width: '100%',
+          }}
+        >
+          {msg.text}
+        </div>
+      ) : (
+        <div
+          style={{
+            fontSize: 'var(--crai-msg-ai-font-size)',
+            lineHeight: 'var(--crai-msg-ai-line-height)',
+            paddingLeft: 'var(--crai-msg-padding-x, 16px)',
+            paddingRight: 'var(--crai-msg-padding-x, 16px)',
+            maxWidth: 'var(--crai-msg-max-width)',
+          }}
+        >
+          {msg.activities && msg.activities.length > 0 && (
+            <ActivityTimeline activities={msg.activities} />
+          )}
+          {msg.text ? (
+            <div className="prose prose-sm max-w-none">
               <MarkdownRenderer content={msg.text} />
-            ) : msg.activities?.some((a) => a.status === 'running') ? (
-              <ThreeDotIndicator />
-            ) : null}
-          </>
-        )}
-      </div>
+            </div>
+          ) : msg.activities?.some((a) => a.status === 'running') ? (
+            <ThreeDotIndicator />
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }
@@ -68,7 +88,6 @@ export const MessageBubble = memo(Bubble, (prev, next) => {
     && prev.msg.activities === next.msg.activities
 })
 
-/** 三圆点思考指示器（思考中、尚无文本时显示）。 */
 function ThreeDotIndicator() {
   const dot: React.CSSProperties = {
     display: 'inline-block',
