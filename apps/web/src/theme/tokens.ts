@@ -84,7 +84,7 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-radius-lg', label: '大圆角', group: 'radius', type: 'size', defaultValue: '8px', max: 64, description: '弹窗、卡片容器圆角' },
   { name: '--crai-msg-user-radius', label: '用户消息圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius) var(--crai-radius) var(--crai-radius) var(--crai-radius)', ref: '--crai-radius' },
   { name: '--crai-msg-assistant-radius', label: 'AI 消息圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius) var(--crai-radius) var(--crai-radius) var(--crai-radius)', ref: '--crai-radius' },
-  { name: '--crai-input-radius', label: '输入框圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius-sm)', ref: '--crai-radius-sm' },
+  { name: '--crai-input-radius', label: '输入框圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius-lg)', ref: '--crai-radius-lg' },
   { name: '--crai-md-code-radius', label: '代码块圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius-sm)', ref: '--crai-radius-sm' },
 
   // ============================================================
