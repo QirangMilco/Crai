@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Send } from 'lucide-react'
+import { Send, Play, HelpCircle, Lock, Clock, ChevronDown } from 'lucide-react'
 import { Icon, Select } from './ui'
 import { useChatStore } from '../store/chat'
 import { TodoBar } from './TodoDisplay'
@@ -47,10 +47,17 @@ function getAvailableThinkingLevels(provider: string, configLevels?: Record<stri
 }
 
 const MODE_ICONS: Record<string, React.ReactNode> = {
-  execute: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></svg>,
-  ask: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.7-2.5 2-2.5 4" /><path d="M12 17h.01" /></svg>,
-  safe: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="11" width="14" height="9" rx="1.5" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>,
-  plan: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+  execute: <Icon icon={Play} size="sm" />,
+  ask: <Icon icon={HelpCircle} size="sm" />,
+  safe: <Icon icon={Lock} size="sm" />,
+  plan: <Icon icon={Clock} size="sm" />,
+}
+
+const MODE_COLORS: Record<string, { base: string; bg: string; border: string }> = {
+  execute: { base: 'var(--crai-accent)', bg: 'color-mix(in oklch, var(--crai-accent) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-accent) 20%, transparent)' },
+  ask: { base: 'var(--crai-info)', bg: 'color-mix(in oklch, var(--crai-info) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-info) 20%, transparent)' },
+  safe: { base: 'var(--crai-success)', bg: 'color-mix(in oklch, var(--crai-success) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-success) 20%, transparent)' },
+  plan: { base: 'var(--crai-fg)', bg: 'color-mix(in oklch, var(--crai-fg) 5%, var(--crai-bg))', border: 'var(--crai-border)' },
 }
 
 const SESSION_MODES = [
@@ -75,6 +82,7 @@ function ModeDropdown({ value, onChange }: { value: string; onChange: (v: string
 
   const current = SESSION_MODES.find((m) => m.value === value)
   const label = current?.label ?? '模式'
+  const mc = MODE_COLORS[value] ?? MODE_COLORS.execute
 
   function toggle() {
     if (!open && ref.current) {
@@ -88,12 +96,12 @@ function ModeDropdown({ value, onChange }: { value: string; onChange: (v: string
     <div ref={ref} className="relative shrink-0">
       <button
         onClick={toggle}
-        className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
-        style={{ color: 'var(--crai-fg)', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+        className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] transition-colors duration-150 hover:opacity-80"
+        style={{ color: mc.base, backgroundColor: mc.bg, border: `1px solid ${mc.border}`, cursor: 'pointer', whiteSpace: 'nowrap' }}
       >
         {MODE_ICONS[value]}
-        <span>{label}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+          <span>{label}</span>
+          <Icon icon={ChevronDown} size="xs" />
       </button>
       {open && (
         <div
@@ -161,7 +169,7 @@ function ModelDropdown({ models, value, onChange }: { models: Array<{ name: stri
         style={{ color: 'var(--crai-fg)', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
       >
         <span className="max-w-[100px] truncate">{current?.name ?? '选择模型'}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+          <Icon icon={ChevronDown} size="xs" />
       </button>
       {open && (
         <div
