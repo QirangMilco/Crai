@@ -86,6 +86,14 @@ button, [role="button"], select, input[type="text"], input[type="search"] {
   background-color: var(--crai-bg-5) !important;
 }
 
+/* ── Dropdown 删除按钮 hover ── */
+.crai-dropdown-del:hover {
+  background-color: color-mix(in oklch, var(--crai-destructive) 10%, transparent) !important;
+}
+.crai-dropdown-del:hover .crai-dropdown-del-icon {
+  color: var(--crai-destructive) !important;
+}
+
 /* ── 发送按钮 hover ── */
 .crai-send-btn:hover:not(:disabled) {
   background-color: var(--crai-btn-hover-bg) !important;

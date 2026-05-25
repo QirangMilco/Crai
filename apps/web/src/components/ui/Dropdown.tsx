@@ -14,9 +14,8 @@
  *   />
  */
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Trash2 } from 'lucide-react'
 import { Icon } from './Icon'
-import { cn } from './cn'
 
 export interface DropdownItem<T extends string = string> {
   id: T
@@ -31,6 +30,10 @@ interface DropdownProps<T extends string = string> {
   onSelect: (id: T) => void
   onAction?: () => void
   actionLabel?: string
+  /** 可选的删除回调。每项 hover 时出现 ✕ 按钮。 */
+  onDelete?: (id: T) => void
+  /** dropdown 面板对齐方向。默认 'right'。 */
+  align?: 'left' | 'right'
 }
 
 export function Dropdown<T extends string = string>({
@@ -40,6 +43,8 @@ export function Dropdown<T extends string = string>({
   onSelect,
   onAction,
   actionLabel,
+  onDelete,
+  align = 'left',
 }: DropdownProps<T>) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -56,14 +61,14 @@ export function Dropdown<T extends string = string>({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 px-2 py-1 rounded text-xs border transition-colors duration-150"
-        style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-secondary)' }}
+        className="flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
+        style={{ color: 'var(--crai-fg-secondary)', backgroundColor: 'var(--crai-bg-tertiary)', border: 'none', cursor: 'pointer' }}
       >
         {label} <Icon icon={ChevronDown} size="xs" />
       </button>
       {open && (
         <div
-          className="absolute top-full right-0 mt-1 min-w-[160px] rounded-lg z-50 py-1 shadow-lg"
+          className={`absolute top-full mt-1 min-w-[160px] rounded-lg z-50 py-1 shadow-lg ${align === 'right' ? 'right-0' : 'left-0'}`}
           style={{
             backgroundColor: 'var(--crai-bg)',
             border: '1px solid var(--crai-border)',
@@ -71,26 +76,35 @@ export function Dropdown<T extends string = string>({
           }}
         >
           {items.map((item) => (
-            <button
+            <div
               key={item.id}
-              onClick={() => { onSelect(item.id); setOpen(false) }}
-              className={cn(
-                'w-full text-left px-3 py-1.5 text-xs flex items-center gap-2',
-                'transition-colors duration-150',
-                'hover:bg-[var(--crai-bg-tertiary)]',
-              )}
-              style={{ color: item.active ? 'var(--crai-accent)' : 'var(--crai-fg)' }}
+              className="flex items-center px-1.5 py-0.5 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-5)] group"
             >
-              {item.active && <span className="text-[10px]">●</span>}
-              {item.display}
-            </button>
+              <button
+                onClick={() => { onSelect(item.id); setOpen(false) }}
+                className="flex-1 text-left px-1.5 py-1 text-xs flex items-center gap-2 rounded"
+                style={{ color: item.active ? 'var(--crai-accent)' : 'var(--crai-fg)' }}
+              >
+                {item.display}
+              </button>
+              {onDelete && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(item.id); setOpen(false) }}
+                  className="shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-all duration-150 crai-dropdown-del"
+                  style={{ width: 22, height: 22 }}
+                  title="删除工作区"
+                >
+                  <Icon icon={Trash2} size="xs" className="crai-dropdown-del-icon" style={{ color: 'var(--crai-fg-tertiary)' }} />
+                </button>
+              )}
+            </div>
           ))}
           {onAction && actionLabel && (
             <>
-              <div className="mx-2 my-1 border-t" style={{ borderColor: 'var(--crai-border)' }} />
+              <div className="mx-1.5 my-0.5 border-t" style={{ borderColor: 'var(--crai-border)' }} />
               <button
                 onClick={() => { onAction(); setOpen(false) }}
-                className="w-full text-left px-3 py-1.5 text-xs transition-colors duration-150 hover:bg-[var(--crai-bg-tertiary)]"
+                className="w-full text-left px-3 py-1.5 text-xs transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
                 style={{ color: 'var(--crai-accent)' }}
               >
                 {actionLabel}

@@ -13,7 +13,7 @@ import { registerPanels } from './shell/PanelRegistry'
 import { SessionListPanel } from './panels/SessionListPanel'
 import { FileTreePanel } from './panels/FileTreePanel'
 import { Dropdown, Icon } from './ui'
-import { MessageSquare, FolderTree, X, Folder, ArrowUp, Circle, CheckCircle2, Settings, Palette, Plus, Send } from 'lucide-react'
+import { MessageSquare, FolderTree, X, Folder, ArrowUp, Settings, Palette, Plus, Send } from 'lucide-react'
 
 interface Props { wsUrl: string }
 
@@ -219,30 +219,57 @@ export function ChatView({ wsUrl }: Props) {
     setPendingConfirm(null)
   }, [send])
 
+  const currentSessionTitle = sessionId ? sessions.find((s) => s.id === sessionId)?.title : undefined
+
   return (
     <div className="flex h-dvh flex-col" style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg)' }}>
-      <header className="flex items-center justify-between px-4 shrink-0 border-b"
-        style={{ borderColor: 'var(--crai-border)', height: 'var(--crai-header-height, 48px)' }}>
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">Crai</span>
-          <Icon icon={status === 'connected' ? CheckCircle2 : Circle} size="sm"
-            style={{ color: status === 'connected' ? 'var(--crai-success)' : 'var(--crai-destructive)' }} />
-          <span className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>
-            {status === 'connected' ? (sessionId ? sessionId.slice(0, 12) : '已连接') : status}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Dropdown label={currentWorkspace ? currentWorkspace.split('/').pop()! : '工作区'}
+      <header className="flex items-center justify-between px-5 shrink-0 border-b"
+        style={{
+          borderColor: 'var(--crai-border)',
+          height: 'var(--crai-header-height, 48px)',
+        }}
+      >
+        {/* 左：工作区 badge（可交互，点击展开下拉） + 对话标题 */}
+        <div className="flex items-center gap-3 min-w-0">
+          <Dropdown label={currentWorkspace ? currentWorkspace.split('/').pop()! : '无工作区'}
             items={workspaces.map((w) => ({ id: w.rootDir, display: w.rootDir.split('/').pop() ?? w.rootDir, active: w.rootDir === currentWorkspace }))}
-            selected={currentWorkspace} onSelect={handleSwitchWorkspace} onAction={handleAddWorkspace} actionLabel="+ 添加工作区" />
+            selected={currentWorkspace}
+            onSelect={handleSwitchWorkspace}
+            onAction={handleAddWorkspace}
+            actionLabel="+ 添加工作区"
+            onDelete={(id) => send({ type: 'workspace:delete', rootDir: id })}
+            align="left"
+          />
+          {sessionId && (
+            <>
+              <span className="text-sm shrink-0" style={{ color: 'var(--crai-fg-tertiary)' }}>/</span>
+              <span className="text-sm font-medium truncate" style={{ color: 'var(--crai-fg)' }}>
+                {currentSessionTitle || '新对话'}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* 右：状态 + 设置 */}
+        <div className="flex items-center gap-2">
           <button onClick={() => { send({ type: 'config:get' }); setShowConfig((s) => !s) }}
-            className="px-3 py-1 rounded text-xs font-medium transition-colors duration-150 inline-flex items-center gap-1"
+            className="px-2 py-1 rounded text-xs font-medium transition-colors duration-150 inline-flex items-center gap-1"
             style={{ backgroundColor: showConfig ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)', color: showConfig ? '#fff' : 'var(--crai-fg-secondary)' }}>
-            <Icon icon={Settings} size="xs" />配置</button>
+            <Icon icon={Settings} size="xs" /></button>
           <button onClick={() => setShowInspector((s) => !s)}
-            className="px-3 py-1 rounded text-xs font-medium transition-colors duration-150 inline-flex items-center gap-1"
+            className="px-2 py-1 rounded text-xs font-medium transition-colors duration-150 inline-flex items-center gap-1"
             style={{ backgroundColor: showInspector ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)', color: showInspector ? '#fff' : 'var(--crai-fg-secondary)' }}>
-            <Icon icon={Palette} size="xs" />Inspector</button>
+            <Icon icon={Palette} size="xs" /></button>
+          <span className="flex items-center gap-1.5 text-[11px] shrink-0 pl-1 border-l"
+            style={{ color: 'var(--crai-fg-tertiary)', borderColor: 'var(--crai-border)' }}>
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                backgroundColor: status === 'connected' ? 'var(--crai-success)' : 'var(--crai-destructive)',
+              }}
+            />
+            {status === 'connected' ? '已连接' : '断开'}
+          </span>
         </div>
       </header>
 
