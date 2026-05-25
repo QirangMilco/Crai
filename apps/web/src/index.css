@@ -58,9 +58,11 @@ body {
   transition: background-color 0.15s, opacity 0.2s;
 }
 
-/* ── 输入框容器聚焦提升 ── */
+/* ── 输入框容器聚焦状态 ── */
 [data-token-group="input-box"]:focus-within {
-  box-shadow: var(--crai-shadow-elevated, 0 2px 8px rgba(0,0,0,0.06)) !important;
+  box-shadow:
+    rgba(var(--crai-foreground-rgb, 38,36,42), 0.10) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.06) 0px 3px 14px !important;
 }
 
 /* ── 全局焦点环 ── */
@@ -69,18 +71,27 @@ body {
   box-shadow: 0 0 0 var(--crai-ring-width, 2px) var(--crai-ring);
 }
 
+/* ── 聚焦效果由容器 :focus-within 接管，textarea 自身不需要 ── */
+textarea:focus-visible {
+  box-shadow: none;
+}
+
 /* ── 全局微交互 ── */
 button, [role="button"], select, input[type="text"], input[type="search"] {
   transition: color 0.15s, background-color 0.15s, border-color 0.15s, opacity 0.15s, box-shadow 0.15s;
 }
 
-/* ── 可交互卡片 hover ── */
-[data-interactive="true"]:hover {
-  border-color: color-mix(in oklch, var(--crai-fg, #333) 15%, var(--crai-bg, #fff));
+/* ── 工具栏 hover 效果（!important 覆盖 Select inline transparent） ── */
+[data-token-group="input-bar"] button:where(:not(.crai-send-btn)):hover {
+  background-color: var(--crai-bg-5) !important;
 }
+
+/* ── 发送按钮 hover ── */
 .crai-send-btn:hover:not(:disabled) {
   background-color: var(--crai-btn-hover-bg) !important;
 }
+
+/* ── 可交互卡片 hover ── */
 
 /* ── Inspector 定位模式高亮 ── */
 .crai-locate-highlight {

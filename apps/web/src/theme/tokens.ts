@@ -42,7 +42,7 @@ export const TOKENS: TokenDef[] = [
   // ── 边框（从前景色微透明衍生） ──
   { name: '--crai-border', label: '边框色', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 5%, var(--crai-bg))', description: '从前景色衍生，换主题时自动跟随' },
   { name: '--crai-border-hover', label: '悬停边框色', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 10%, var(--crai-bg))' },
-  { name: '--crai-input-border', label: '输入框边框', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 10%, var(--crai-bg))' },
+  { name: '--crai-input-border', label: '输入框边框', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 5%, var(--crai-bg))' },
 
   // ── 其余基础 ──
   { name: '--crai-scrollbar-color', label: '滚动条颜色', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 12%, var(--crai-bg))' },
@@ -59,7 +59,7 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-font-size', label: '基础字号', group: 'font-size', type: 'size', defaultValue: '15px', max: 32, description: '修改后所有继承它的字号自动跟随' },
   { name: '--crai-msg-user-font-size', label: '用户消息字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
   { name: '--crai-msg-ai-font-size', label: 'AI 消息字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
-  { name: '--crai-input-font-size', label: '文本区字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32 },
+  { name: '--crai-input-font-size', label: '文本区字号', group: 'font-size', type: 'size', defaultValue: '14px', max: 32, description: '输入框文本的大小' },
   { name: '--crai-toolbar-font-size', label: '工具栏字号', group: 'input-bar', type: 'size', defaultValue: '11px', max: 20, description: '输入框底部选择菜单的字号' },
   { name: '--crai-md-paragraph-font-size', label: '正文字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32, description: 'Markdown 段落文字大小' },
 
@@ -149,12 +149,11 @@ export const TOKENS: TokenDef[] = [
   // ============================================================
   // 📦 输入框容器
   // ============================================================
-  { name: '--crai-input-bg', label: '背景', group: 'input-box', type: 'color', defaultValue: 'var(--crai-bg)', ref: '--crai-bg' },
-  { name: '--crai-input-border', label: '边框色', group: 'input-box', type: 'color', defaultValue: 'var(--crai-input-border)', ref: '--crai-input-border' },
+  { name: '--crai-input-bg', label: '背景', group: 'input-box', type: 'color', defaultValue: 'var(--crai-bg-3)', ref: '--crai-bg-3', description: '输入框容器背景，略高于页面底色' },
   { name: '--crai-input-border-width', label: '边框宽度', group: 'input-box', type: 'size', defaultValue: 'var(--crai-border-width)', ref: '--crai-border-width', min: 0, max: 8 },
-  { name: '--crai-shadow-input', label: '阴影', group: 'input-box', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 1px 2px -0.5px', description: '输入框容器阴影' },
+  { name: '--crai-shadow-input', label: '阴影', group: 'input-box', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.02) 0px 2px 8px', description: '输入框容器阴影' },
   { name: '--crai-input-gap', label: '文本区与工具栏间距', group: 'input-box', type: 'size', defaultValue: '4px', max: 40 },
-  { name: '--crai-input-padding-x', label: '水平内边距', group: 'input-box', type: 'size', defaultValue: '16px', max: 40, description: '文本框左右两侧的空白' },
+  { name: '--crai-input-padding-x', label: '水平内边距', group: 'input-box', type: 'size', defaultValue: '14px', max: 40, description: '文本左右两侧的空白' },
   { name: '--crai-input-min-height', label: '最小高度', group: 'input-box', type: 'size', defaultValue: '44px', max: 200 },
   { name: '--crai-input-max-height', label: '最大高度', group: 'input-box', type: 'size', defaultValue: '120px', max: 400 },
 

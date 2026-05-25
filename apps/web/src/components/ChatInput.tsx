@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Zap, HelpCircle, Shield } from 'lucide-react'
+import { Send, Bot, Zap, HelpCircle, Shield } from 'lucide-react'
 import { Icon, Select } from './ui'
 import { useChatStore } from '../store/chat'
 import { TodoBar } from './TodoDisplay'
@@ -112,7 +112,7 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
       }}>
       <div
         data-token-group="input-box"
-        className="transition-shadow duration-150"
+        className="transition-all duration-150"
         style={{
           backgroundColor: 'var(--crai-input-bg)',
           border: 'var(--crai-input-border-width, 1px) solid var(--crai-input-border)',
@@ -122,6 +122,7 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
           display: 'flex',
           flexDirection: 'column',
           gap: 'var(--crai-input-gap, 4px)',
+          overflow: 'visible',
         }}>
         <textarea
           ref={textareaRef}
@@ -143,7 +144,7 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
             outline: 'none',
             resize: 'none',
             boxSizing: 'border-box',
-            padding: '12px var(--crai-input-padding-x, 16px) 0',
+            padding: '8px var(--crai-input-padding-x, 14px) 0',
             maxHeight: 'calc(var(--crai-input-max-height, 120px))',
             overflowY: 'hidden',
           }}
