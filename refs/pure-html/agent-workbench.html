@@ -1011,7 +1011,7 @@
             max-width: var(--msg-inner-max);
         }
         .msg.msg-user {
-            flex-direction: row;
+            flex-direction: row-reverse;
             align-self: flex-end;
         }
 
@@ -1060,7 +1060,7 @@
             letter-spacing: 0.2px;
         }
         .msg.msg-user .msg-name {
-            text-align: right;
+            display: none;
         }
         .msg.msg-ai .msg-name {
             text-align: left;
@@ -1072,6 +1072,9 @@
             text-align: left;
         }
         .msg.msg-user .msg-content {
+            background: var(--bg-secondary);
+            border-radius: 16px 16px 4px 16px;
+            padding: 10px 16px;
             text-align: left;
         }
 
