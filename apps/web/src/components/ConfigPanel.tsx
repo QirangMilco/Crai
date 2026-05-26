@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { Select } from './ui'
 import { ComboInput } from './ui'
 import { DEFAULT_COMPRESSION_THRESHOLD, DEFAULT_KEEP_RECENT_TOKENS } from '@crai/core'
+import { ui } from './ConfigPanel.strings'
 
 // 由服务端 knownModels prop 提供,见 config:known-models 协议。
 // 不再硬编码。
@@ -242,7 +243,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
 
   // 合并预设 + 自定义 provider 列表
   const knownFirstParty = isDev
-    ? [...(firstParty ?? []), { name: 'mock', label: 'Mock(测试)', defaultBaseURL: '' }]
+    ? [...(firstParty ?? []), { name: 'mock', label: '{ui.mockLabel}', defaultBaseURL: '' }]
     : (firstParty ?? [])
   const providerEntries = [
     ...knownFirstParty.map((fp) => ({
@@ -279,7 +280,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
       {/* 标题 */}
       <div className="flex items-center justify-between px-4 py-3 border-b shrink-0"
         style={{ borderColor: 'var(--crai-border)' }}>
-        <span className="font-semibold text-base">配置</span>
+        <span className="font-semibold text-base">{ui.configTitle}</span>
         <button onClick={onClose} className="text-lg leading-none opacity-50 hover:opacity-100 transition-opacity duration-150">✕</button>
       </div>
 
@@ -298,7 +299,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                 fontWeight: configTab === tab ? 500 : 400,
               }}
             >
-              {{ providers: '供应商', general: '通用' }[tab]}
+              {{ providers: ui.tabProviders, general: ui.tabGeneral }[tab]}
             </button>
           ))}
         </div>
@@ -310,7 +311,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
               {/* 供应商列表(内部左侧栏) */}
               <div className="w-40 shrink-0 border-r flex flex-col overflow-hidden" style={{ borderColor: 'var(--crai-border)' }}>
                 <div className="flex-1 overflow-y-auto py-2 space-y-1 px-2">
-                  <div className="text-[10px] font-medium px-2 py-1 uppercase tracking-wider opacity-40">预设</div>
+                  <div className="text-[10px] font-medium px-2 py-1 uppercase tracking-wider opacity-40">{ui.presetLabel}</div>
                   {providerEntries.filter(e => e.isPreset).map((entry) => (
                     <button
                       key={entry.name}
@@ -321,11 +322,11 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                         color: editing === entry.name ? 'var(--crai-accent)' : 'var(--crai-fg)',
                       }}>
                       <span className="truncate">{entry.label}</span>
-                      {entry.configured && <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="已配置" />}
+                      {entry.configured && <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title={ui.configured} />}
                     </button>
                   ))}
 
-                  <div className="text-[10px] font-medium px-2 py-1 mt-4 uppercase tracking-wider opacity-40">自定义</div>
+                  <div className="text-[10px] font-medium px-2 py-1 mt-4 uppercase tracking-wider opacity-40">{ui.customLabel}</div>
                   {providerEntries.filter(e => !e.isPreset).map((entry) => (
                     <button
                       key={entry.name}
@@ -336,7 +337,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                         color: editing === entry.name ? 'var(--crai-accent)' : 'var(--crai-fg)',
                       }}>
                       <span className="truncate">{entry.label}</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="已配置" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title={ui.configured} />
                     </button>
                   ))}
                 </div>
@@ -351,7 +352,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                       color: editing === '__new__' ? 'var(--crai-accent)' : 'var(--crai-fg-secondary)',
                       backgroundColor: editing === '__new__' ? 'var(--crai-bg-3)' : 'transparent',
                     }}>
-                    + 添加供应商
+                    {ui.addProvider}
                   </button>
                 </div>
               </div>
@@ -361,17 +362,17 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                 {!editing ? (
                   <div className="h-full flex flex-col items-center justify-center opacity-30 space-y-2">
                     <div className="text-4xl">⚙️</div>
-                    <div className="text-xs">选择一个供应商进行配置</div>
+                    <div className="text-xs">{ui.selectProviderHint}</div>
                   </div>
                 ) : editing === '__new__' ? (
                   <div className="max-w-md space-y-6">
                     <div>
-                      <h3 className="text-sm font-semibold mb-4">添加自定义供应商</h3>
+                      <h3 className="text-sm font-semibold mb-4">{ui.addCustomTitle}</h3>
                       <div className="space-y-4">
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-medium opacity-60">名称</label>
+                          <label className="text-[11px] font-medium opacity-60">{ui.nameLabel}</label>
                           <input value={customName} onChange={e => setCustomName(e.target.value)}
-                            placeholder="如:my-llm"
+                            placeholder={ui.namePlaceholder}
                             className="w-full px-3 py-2 rounded text-xs outline-none"
                             style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
                         </div>
@@ -390,16 +391,16 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                             style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[11px] font-medium opacity-60">Models API 路径 (可选)</label>
+                          <label className="text-[11px] font-medium opacity-60">{ui.modelsApiPathLabel}</label>
                           <input value={customModelsPath} onChange={e => setCustomModelsPath(e.target.value)}
-                            placeholder="默认 /v1/models"
+                            placeholder={`${ui.defaultOption} /v1/models`}
                             className="w-full px-3 py-2 rounded text-xs outline-none"
                             style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
                         </div>
                         <button onClick={addCustomProvider}
                           disabled={!customName || !customKey}
                           className="w-full py-2.5 rounded text-xs font-medium text-white disabled:opacity-40 mt-2"
-                          style={{ backgroundColor: 'var(--crai-accent)' }}>添加供应商</button>
+                          style={{ backgroundColor: 'var(--crai-accent)' }}>{ui.addProviderBtn}</button>
                       </div>
                     </div>
                   </div>
@@ -408,12 +409,12 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                     {/* 基础配置 */}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold">{providerEntries.find(e => e.name === editing)?.label || editing} 配置</h3>
+                        <h3 className="text-sm font-semibold">{providerEntries.find(e => e.name === editing)?.label || editing}{ui.editProviderTitle}</h3>
                         {!providerEntries.find(e => e.name === editing)?.isPreset && (
                           <button onClick={() => removeProvider(editing)}
                             className="text-[10px] px-2 py-1 rounded border transition-colors"
                             style={{ color: 'var(--crai-destructive)', borderColor: 'var(--crai-destructive)' }}>
-                            删除供应商
+                            {ui.deleteProvider}
                           </button>
                         )}
                       </div>
@@ -447,10 +448,10 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                               }`,
                             }}
                             title={
-                              testButtonState === 'ok' ? '连接成功' :
-                              testButtonState === 'fail' ? '连接失败' :
-                              testButtonState === 'testing' ? '测试中…' :
-                              '测试连接'
+                              testButtonState === 'ok' ? ui.connectionOk :
+                              testButtonState === 'fail' ? ui.connectionFail :
+                              testButtonState === 'testing' ? ui.connectionTesting :
+                              ui.testConnection
                             }
                           >
                             {testButtonState === 'testing' ? (
@@ -483,7 +484,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                           value={editBaseURL}
                           onChange={e => setEditBaseURL(e.target.value)}
                           onBlur={() => saveProviderConfig()}
-                          placeholder={providerEntries.find(e => e.name === editing)?.isPreset ? `默认: ${firstPartyDefault(editing)?.defaultBaseURL}` : 'https://...'}
+                          placeholder={providerEntries.find(e => e.name === editing)?.isPreset ? `${ui.baseUrlDefaultHint}${firstPartyDefault(editing)?.defaultBaseURL}` : 'https://...'}
                           className="flex-1 px-3 py-2 rounded text-xs outline-none"
                           style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
                       </div>
@@ -491,7 +492,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                       {/* Models API 路径（仅自定义 provider） */}
                       {!providerEntries.find(e => e.name === editing)?.isPreset && (
                         <div className="flex items-center gap-3">
-                          <span className="text-[11px] font-medium opacity-60 shrink-0 w-20">API 路径</span>
+                          <span className="text-[11px] font-medium opacity-60 shrink-0 w-20">{ui.apiPathLabel}</span>
                           <input value={editModelsPath} onChange={e => setEditModelsPath(e.target.value)}
                             placeholder="/v1/models"
                             className="flex-1 px-3 py-2 rounded text-xs outline-none"
@@ -522,7 +523,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                         <div className="space-y-3 pt-4 border-t" style={{ borderColor: 'var(--crai-border)' }}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <h4 className="text-[11px] font-semibold uppercase tracking-wider opacity-60">已添加模型</h4>
+                              <h4 className="text-[11px] font-semibold uppercase tracking-wider opacity-60">{ui.addedModels}</h4>
                               <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--crai-bg-tertiary)', color: 'var(--crai-fg-tertiary)' }}>{models.length}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
@@ -537,7 +538,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                 <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                                 </svg>
-                                添加模型
+                                {ui.addModel}
                               </button>
                               <button onClick={fetchModelList}
                                 disabled={fetching}
@@ -547,7 +548,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                   <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
                                   <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                                 </svg>
-                                {fetching ? '获取中…' : '获取模型'}
+                                {fetching ? ui.fetching : ui.fetchModels}
                               </button>
                             </div>
                           </div>
@@ -588,7 +589,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
 
                                     {/* 视觉标记 */}
                                     {mc.vision && (
-                                      <span className="text-[10px] shrink-0" title="支持视觉">🖼</span>
+                                      <span className="text-[10px] shrink-0" title={ui.supportVision}>🖼</span>
                                     )}
 
                                     {/* 上下文长度（可读格式） */}
@@ -603,7 +604,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                         onClick={() => setEditingModel(m)}
                                         className="w-5 h-5 flex items-center justify-center rounded transition-colors hover:opacity-80"
                                         style={{ color: 'var(--crai-fg-tertiary)' }}
-                                        title="编辑模型"
+                                        title={ui.editModel}
                                       >
                                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -614,7 +615,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                         onClick={() => removeModel(m)}
                                         className="w-5 h-5 flex items-center justify-center rounded transition-colors hover:opacity-80"
                                         style={{ color: 'var(--crai-destructive)' }}
-                                        title="移除模型"
+                                        title={ui.removeModel}
                                       >
                                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                           <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -627,7 +628,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                             </div>
                           ) : (
                             <div className="text-[10px] opacity-40 py-4 text-center rounded-lg" style={{ backgroundColor: 'var(--crai-bg-secondary)' }}>
-                              尚未添加模型。点击上方"添加模型"或"获取模型"。
+                              {ui.noModelsHint}
                             </div>
                           )}
 
@@ -649,7 +650,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                     autoFocus
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
-                                    placeholder="搜索模型…"
+                                    placeholder={ui.searchModel}
                                     className="w-full px-2.5 py-1.5 rounded text-xs outline-none"
                                     style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
                                   />
@@ -693,7 +694,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                     })
                                   ) : (
                                     <div className="text-[10px] opacity-40 text-center py-4">
-                                      先点击"获取模型"发现模型
+                                      {ui.fetchFirstHint}
                                     </div>
                                   )}
                                 </div>
@@ -702,7 +703,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                 <div className="px-3 py-2 border-t flex items-center gap-2" style={{ borderColor: 'var(--crai-border)' }}>
                                   <input
                                     id="custom-model-input"
-                                    placeholder="输入模型 ID"
+                                    placeholder={ui.customModelPlaceholder}
                                     className="flex-1 px-2.5 py-1.5 rounded text-[10px] outline-none"
                                     style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
                                     onKeyDown={e => {
@@ -727,7 +728,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                     className="px-2 py-1.5 rounded text-[10px] text-white"
                                     style={{ backgroundColor: 'var(--crai-accent)' }}
                                   >
-                                    添加
+                                    {ui.manualAddBtn}
                                   </button>
                                 </div>
                               </div>
@@ -761,19 +762,19 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                 }}
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="text-xs font-semibold">编辑模型</span>
+                                  <span className="text-xs font-semibold">{ui.editModelTitle}</span>
                                   <button onClick={() => setEditingModel(null)} className="opacity-40 hover:opacity-100 text-sm">✕</button>
                                 </div>
 
                                 <div className="space-y-0.5">
-                                  <label className="text-[10px] opacity-50">模型 ID</label>
+                                  <label className="text-[10px] opacity-50">{ui.modelIdLabel}</label>
                                   <div className="text-xs py-1.5 px-2 rounded" style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg-tertiary)' }}>
                                     {editingModel}
                                   </div>
                                 </div>
 
                                 <div className="space-y-0.5">
-                                  <label className="text-[10px] opacity-50">显示名称（可选）</label>
+                                  <label className="text-[10px] opacity-50">{ui.displayNameLabel}</label>
                                   <input
                                     value={editFormName}
                                     onChange={e => setEditFormName(e.target.value)}
@@ -785,7 +786,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
 
                                 <div className="flex gap-3">
                                   <div className="flex-1 space-y-1">
-                                    <label className="text-[10px] opacity-50">输入上下文</label>
+                                    <label className="text-[10px] opacity-50">{ui.contextLengthLabel}</label>
                                     <ComboInput
                                       presets={[
                                         { label: '64K', value: 65536 },
@@ -800,7 +801,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                     />
                                   </div>
                                   <div className="flex-1 space-y-1">
-                                    <label className="text-[10px] opacity-50">输出上限</label>
+                                    <label className="text-[10px] opacity-50">{ui.maxOutputLabel}</label>
                                     <ComboInput
                                       presets={[
                                         { label: '8K', value: 8192 },
@@ -816,7 +817,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                 </div>
 
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[10px] opacity-50">支持视觉</span>
+                                  <span className="text-[10px] opacity-50">{ui.visionLabel}</span>
                                   <button
                                     onClick={() => setEditFormVision(!editFormVision)}
                                     className="w-8 h-4 rounded-full relative transition-colors"
@@ -839,7 +840,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                     className="px-3 py-1.5 rounded text-[10px]"
                                     style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}
                                   >
-                                    取消
+                                    {ui.cancel}
                                   </button>
                                   <button
                                     onClick={() => {
@@ -854,7 +855,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                     className="px-3 py-1.5 rounded text-[10px] font-medium text-white"
                                     style={{ backgroundColor: 'var(--crai-accent)' }}
                                   >
-                                    保存
+                                    {ui.save}
                                   </button>
                                 </div>
                               </div>
@@ -875,7 +876,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
             <div className="shrink-0 px-5 py-3 border-t" style={{ borderColor: 'var(--crai-border)' }}>
               <div className="flex items-start gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="text-[10px] font-medium opacity-50 mb-1">默认对话模型</div>
+                  <div className="text-[10px] font-medium opacity-50 mb-1">{ui.defaultModelLabel}</div>
                   <Select
                     value={editModel}
                     onChange={v => {
@@ -883,14 +884,14 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                       send({ type: 'config:set', config: { defaultModel: v || undefined } })
                     }}
                     options={[
-                      { value: '', label: '自动选择' },
+                      { value: '', label: ui.autoSelect },
                       ...allModelOptions.map(opt => ({ value: opt.label, label: opt.label })),
                     ]}
-                    placeholder="自动选择"
+                    placeholder={ui.autoSelect}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[10px] font-medium opacity-50 mb-1">工具模型</div>
+                  <div className="text-[10px] font-medium opacity-50 mb-1">{ui.toolModelLabel}</div>
                   <Select
                     value={editToolModel}
                     onChange={v => {
@@ -898,16 +899,16 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                       send({ type: 'config:set', config: { toolModel: v || undefined } })
                     }}
                     options={[
-                      { value: '', label: '使用默认模型' },
+                      { value: '', label: ui.useDefaultModel },
                       ...allModelOptions.map(opt => ({ value: opt.label, label: opt.label })),
                     ]}
-                    placeholder="使用默认模型"
+                    placeholder={ui.useDefaultModel}
                   />
                 </div>
               </div>
               <div className="flex justify-between mt-1">
-                <span className="text-[9px] opacity-40">用于对话的主模型</span>
-                <span className="text-[9px] opacity-40">用于标题生成、对话摘要等辅助任务</span>
+                <span className="text-[9px] opacity-40">{ui.defaultModelHint}</span>
+                <span className="text-[9px] opacity-40">{ui.toolModelHint}</span>
               </div>
             </div>
           </>)}
@@ -918,8 +919,8 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                 {/* ── OS 沙箱开关 ── */}
                 <div className="flex items-center justify-between p-4 rounded-lg border" style={{ borderColor: 'var(--crai-border)', backgroundColor: 'var(--crai-bg-secondary)' }}>
                   <div>
-                    <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--crai-fg)' }}>OS 沙箱模式</div>
-                    <div className="text-[10px] opacity-60 leading-relaxed">启用后 bash 命令在隔离环境 (sandbox-exec/bwrap) 中执行,更安全。</div>
+                    <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--crai-fg)' }}>{ui.sandboxMode}</div>
+                    <div className="text-[10px] opacity-60 leading-relaxed">{ui.sandboxHint}</div>
                   </div>
                   <button
                     onClick={() => {
@@ -935,12 +936,12 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                 {/* ── 上下文压缩 ── */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-[11px] font-semibold uppercase tracking-wider opacity-60">上下文压缩</h3>
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wider opacity-60">{ui.compressionLabel}</h3>
                   </div>
                   <div className="p-4 rounded-lg border space-y-4" style={{ borderColor: 'var(--crai-border)', backgroundColor: 'var(--crai-bg-secondary)' }}>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium">触发阈值</span>
+                        <span className="text-xs font-medium">{ui.compressionThreshold}</span>
                         <span className="text-xs font-mono">{compressionThreshold}%</span>
                       </div>
                       <input
@@ -960,7 +961,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--crai-accent)]"
                         style={{ backgroundColor: 'var(--crai-border)' }}
                       />
-                      <p className="text-[10px] opacity-40 leading-relaxed">超过上下文窗口的此比例时自动触发压缩。较低的值会更频繁地移除旧消息以节省 Token。</p>
+                      <p className="text-[10px] opacity-40 leading-relaxed">{ui.compressionHint}</p>
                     </div>
                   </div>
                 </div>
@@ -974,7 +975,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
         className="px-4 py-2 border-t text-xs shrink-0"
         style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}
       >
-        配置自动保存 · API key 已加密
+        {ui.autoSaveHint}
       </div>
     </div>
   )
