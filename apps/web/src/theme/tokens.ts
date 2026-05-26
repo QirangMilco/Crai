@@ -5,7 +5,7 @@
  * ref 字段记录父 token 名，Inspector 据此展示继承态 UI。
  */
 export type TokenType = 'color' | 'size' | 'number' | 'select' | 'text'
-export type TokenGroup = 'base' | 'font-size' | 'line-height' | 'radius' | 'spacing' | 'user-msg' | 'ai-msg' | 'code-block' | 'table' | 'blockquote' | 'heading' | 'input' | 'input-box' | 'input-field' | 'input-bar' | 'layout' | 'thinking-block' | 'tool-block'
+export type TokenGroup = 'base' | 'z-index' | 'font-size' | 'line-height' | 'radius' | 'spacing' | 'user-msg' | 'ai-msg' | 'code-block' | 'table' | 'blockquote' | 'heading' | 'input' | 'input-box' | 'input-field' | 'input-bar' | 'layout' | 'thinking-block' | 'tool-block'
 
 export interface TokenDef {
   name: string; label: string; group: TokenGroup; type: TokenType
@@ -19,14 +19,13 @@ export const TOKENS: TokenDef[] = [
   // ============================================================
   // 🎨 基础色（oklch 色彩空间，color-mix 自动衍生）
   // ============================================================
-  { name: '--crai-bg', label: '背景色', group: 'base', type: 'color', defaultValue: 'oklch(0.98 0.003 265)', description: '界面最底层背景。所有表面色从此衍生。' },
-  { name: '--crai-fg', label: '前景色', group: 'base', type: 'color', defaultValue: 'oklch(0.185 0.01 270)', description: '主要文字色。所有次级文字从此衍生。' },
-  { name: '--crai-foreground-rgb', label: '前景色 RGB', group: 'base', type: 'text', defaultValue: '38, 36, 42', description: '用于阴影计算的 RGB 分量（r, g, b）' },
-  { name: '--crai-accent', label: '强调色', group: 'base', type: 'color', defaultValue: 'oklch(0.58 0.22 293)' },
-  { name: '--crai-accent-rgb', label: '强调色 RGB', group: 'base', type: 'text', defaultValue: '104, 78, 133', description: '用于阴影色调的 RGB 分量' },
-  { name: '--crai-info', label: '信息色', group: 'base', type: 'color', defaultValue: 'oklch(0.75 0.16 70)', description: '警告/提示/询问模式色' },
-  { name: '--crai-success', label: '成功色', group: 'base', type: 'color', defaultValue: 'oklch(0.55 0.17 145)' },
-  { name: '--crai-destructive', label: '危险色', group: 'base', type: 'color', defaultValue: 'oklch(0.58 0.24 28)' },
+  { name: '--crai-bg', label: '背景色', group: 'base', type: 'color', defaultValue: '#ffffff', description: '界面最底层背景。所有表面色从此衍生。' },
+  { name: '--crai-fg', label: '前景色', group: 'base', type: 'color', defaultValue: '#1a1a1a', description: '主要文字色。所有次级文字从此衍生。' },
+  { name: '--crai-foreground-rgb', label: '前景色 RGB', group: 'base', type: 'text', defaultValue: '26, 26, 26', description: '用于阴影计算的 RGB 分量（r, g, b）' },
+  { name: '--crai-accent', label: '强调色', group: 'base', type: 'color', defaultValue: '#2563eb', description: '按钮、链接、活跃态——唯一色彩出口' },
+  { name: '--crai-accent-rgb', label: '强调色 RGB', group: 'base', type: 'text', defaultValue: '37, 99, 235', description: '用于阴影色调的 RGB 分量' },
+  { name: '--crai-success', label: '成功色', group: 'base', type: 'color', defaultValue: '#16a34a' },
+  { name: '--crai-destructive', label: '危险色', group: 'base', type: 'color', defaultValue: '#dc2626' },
 
   // ── 表面层级（从前景色混合生成，改前景色同步变化） ──
   { name: '--crai-bg-2', label: '表面 2%', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 2%, var(--crai-bg))', description: '极浅表面，分隔线' },
@@ -82,6 +81,8 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-radius', label: '基础圆角', group: 'radius', type: 'size', defaultValue: '0px', max: 48, description: '修改后所有继承它的圆角自动跟随' },
   { name: '--crai-radius-sm', label: '小圆角', group: 'radius', type: 'size', defaultValue: '4px', max: 24, description: '按钮、标签等小控件圆角' },
   { name: '--crai-radius-lg', label: '大圆角', group: 'radius', type: 'size', defaultValue: '8px', max: 64, description: '弹窗、卡片容器圆角' },
+  { name: '--crai-radius-xl', label: '特大圆角', group: 'radius', type: 'size', defaultValue: '12px', max: 96, description: '面板、分组容器圆角' },
+  { name: '--crai-radius-pill', label: '药丸圆角', group: 'radius', type: 'size', defaultValue: '999px', max: 999, description: '标签、徽章、模式指示器' },
   { name: '--crai-msg-user-radius', label: '用户消息圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius) var(--crai-radius) var(--crai-radius) var(--crai-radius)', ref: '--crai-radius' },
   { name: '--crai-msg-assistant-radius', label: 'AI 消息圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius) var(--crai-radius) var(--crai-radius) var(--crai-radius)', ref: '--crai-radius' },
   { name: '--crai-input-radius', label: '输入框圆角', group: 'radius', type: 'size', defaultValue: 'var(--crai-radius-lg)', ref: '--crai-radius-lg' },
@@ -174,6 +175,13 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-gap', label: '组件间距', group: 'layout', type: 'size', defaultValue: '12px', max: 60 },
   { name: '--crai-panel-width', label: '面板宽度', group: 'layout', type: 'size', defaultValue: '320px', min: 160, max: 600 },
 
+  // ── Z-Index 标尺 ──
+  { name: '--crai-z-dropdown', label: '下拉菜单', group: 'z-index', type: 'number', defaultValue: '100', min: 0, max: 999, description: '下拉菜单、自动补全面板' },
+  { name: '--crai-z-sticky', label: '固定定位', group: 'z-index', type: 'number', defaultValue: '200', min: 0, max: 999, description: '粘性头部、侧栏' },
+  { name: '--crai-z-overlay', label: '遮罩层', group: 'z-index', type: 'number', defaultValue: '300', min: 0, max: 999, description: '半透明背景遮罩' },
+  { name: '--crai-z-modal', label: '模态框', group: 'z-index', type: 'number', defaultValue: '400', min: 0, max: 999, description: '弹窗、对话框' },
+  { name: '--crai-z-toast', label: '通知提示', group: 'z-index', type: 'number', defaultValue: '500', min: 0, max: 999, description: 'Toast 通知、临时提示' },
+
   // ── 侧栏 ──
   { name: '--crai-sidebar-fixed-bar-width', label: '固定栏宽度', group: 'layout', type: 'size', defaultValue: '36px', min: 24, max: 64, description: '侧栏收起时固定栏的宽度' },
   { name: '--crai-sidebar-min-width', label: '侧栏最小宽度', group: 'layout', type: 'size', defaultValue: '160px', min: 100, max: 300 },
@@ -193,6 +201,8 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-space-md', label: '中间距', group: 'spacing', type: 'size', defaultValue: '12px', max: 32, description: '组件内部宽松间距' },
   { name: '--crai-space-lg', label: '大间距', group: 'spacing', type: 'size', defaultValue: '16px', max: 48, description: '组件之间间距' },
   { name: '--crai-space-xl', label: '特大间距', group: 'spacing', type: 'size', defaultValue: '24px', max: 64, description: '区域之间间距' },
+  { name: '--crai-space-2xl', label: '超大间距', group: 'spacing', type: 'size', defaultValue: '40px', max: 96, description: '区块之间间距' },
+  { name: '--crai-space-3xl', label: '巨大间距', group: 'spacing', type: 'size', defaultValue: '64px', max: 160, description: '页面区域间距' },
 
   // ── 思考过程 ──
   { name: '--crai-thinking-bg', label: '背景', group: 'thinking-block', type: 'color', defaultValue: 'var(--crai-bg-3)', ref: '--crai-bg-3' },
@@ -304,17 +314,13 @@ export const COLOR_PRESETS: ThemePreset[] = [
   {
     name: 'Crai 默认（深色）', description: '深色配色方案',
     tokens: colorPreset({
-      '--crai-bg': 'oklch(0.2 0.005 270)',
-      '--crai-fg': 'oklch(0.92 0.005 270)',
-      '--crai-foreground-rgb': '227, 226, 229',
-      '--crai-accent': 'oklch(0.65 0.20 293)',
-      '--crai-accent-rgb': '118, 92, 147',
-      '--crai-info': 'oklch(0.70 0.16 70)',
-      '--crai-success': 'oklch(0.60 0.17 145)',
-      '--crai-destructive': 'oklch(0.70 0.19 22)',
-      '--crai-destructive-rgb': '200, 80, 70',
-      '--crai-info-rgb': '200, 140, 60',
-      '--crai-success-rgb': '50, 140, 80',
+      '--crai-bg': '#1a1a1a',
+      '--crai-fg': '#e5e5e5',
+      '--crai-foreground-rgb': '229, 229, 229',
+      '--crai-accent': '#3b82f6',
+      '--crai-accent-rgb': '59, 130, 246',
+      '--crai-success': '#22c55e',
+      '--crai-destructive': '#ef4444',
     }),
   },
   {
@@ -322,7 +328,6 @@ export const COLOR_PRESETS: ThemePreset[] = [
     tokens: colorPreset({
       '--crai-bg': '#f0f5ff',
       '--crai-accent': '#6366f1',
-      '--crai-input-bg': '#ffffff',
     }),
   },
   {
@@ -331,7 +336,6 @@ export const COLOR_PRESETS: ThemePreset[] = [
       '--crai-bg': '#fef9f0',
       '--crai-fg': '#2d1b0e',
       '--crai-accent': '#e8590c',
-      '--crai-input-bg': '#ffffff',
     }),
   },
   {
@@ -340,7 +344,6 @@ export const COLOR_PRESETS: ThemePreset[] = [
       '--crai-bg': '#f0faf0',
       '--crai-fg': '#0e2d1b',
       '--crai-accent': '#16a34a',
-      '--crai-input-bg': '#ffffff',
     }),
   },
   {
@@ -349,7 +352,6 @@ export const COLOR_PRESETS: ThemePreset[] = [
       '--crai-bg': '#fef5f5',
       '--crai-fg': '#3a1a2a',
       '--crai-accent': '#ec4899',
-      '--crai-input-bg': '#ffffff',
     }),
   },
 ]

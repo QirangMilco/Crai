@@ -13,6 +13,7 @@ import {
   exportTokens, importTokens, COLOR_PRESETS, STYLE_PRESETS,
   type TokenDef, type TokenGroup,
 } from '../theme/tokens'
+import { parseDesignMd, generateDesignMd } from '../theme/design-md'
 
 // ── 基色 token 名（优先级最高的 5 个） ──
 const BASE_COLORS = ['--crai-bg', '--crai-fg', '--crai-accent', '--crai-success', '--crai-destructive']
@@ -217,6 +218,38 @@ export function InspectorPanel({ onClose }: Props) {
     i.click()
   }
 
+  function exportDesignMd() {
+    const tokens = exportTokens()
+    const md = generateDesignMd('Crai 主题', `导出时间: ${new Date().toLocaleString()}`, tokens)
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }))
+    a.download = `crai-design-${Date.now()}.md`
+    a.click()
+  }
+
+  function importDesignMd() {
+    const i = document.createElement('input')
+    i.type = 'file'
+    i.accept = '.md,.markdown'
+    i.onchange = () => {
+      const f = i.files?.[0]
+      if (!f) return
+      new FileReader().onload = (e) => {
+        try {
+          const overrides = parseDesignMd(e.target?.result as string)
+          if (Object.keys(overrides).length === 0) { alert('未找到可识别的 token'); return }
+          importTokens(overrides)
+          clearHexCache()
+          setActiveColor(null)
+          setActiveStyle(null)
+          forceUpdate((n) => n + 1)
+        } catch { alert('无效的设计文件') }
+      }
+      new FileReader().readAsText(f)
+    }
+    i.click()
+  }
+
   return (
     <div className="fixed top-0 right-0 h-full z-50 flex flex-col text-sm overflow-hidden crai-inspector-root"
       style={{ width: 'var(--crai-panel-width)', backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg)', borderLeft: '1px solid var(--crai-border)', boxShadow: 'var(--crai-shadow-modal)' }}>
@@ -281,13 +314,19 @@ export function InspectorPanel({ onClose }: Props) {
         <div className="flex gap-1">
           <button onClick={exportAll}
             className="flex-1 text-[10px] px-2 py-1 rounded"
-            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📤 导出</button>
+            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📤</button>
           <button onClick={importAll}
             className="flex-1 text-[10px] px-2 py-1 rounded"
-            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📥 导入</button>
+            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📥</button>
+          <button onClick={exportDesignMd}
+            className="flex-1 text-[10px] px-2 py-1 rounded"
+            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📄</button>
+          <button onClick={importDesignMd}
+            className="flex-1 text-[10px] px-2 py-1 rounded"
+            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📂</button>
           <button onClick={() => { resetAll(); clearHexCache(); forceUpdate((n) => n + 1) }}
             className="flex-1 text-[10px] px-2 py-1 rounded"
-            style={{ color: 'var(--crai-destructive)', border: '1px solid var(--crai-destructive)' }}>↺ 重置</button>
+            style={{ color: 'var(--crai-destructive)', border: '1px solid var(--crai-destructive)' }}>↺</button>
         </div>
       </div>
 

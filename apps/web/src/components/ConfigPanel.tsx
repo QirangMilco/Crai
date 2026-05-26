@@ -243,7 +243,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
 
   // 合并预设 + 自定义 provider 列表
   const knownFirstParty = isDev
-    ? [...(firstParty ?? []), { name: 'mock', label: '{ui.mockLabel}', defaultBaseURL: '' }]
+    ? [...(firstParty ?? []), { name: 'mock', label: ui.mockLabel, defaultBaseURL: '' }]
     : (firstParty ?? [])
   const providerEntries = [
     ...knownFirstParty.map((fp) => ({
