@@ -1,15 +1,15 @@
 /**
  * 配置面板。
  *
- * 两栏设计：
- *  - 提供商列表：预设 DeepSeek/OpenAI + 自定义 provider
- *  - 点击展开配置 API key、base URL（预设自带默认值）、模型列表
+ * 两栏设计:
+ *  - 提供商列表:预设 DeepSeek/OpenAI + 自定义 provider
+ *  - 点击展开配置 API key、base URL(预设自带默认值)、模型列表
  *  - "获取模型"按钮调用 Models API 自动填充
  */
 import { useState, useCallback, useEffect } from 'react'
 import { Select } from './ui'
 
-// 由服务端 knownModels prop 提供，见 config:known-models 协议。
+// 由服务端 knownModels prop 提供,见 config:known-models 协议。
 // 不再硬编码。
 function getModelContextWindow(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>): number | undefined {
   return knownModels?.[provider]?.[model]?.contextWindow
@@ -17,7 +17,12 @@ function getModelContextWindow(provider: string, model: string, knownModels?: Re
 
 interface Props {
   config: {
-    providers: Record<string, { apiKey: string; baseURL?: string; models?: string[] }>
+    providers: Record<string, {
+      apiKey: string
+      baseURL?: string
+      models?: string[]
+      modelConfigs?: Record<string, { displayName?: string; contextWindow?: number; maxOutput?: number; vision?: boolean }>
+    }>
     defaultProvider?: string
     defaultModel?: string
     sandboxEnabled?: boolean
@@ -30,17 +35,17 @@ interface Props {
   onClose: () => void
   /** 服务端返回的模型列表结果。 */
   modelsFetchResult?: { providerName: string; models: string[]; error?: string } | null
-  /** 清除模型结果（组件已消费后调用）。 */
+  /** 清除模型结果(组件已消费后调用)。 */
   onClearModelsResult?: () => void
-  /** 已知模型窗口数据，由服务端提供。 */
+  /** 已知模型窗口数据,由服务端提供。 */
   knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>
-  /** 第一方 provider 列表，由服务端提供。 */
+  /** 第一方 provider 列表,由服务端提供。 */
   firstParty?: Array<{ name: string; label: string; defaultBaseURL: string }>
 }
 
 function maskKey(key: string): string {
   if (!key || key.length <= 8) return '********'
-  return key.slice(0, 4) + '…' + key.slice(-4)
+  return key.slice(0, 4) + '...' + key.slice(-4)
 }
 
 export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearModelsResult, knownModels, firstParty }: Props) {
@@ -51,7 +56,29 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const [editModelsPath, setEditModelsPath] = useState('')        // 编辑中的 models 路径
   const [fetchedModels, setFetchedModels] = useState<string[]>([])
   const [fetching, setFetching] = useState(false)
-  // 每个模型的上下文窗口覆盖（从已保存配置读取）
+  // 正在编辑的模型 ID（打开模态框）
+  const [editingModel, setEditingModel] = useState<string | null>(null)
+  // 模型编辑弹窗表单状态
+  const [editFormName, setEditFormName] = useState('')
+  const [editFormCtx, setEditFormCtx] = useState('')
+  const [editFormMaxOut, setEditFormMaxOut] = useState('')
+  const [editFormVision, setEditFormVision] = useState(false)
+
+  // 打开模型编辑弹窗时填充表单
+  useEffect(() => {
+    if (editingModel && editing) {
+      const p = providers[editing]
+      const mc = p?.modelConfigs?.[editingModel] || {}
+      const knownCtx = getModelContextWindow(editing, editingModel, knownModels)
+      setEditFormName(mc.displayName || '')
+      setEditFormCtx(String(mc.contextWindow ?? knownCtx ?? ''))
+      setEditFormMaxOut(String(mc.maxOutput ?? ''))
+      setEditFormVision(mc.vision ?? false)
+    }
+  }, [editingModel])
+  const [showAddDropdown, setShowAddDropdown] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  // 每个模型的上下文窗口覆盖(从已保存配置读取)
   const [editContextWindows, setEditContextWindows] = useState<Record<string, string>>(
     () => Object.fromEntries(
       Object.entries(config?.customContextWindows ?? {}).map(([k, v]) => [k, String(v)])
@@ -59,7 +86,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   )
   const [sandboxEnabled, setSandboxEnabled] = useState(config?.sandboxEnabled ?? false)
   const [configTab, setConfigTab] = useState('providers')
-  // 压缩阈值（显示为百分比整数，如 80 表示 80%）
+  // 压缩阈值(显示为百分比整数,如 80 表示 80%)
   const defaultThreshold = config?.compressionThreshold != null ? Math.round(config.compressionThreshold * 100) : 80
   const [compressionThreshold, setCompressionThreshold] = useState(String(defaultThreshold))
 
@@ -76,7 +103,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const allModelOptions = Object.entries(providers).flatMap(([provider, p]) =>
     (p.models ?? []).map(m => ({ provider, model: m, label: `${provider}/${m}` }))
   )
-  // 当前选中的工具模型（格式：provider/model）
+  // 当前选中的工具模型(格式:provider/model)
   const [editToolModel, setEditToolModel] = useState(config?.toolModel ?? '')
 
   // 处理服务端返回的模型列表
@@ -109,44 +136,38 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setEditBaseURL(p.baseURL || firstPartyDefault(name)?.defaultBaseURL || '')
     setEditModel(p.models?.[0] ?? config?.defaultModel ?? '')
     setEditModelsPath((p as any).modelsPath ?? '')
-    setFetchedModels(p.models ?? [])
+    setFetchedModels([])
+    setShowAddDropdown(false)
   }
 
-  function saveEdit() {
+  function saveProviderConfig(overrides?: { models?: string[]; modelConfigs?: Record<string, any> }) {
     if (!editing) return
+    const p = providers[editing] ?? {}
     send({ type: 'config:set:provider', name: editing, config: {
       apiKey: editKey,
       baseURL: editBaseURL || undefined,
-      models: fetchedModels.length > 0 ? fetchedModels : undefined,
+      models: overrides?.models ?? p.models,
+      modelConfigs: overrides?.modelConfigs ?? p.modelConfigs,
       modelsPath: editModelsPath || undefined,
     }})
-    // 设置 defaultModel（格式：provider/model）
-    if (editModel && (fetchedModels.length === 0 || fetchedModels.includes(editModel))) {
-      send({ type: 'config:set', config: { defaultModel: `${editing}/${editModel}` } })
-    }
-    // 刷新配置 UI
-    send({ type: 'config:get' })
-    setEditing(null)
-  }
-
-  function cancelEdit() {
-    setEditing(null)
-    setEditKey('')
-    setEditBaseURL('')
-    setEditModel('')
-    setFetchedModels([])
   }
 
   function fetchModelList() {
     if (!editing) return
     setFetching(true)
-    // 通过 WebSocket 走服务端代理（Mock 无网络、真实 provider 不暴露 API key）
+    // 通过 WebSocket 走服务端代理(Mock 无网络、真实 provider 不暴露 API key)
     send({ type: 'config:fetch:models', providerName: editing })
   }
 
   function removeProvider(name: string) {
     send({ type: 'config:remove:provider', name })
-    if (editing === name) cancelEdit()
+    if (editing === name) {
+      setEditing(null)
+      setEditKey('')
+      setEditBaseURL('')
+      setEditModel('')
+      setFetchedModels([])
+    }
   }
 
   function addCustomProvider() {
@@ -160,11 +181,17 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setCustomKey('')
     setCustomBaseURL('')
     setCustomModelsPath('')
+    // 自动选中新添加的供应商
+    setEditing(customName)
+    setEditKey(customKey)
+    setEditBaseURL(customBaseURL || undefined)
+    setEditModel('')
+    setEditModelsPath(customModelsPath || '')
   }
 
   // 合并预设 + 自定义 provider 列表
   const knownFirstParty = isDev
-    ? [...(firstParty ?? []), { name: 'mock', label: 'Mock（测试）', defaultBaseURL: '' }]
+    ? [...(firstParty ?? []), { name: 'mock', label: 'Mock(测试)', defaultBaseURL: '' }]
     : (firstParty ?? [])
   const providerEntries = [
     ...knownFirstParty.map((fp) => ({
@@ -205,7 +232,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
         <button onClick={onClose} className="text-lg leading-none opacity-50 hover:opacity-100 transition-opacity duration-150">✕</button>
       </div>
 
-      {/* 主体：侧栏 + 内容 */}
+      {/* 主体:侧栏 + 内容 */}
       <div className="flex flex-1 overflow-hidden">
         {/* 侧栏 */}
         <div className="w-32 shrink-0 border-r py-2 overflow-y-auto" style={{ borderColor: 'var(--crai-border)' }}>
@@ -227,9 +254,9 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
 
         {/* 内容区 */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          {configTab === 'providers' && (
+          {configTab === 'providers' && (<>
             <div className="flex-1 flex overflow-hidden">
-              {/* 供应商列表（内部左侧栏） */}
+              {/* 供应商列表(内部左侧栏) */}
               <div className="w-48 shrink-0 border-r flex flex-col overflow-hidden" style={{ borderColor: 'var(--crai-border)' }}>
                 <div className="flex-1 overflow-y-auto py-2 space-y-1 px-2">
                   <div className="text-[10px] font-medium px-2 py-1 uppercase tracking-wider opacity-40">预设</div>
@@ -278,7 +305,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                 </div>
               </div>
 
-              {/* 具体配置（内部右侧内容区） */}
+              {/* 具体配置(内部右侧内容区) */}
               <div className="flex-1 overflow-y-auto p-6">
                 {!editing ? (
                   <div className="h-full flex flex-col items-center justify-center opacity-30 space-y-2">
@@ -293,7 +320,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-medium opacity-60">名称</label>
                           <input value={customName} onChange={e => setCustomName(e.target.value)}
-                            placeholder="如：my-llm"
+                            placeholder="如:my-llm"
                             className="w-full px-3 py-2 rounded text-xs outline-none"
                             style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
                         </div>
@@ -340,118 +367,445 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                         )}
                       </div>
 
-                      <div className="space-y-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[11px] font-medium opacity-60">API Key</label>
-                          <input value={editKey} onChange={e => setEditKey(e.target.value)}
+                      {/* API Key 行 */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-medium opacity-60 shrink-0 w-20">API Key</span>
+                        <div className="flex-1 flex items-center gap-1.5">
+                          <input
+                            value={editKey}
+                            onChange={e => setEditKey(e.target.value)}
+                            onBlur={() => saveProviderConfig()}
                             type="password" placeholder="sk-..."
                             autoComplete="new-password"
                             spellCheck={false}
-                            className="w-full px-3 py-2 rounded text-xs outline-none"
+                            className="flex-1 px-3 py-2 rounded text-xs outline-none"
+                            style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+                          <button
+                            onClick={() => send?.({ type: 'config:test', providerName: editing })}
+                            className="w-7 h-7 flex items-center justify-center rounded transition-colors"
+                            style={{ color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}
+                            title="测试连接"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Base URL 行 */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-medium opacity-60 shrink-0 w-20">Base URL</span>
+                        <input
+                          value={editBaseURL}
+                          onChange={e => setEditBaseURL(e.target.value)}
+                          onBlur={() => saveProviderConfig()}
+                          placeholder={providerEntries.find(e => e.name === editing)?.isPreset ? `默认: ${firstPartyDefault(editing)?.defaultBaseURL}` : 'https://...'}
+                          className="flex-1 px-3 py-2 rounded text-xs outline-none"
+                          style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+                      </div>
+
+                      {/* Models API 路径（仅自定义 provider） */}
+                      {!providerEntries.find(e => e.name === editing)?.isPreset && (
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] font-medium opacity-60 shrink-0 w-20">API 路径</span>
+                          <input value={editModelsPath} onChange={e => setEditModelsPath(e.target.value)}
+                            placeholder="/v1/models"
+                            className="flex-1 px-3 py-2 rounded text-xs outline-none"
                             style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
                         </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[11px] font-medium opacity-60">Base URL</label>
-                          <input value={editBaseURL} onChange={e => setEditBaseURL(e.target.value)}
-                            placeholder={providerEntries.find(e => e.name === editing)?.isPreset ? `默认: ${firstPartyDefault(editing)?.defaultBaseURL}` : 'https://...'}
-                            className="w-full px-3 py-2 rounded text-xs outline-none"
-                            style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
-                        </div>
-                        {!providerEntries.find(e => e.name === editing)?.isPreset && (
-                          <div className="space-y-1.5">
-                            <label className="text-[11px] font-medium opacity-60">Models API 路径</label>
-                            <input value={editModelsPath} onChange={e => setEditModelsPath(e.target.value)}
-                              placeholder="/v1/models"
-                              className="w-full px-3 py-2 rounded text-xs outline-none"
-                              style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+                      )}
+                      </div>
+
+                      {/* 模型列表 */}
+                      {editing && (() => {
+                      const currentProvider = providers[editing]
+                      const models = currentProvider?.models ?? []
+                      const modelConfigs = currentProvider?.modelConfigs ?? {}
+
+                      const addModel = (modelId: string) => {
+                        saveProviderConfig({ models: [...models, modelId] })
+                      }
+
+                      const removeModel = (modelId: string) => {
+                        saveProviderConfig({ models: models.filter(m => m !== modelId) })
+                      }
+
+                      const setDefaultModel = (modelId: string) => {
+                        send({ type: 'config:set', config: { defaultModel: `${editing}/${modelId}` } })
+                      }
+
+                      const updateModelConfig = (modelId: string, cfg: { displayName?: string; contextWindow?: number; maxOutput?: number; vision?: boolean }) => {
+                        saveProviderConfig({ modelConfigs: { ...modelConfigs, [modelId]: { ...modelConfigs[modelId], ...cfg } } })
+                      }
+
+                      const getModelDisplayName = (modelId: string): string => {
+                        const mc = modelConfigs[modelId]
+                        return mc?.displayName || modelId
+                      }
+
+                      const isDefault = (modelId: string) => config?.defaultModel === `${editing}/${modelId}`
+
+                      // 过滤掉已添加的模型
+                      const discoverable = fetchedModels.filter(m => !models.includes(m))
+
+                      return (
+                        <div className="space-y-4 pt-4 border-t" style={{ borderColor: 'var(--crai-border)' }}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-[11px] font-semibold uppercase tracking-wider opacity-60">已添加模型</h4>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--crai-bg-tertiary)', color: 'var(--crai-fg-tertiary)' }}>{models.length}</span>
+                            </div>
+                            <button onClick={fetchModelList}
+                              disabled={fetching}
+                              className="text-[10px] px-2.5 py-1 rounded transition-colors flex items-center gap-1"
+                              style={{ color: 'var(--crai-accent)', border: '1px solid var(--crai-accent)' }}>
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                              </svg>
+                              {fetching ? '获取中…' : '获取模型'}
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    </div>
 
-                    {/* 模型设置 */}
-                    <div className="space-y-4 pt-4 border-t" style={{ borderColor: 'var(--crai-border)' }}>
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-[11px] font-semibold uppercase tracking-wider opacity-60">模型列表</h4>
-                        <button onClick={fetchModelList}
-                          disabled={fetching}
-                          className="text-[10px] px-2 py-1 rounded transition-colors"
-                          style={{ color: 'var(--crai-accent)', border: '1px solid var(--crai-accent)' }}>
-                          {fetching ? '获取中…' : '刷新列表'}
-                        </button>
-                      </div>
+                          {/* 已添加模型列表 */}
+                          {models.length > 0 ? (
+                            <div className="space-y-1">
+                              {models.map(m => {
+                                const mc = modelConfigs[m] || {}
+                                const knownCtx = getModelContextWindow(editing!, m, knownModels)
+                                const ctx = mc.contextWindow ?? knownCtx
+                                const displayName = mc.displayName
+                                return (
+                                  <div
+                                    key={m}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                                    style={{
+                                      backgroundColor: isDefault(m) ? 'color-mix(in oklch, var(--crai-accent) 6%, transparent)' : 'var(--crai-bg-secondary)',
+                                      border: isDefault(m) ? '1px solid var(--crai-accent)' : '1px solid transparent',
+                                    }}
+                                  >
+                                    {/* 默认模型标记 */}
+                                    <button
+                                      onClick={() => setDefaultModel(isDefault(m) ? '' : m)}
+                                      className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center transition-colors"
+                                      style={{
+                                        backgroundColor: isDefault(m) ? 'var(--crai-accent)' : 'transparent',
+                                        border: `1px solid ${isDefault(m) ? 'var(--crai-accent)' : 'var(--crai-border)'}`,
+                                      }}
+                                      title={isDefault(m) ? '默认对话模型' : '设为此模型为默认'}
+                                    >
+                                      {isDefault(m) && (
+                                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                          <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                      )}
+                                    </button>
 
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-medium opacity-60">默认对话模型</label>
-                          <div className="flex gap-1.5 flex-wrap">
-                            {fetchedModels.length > 0 ? fetchedModels.map((m) => (
-                              <div key={m} className="flex items-center gap-1">
-                                <button onClick={() => setEditModel(m)}
-                                  className="text-[10px] px-2 py-1 rounded transition-colors whitespace-nowrap"
-                                  style={{
-                                    backgroundColor: editModel === m ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)',
-                                    color: editModel === m ? '#fff' : 'var(--crai-fg)',
-                                  }}>
-                                  {m}
-                                </button>
-                                <input
-                                  value={editContextWindows[`${editing}/${m}`] ?? ''}
-                                  onChange={e => {
-                                    const v = e.target.value.replace(/[^0-9]/g, '')
-                                    setEditContextWindows(prev => ({ ...prev, [`${editing}/${m}`]: v }))
-                                  }}
-                                  onBlur={() => {
-                                    const cleaned: Record<string, number> = {}
-                                    for (const [k, val] of Object.entries(editContextWindows)) {
-                                      const n = parseInt(val, 10)
-                                      if (n > 0) cleaned[k] = n
-                                    }
-                                    send({ type: 'config:set', config: { customContextWindows: cleaned } })
-                                  }}
-                                  placeholder={getModelContextWindow(editing, m, knownModels) ? String(getModelContextWindow(editing, m, knownModels)) : '128000'}
-                                  className="w-14 px-1 py-0.5 rounded text-[9px] outline-none text-center"
-                                  style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}
-                                  title="上下文窗口（token）"
-                                />
+                                    {/* 显示名 */}
+                                    <span className="text-xs font-medium truncate">{displayName || m}</span>
+
+                                    {/* 原始 ID（显示名与 ID 不同时显示） */}
+                                    {displayName && (
+                                      <span
+                                        className="text-[9px] px-1 py-0.5 rounded shrink-0"
+                                        style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg-tertiary)' }}
+                                      >
+                                        {m}
+                                      </span>
+                                    )}
+
+                                    {/* 上下文长度 */}
+                                    <span className="text-[9px] opacity-50 tabular-nums shrink-0">
+                                      {ctx ? `${(ctx / 1000).toFixed(0)}k` : '—'} ctx
+                                    </span>
+
+                                    {/* 视觉标记 */}
+                                    {mc.vision && <span className="text-[9px] opacity-50 shrink-0">🖼</span>}
+
+                                    {/* 操作按钮 */}
+                                    <div className="flex items-center gap-1 ml-auto shrink-0">
+                                      <button
+                                        onClick={() => setEditingModel(m)}
+                                        className="w-5 h-5 flex items-center justify-center rounded transition-colors hover:opacity-80"
+                                        style={{ color: 'var(--crai-fg-tertiary)' }}
+                                        title="编辑模型"
+                                      >
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        onClick={() => removeModel(m)}
+                                        className="w-5 h-5 flex items-center justify-center rounded transition-colors hover:opacity-80"
+                                        style={{ color: 'var(--crai-destructive)' }}
+                                        title="移除模型"
+                                      >
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] opacity-40 py-4 text-center rounded-lg" style={{ backgroundColor: 'var(--crai-bg-secondary)' }}>
+                              尚未添加模型。点击下方"添加模型"或先"获取模型"。
+                            </div>
+                          )}
+
+                          {/* 添加模型区域 */}
+                          <div className="flex items-center gap-2 pt-2">
+                            <button
+                              onClick={() => {
+                                setShowAddDropdown(!showAddDropdown)
+                                if (!showAddDropdown) setSearchQuery('')
+                              }}
+                              className="px-3 py-1.5 rounded text-[10px] transition-colors flex items-center gap-1.5"
+                              style={{ backgroundColor: 'var(--crai-bg-secondary)', border: '1px solid var(--crai-border)', color: 'var(--crai-fg)' }}
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                              </svg>
+                              添加模型
+                            </button>
+
+                            {showAddDropdown && (
+                              <div
+                                className="fixed z-50 rounded-xl border overflow-hidden"
+                                style={{
+                                  backgroundColor: 'var(--crai-bg)',
+                                  borderColor: 'var(--crai-border)',
+                                  boxShadow: 'var(--crai-shadow-modal)',
+                                  width: 320,
+                                }}
+                                onMouseDown={e => e.stopPropagation()}
+                              >
+                                {/* 搜索框 */}
+                                <div className="px-3 pt-3 pb-2">
+                                  <input
+                                    autoFocus
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    placeholder="搜索模型…"
+                                    className="w-full px-2.5 py-1.5 rounded text-xs outline-none"
+                                    style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                                  />
+                                </div>
+
+                                {/* 模型列表 */}
+                                <div className="overflow-y-auto" style={{ maxHeight: 200 }}>
+                                  {discoverable.filter(m => !searchQuery || m.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                                    discoverable.filter(m => !searchQuery || m.toLowerCase().includes(searchQuery.toLowerCase())).map(m => (
+                                      <button
+                                        key={m}
+                                        onClick={() => { addModel(m); setShowAddDropdown(false) }}
+                                        className="w-full text-left px-3 py-1.5 text-[10px] hover:opacity-80 transition-colors flex items-center gap-2"
+                                        style={{ color: 'var(--crai-fg)' }}
+                                      >
+                                        {m}
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <div className="text-[10px] opacity-40 text-center py-4">
+                                      {fetchedModels.length === 0 ? '先点击"获取模型"发现模型' : searchQuery ? '无匹配结果' : '所有发现的模型均已添加'}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* 手动输入 */}
+                                <div className="px-3 py-2 border-t flex items-center gap-2" style={{ borderColor: 'var(--crai-border)' }}>
+                                  <input
+                                    id="custom-model-input"
+                                    placeholder="输入模型 ID"
+                                    className="flex-1 px-2.5 py-1.5 rounded text-[10px] outline-none"
+                                    style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') {
+                                        const val = (e.target as HTMLInputElement).value.trim()
+                                        if (val && !models.includes(val)) {
+                                          addModel(val)
+                                          setShowAddDropdown(false)
+                                        }
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const input = document.getElementById('custom-model-input') as HTMLInputElement
+                                      const val = input?.value?.trim()
+                                      if (val && !models.includes(val)) {
+                                        addModel(val)
+                                        setShowAddDropdown(false)
+                                      }
+                                    }}
+                                    className="px-2 py-1.5 rounded text-[10px] text-white"
+                                    style={{ backgroundColor: 'var(--crai-accent)' }}
+                                  >
+                                    添加
+                                  </button>
+                                </div>
                               </div>
-                            )) : (
-                              <span className="text-[10px] opacity-40">点击“刷新列表”获取可用模型</span>
+                            )}
+
+                            {/* 背景遮罩 */}
+                            {showAddDropdown && (
+                              <div
+                                className="fixed inset-0 z-40"
+                                style={{ backgroundColor: 'transparent' }}
+                                onClick={() => setShowAddDropdown(false)}
+                              />
                             )}
                           </div>
-                        </div>
 
-                        {/* 工具模型设置集成在此 */}
-                        <div className="space-y-2 pt-2">
-                          <label className="text-[11px] font-medium opacity-60">工具模型 (用于摘要等任务)</label>
-                          <Select
-                            value={editToolModel}
-                            onChange={v => {
-                              setEditToolModel(v)
-                              send({ type: 'config:set', config: { toolModel: v || undefined } })
-                            }}
-                            options={[
-                              { value: '', label: '使用默认模型' },
-                              ...allModelOptions.map(opt => ({ value: opt.label, label: opt.label })),
-                            ]}
-                            placeholder="使用默认模型"
-                          />
-                          <p className="text-[9px] opacity-40">用于标题生成、对话摘要等辅助任务。不设置时使用对话默认模型。</p>
-                        </div>
-                      </div>
-                    </div>
+                          {/* 模型编辑弹窗 */}
+                          {editingModel && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-40"
+                                style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}
+                                onClick={() => setEditingModel(null)}
+                              />
+                              <div
+                                className="fixed z-50 rounded-xl p-5 space-y-4"
+                                style={{
+                                  left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+                                  width: 360,
+                                  backgroundColor: 'var(--crai-bg)',
+                                  border: '1px solid var(--crai-border)',
+                                  boxShadow: 'var(--crai-shadow-modal)',
+                                }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-semibold">编辑模型</span>
+                                  <button onClick={() => setEditingModel(null)} className="opacity-40 hover:opacity-100 text-sm">✕</button>
+                                </div>
 
-                    {/* 保存按钮 */}
-                    <div className="pt-4">
-                      <button onClick={saveEdit}
-                        className="w-full py-2.5 rounded text-xs font-medium text-white shadow-sm"
-                        style={{ backgroundColor: 'var(--crai-accent)' }}>保存当前配置</button>
-                    </div>
+                                <div className="space-y-0.5">
+                                  <label className="text-[10px] opacity-50">模型 ID</label>
+                                  <div className="text-xs py-1.5 px-2 rounded" style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg-tertiary)' }}>
+                                    {editingModel}
+                                  </div>
+                                </div>
+
+                                <div className="space-y-0.5">
+                                  <label className="text-[10px] opacity-50">显示名称（可选）</label>
+                                  <input
+                                    value={editFormName}
+                                    onChange={e => setEditFormName(e.target.value)}
+                                    placeholder={editingModel}
+                                    className="w-full px-2 py-1.5 rounded text-xs outline-none"
+                                    style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                                  />
+                                </div>
+
+                                <div className="flex gap-3">
+                                  <div className="flex-1 space-y-0.5">
+                                    <label className="text-[10px] opacity-50">输入上下文</label>
+                                    <input
+                                      value={editFormCtx}
+                                      onChange={e => setEditFormCtx(e.target.value.replace(/[^0-9]/g, ''))}
+                                      placeholder={String(getModelContextWindow(editing!, editingModel, knownModels) || 128000)}
+                                      className="w-full px-2 py-1.5 rounded text-xs outline-none tabular-nums"
+                                      style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                                    />
+                                  </div>
+                                  <div className="flex-1 space-y-0.5">
+                                    <label className="text-[10px] opacity-50">输出上限</label>
+                                    <input
+                                      value={editFormMaxOut}
+                                      onChange={e => setEditFormMaxOut(e.target.value.replace(/[^0-9]/g, ''))}
+                                      placeholder="16384"
+                                      className="w-full px-2 py-1.5 rounded text-xs outline-none tabular-nums"
+                                      style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] opacity-50">支持视觉</span>
+                                  <button
+                                    onClick={() => setEditFormVision(!editFormVision)}
+                                    className="w-8 h-4 rounded-full relative transition-colors"
+                                    style={{ backgroundColor: editFormVision ? 'var(--crai-accent)' : 'var(--crai-border)' }}
+                                  >
+                                    <div
+                                      className="w-3 h-3 rounded-full absolute top-0.5 transition-all"
+                                      style={{
+                                        left: editFormVision ? '4px' : 'calc(100% - 16px)',
+                                        backgroundColor: '#fff',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                                      }}
+                                    />
+                                  </button>
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-1">
+                                  <button
+                                    onClick={() => setEditingModel(null)}
+                                    className="px-3 py-1.5 rounded text-[10px]"
+                                    style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}
+                                  >
+                                    取消
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const cfg: any = {}
+                                      if (editFormName.trim()) cfg.displayName = editFormName.trim()
+                                      if (editFormCtx) cfg.contextWindow = parseInt(editFormCtx, 10)
+                                      if (editFormMaxOut) cfg.maxOutput = parseInt(editFormMaxOut, 10)
+                                      cfg.vision = editFormVision
+                                      updateModelConfig(editingModel!, cfg)
+                                      setEditingModel(null)
+                                    }}
+                                    className="px-3 py-1.5 rounded text-[10px] font-medium text-white"
+                                    style={{ backgroundColor: 'var(--crai-accent)' }}
+                                  >
+                                    保存
+                                  </button>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )
+                    })()}
+
+                    {/* 保存当前配置（已移除：配置自动保存） */
+                    null}
                   </div>
                 )}
               </div>
             </div>
-          )}
+
+            {/* ── 全局工具模型 ── */}
+            <div className="shrink-0 px-6 py-4 border-t" style={{ borderColor: 'var(--crai-border)' }}>
+              <div className="flex items-center gap-6">
+                <div className="shrink-0">
+                  <div className="text-xs font-semibold">工具模型</div>
+                  <div className="text-[10px] mt-0.5 opacity-40">用于标题生成、对话摘要等辅助任务</div>
+                </div>
+                <div className="flex-1 max-w-xs">
+                  <Select
+                    value={editToolModel}
+                    onChange={v => {
+                      setEditToolModel(v)
+                      send({ type: 'config:set', config: { toolModel: v || undefined } })
+                    }}
+                    options={[
+                      { value: '', label: '使用默认模型' },
+                      ...allModelOptions.map(opt => ({ value: opt.label, label: opt.label })),
+                    ]}
+                    placeholder="使用默认模型"
+                  />
+                </div>
+              </div>
+            </div>
+          </>)}
 
           {configTab === 'general' && (
             <div className="flex-1 overflow-y-auto p-8 space-y-10">
@@ -460,7 +814,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                 <div className="flex items-center justify-between p-4 rounded-lg border" style={{ borderColor: 'var(--crai-border)', backgroundColor: 'var(--crai-bg-secondary)' }}>
                   <div>
                     <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--crai-fg)' }}>OS 沙箱模式</div>
-                    <div className="text-[10px] opacity-60 leading-relaxed">启用后 bash 命令在隔离环境 (sandbox-exec/bwrap) 中执行，更安全。</div>
+                    <div className="text-[10px] opacity-60 leading-relaxed">启用后 bash 命令在隔离环境 (sandbox-exec/bwrap) 中执行,更安全。</div>
                   </div>
                   <button
                     onClick={() => {
@@ -511,10 +865,10 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
         </div>
       </div>
 
-    <div
-      className="px-4 py-2 border-t text-xs shrink-0"
-      style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}
-    >
+      <div
+        className="px-4 py-2 border-t text-xs shrink-0"
+        style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}
+      >
         配置自动保存 · API key 已加密
       </div>
     </div>

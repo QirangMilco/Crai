@@ -287,12 +287,21 @@ export interface AppVariant {
   }
 }
 
+export interface ModelConfig {
+  displayName?: string
+  contextWindow?: number
+  maxOutput?: number
+  vision?: boolean
+}
+
 export interface ProviderConfig {
   apiKey?: string
   baseURL?: string
   models?: string[]
   /** 获取模型列表的 API 路径。默认 /models。 */
   modelsPath?: string
+  /** 模型级配置（显示名、上下文窗口、输出上限、视觉能力），以模型 ID 为 key。 */
+  modelConfigs?: Record<string, ModelConfig>
 }
 
 export interface GlobalConfig {

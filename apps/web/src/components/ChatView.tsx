@@ -401,7 +401,7 @@ export function ChatView({ wsUrl }: Props) {
             onClick={(e) => e.stopPropagation()}
             className="flex flex-col overflow-hidden rounded-xl"
             style={{
-              width: 560,
+              width: 800,
               height: '75vh',
               backgroundColor: 'var(--crai-bg)',
               border: '1px solid var(--crai-border)',
