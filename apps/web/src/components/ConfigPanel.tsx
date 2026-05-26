@@ -9,6 +9,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Select } from './ui'
 import { ComboInput } from './ui'
+import { DEFAULT_COMPRESSION_THRESHOLD, DEFAULT_KEEP_RECENT_TOKENS } from '@crai/core'
 
 // 由服务端 knownModels prop 提供,见 config:known-models 协议。
 // 不再硬编码。
@@ -132,7 +133,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const [sandboxEnabled, setSandboxEnabled] = useState(config?.sandboxEnabled ?? false)
   const [configTab, setConfigTab] = useState('providers')
   // 压缩阈值(显示为百分比整数,如 80 表示 80%)
-  const defaultThreshold = config?.compressionThreshold != null ? Math.round(config.compressionThreshold * 100) : 80
+  const defaultThreshold = config?.compressionThreshold != null ? Math.round(config.compressionThreshold * 100) : Math.round(DEFAULT_COMPRESSION_THRESHOLD * 100)
   const [compressionThreshold, setCompressionThreshold] = useState(String(defaultThreshold))
 
   // 自定义提供商表单
@@ -953,7 +954,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                           const num = parseInt(v, 10)
                           send({ type: 'config:set', config: {
                             compressionThreshold: num / 100,
-                            keepRecentTokens: Math.min(32000, Math.max(500, Math.round(30000 * (num / 80))))
+                            keepRecentTokens: Math.min(DEFAULT_KEEP_RECENT_TOKENS, Math.max(500, Math.round(DEFAULT_KEEP_RECENT_TOKENS * 0.9375 * (num / Math.round(DEFAULT_COMPRESSION_THRESHOLD * 100)))))
                           } })
                         }}
                         className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[var(--crai-accent)]"

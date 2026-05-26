@@ -1,197 +1,61 @@
-/** 与 transport-ws 通信的消息类型。 */
+/**
+ * 前端消息类型。
+ *
+ * 协议层类型（ServerMsg, ClientMsg 等）从 @crai/transport-ws 导入，
+ * 避免与 packages/transport-ws/src/protocol.ts 平行重复。
+ * 此文件只保留前端特有的视图层适配类型。
+ */
 
-// ── Server → Client ──
+// ── 导入协议类型 ────────────────────────────────
+export type {
+  // 消息联合
+  ClientMessage as ClientMsg,
+  ServerMessage as ServerMsg,
 
-export interface EventMsg {
-  type: 'event'
-  event: string
-  payload: unknown
-}
+  // Server → Client
+  EventMessage as EventMsg,
+  RequestInputMessage as RequestInputMsg,
+  SessionIdMessage as SessionIdMsg,
+  ErrorMessage as ErrorMsg,
+  ConfigDataMessage as ConfigDataMsg,
+  ConfigModelsDataMessage as ConfigModelsDataMsg,
+  ConfigTestResultMessage as ConfigTestResultMsg,
+  WorkspaceListDataMessage as WorkspaceListDataMsg,
+  WorkspaceSwitchedMessage as WorkspaceSwitchedMsg,
+  WorkspaceConfigDataMessage as WorkspaceConfigDataMsg,
+  SessionListDataMessage as SessionListDataMsg,
+  SessionDataMessage as SessionDataMsg,
+  DirBrowseDataMessage as DirBrowseDataMsg,
+  SessionTitleMessage as SessionTitleMsg,
 
-export interface RequestInputMsg {
-  type: 'request:input'
-  id: string
-  question: string
-  options?: string[]
-  meta?: Record<string, unknown>
-}
+  // Client → Server
+  PromptMessage as PromptMsg,
+  SessionGenerateTitleMessage as SessionGenerateTitleMsg,
+  SessionNewMessage as SessionNewMsg,
+  SessionDeleteMessage as SessionDeleteMsg,
+  SessionListMessage as SessionListMsg,
+  ResolveInputMessage as ResolveInputMsg,
+  SessionLoadMessage as SessionLoadMsg,
+  SessionUpdateMessage as SessionUpdateMsg,
+  DirBrowseMessage as DirBrowseMsg,
+  ConfigGetMessage as ConfigGetMsg,
+  ConfigSetMessage as ConfigSetMsg,
+  ConfigSetProviderMessage as ConfigSetProviderMsg,
+  ConfigRemoveProviderMessage as ConfigRemoveProviderMsg,
+  ConfigFetchModelsMessage as ConfigFetchModelsMsg,
+  WorkspaceListMessage as WorkspaceListMsg,
+  WorkspaceSwitchMessage as WorkspaceSwitchMsg,
+  WorkspaceConfigGetMessage as WorkspaceConfigGetMsg,
+  WorkspaceConfigSetMessage as WorkspaceConfigSetMsg,
+  ConfigTestMessage as ConfigTestMsg,
 
-export interface SessionIdMsg {
-  type: 'session:id'
-  id: string
-}
+  // 数据模型
+} from '@crai/transport-ws/protocol'
 
-export interface ErrorMsg {
-  type: 'error'
-  message: string
-}
+// ── 从 core 导入共享类型 ──────────────────────────
+export type { ActivityItem, TodoItem } from '@crai/core'
 
-export type ServerMsg = EventMsg | RequestInputMsg | SessionIdMsg | ErrorMsg | ConfigDataMsg | ConfigModelsDataMsg | WorkspaceListDataMsg | WorkspaceSwitchedMsg | WorkspaceConfigDataMsg | SessionListDataMsg | SessionDataMsg | DirBrowseDataMsg | SessionTitleMsg
-
-// ── 配置/工作区 响应 ──
-
-export interface ConfigDataMsg {
-  type: 'config:data'
-  config: {
-    providers: Record<string, { apiKey: string; baseURL?: string; models?: string[] }>
-    defaultModel?: string
-    toolModel?: string
-    recentWorkspaces: string[]
-    /** 服务端变体配置中的调试 scope 列表，自动同步到前端。 */
-    debugScopes?: string[]
-    /** 运行环境变体名（如 dev / prod），前端用于条件显示 Mock provider 等。 */
-    variant?: string
-  }
-}
-
-export interface ConfigModelsDataMsg {
-  type: 'config:models:data'
-  providerName: string
-  models: string[]
-  error?: string
-}
-
-export interface WorkspaceListDataMsg {
-  type: 'workspace:list:data'
-  current: string | null
-  workspaces: Array<{ rootDir: string; config: { provider?: string; model?: string } }>
-}
-
-export interface WorkspaceSwitchedMsg {
-  type: 'workspace:switched'
-  rootDir: string
-  model: string
-  provider: string
-}
-
-export interface WorkspaceConfigDataMsg {
-  type: 'workspace:config:data'
-  config: { provider?: string; model?: string; security?: { mode?: string } }
-}
-
-export interface SessionListDataMsg {
-  type: 'session:list:data'
-  sessions: Array<{ id: string; title?: string; createdAt: number; updatedAt: number }>
-}
-
-export interface SessionDataMsg {
-  type: 'session:data'
-  sessionId: string
-  messages: Array<{ id: string; role: string; text: string; createdAt: number }>
-  todos?: TodoItem[]
-}
-
-export interface TodoItem {
-  id: string
-  content: string
-  activeForm?: string
-  status: 'pending' | 'in_progress' | 'completed'
-}
-
-// ── Client → Server ──
-
-export interface PromptMsg {
-  type: 'prompt'
-  sessionId?: string
-  text: string
-  model?: string
-  provider?: string
-}
-
-export interface SessionGenerateTitleMsg {
-  type: 'session:generate-title'
-  sessionId: string
-}
-
-export interface SessionTitleMsg {
-  type: 'session:title'
-  sessionId: string
-  title: string
-}
-
-export interface SessionNewMsg {
-  type: 'session:new'
-  system?: string
-}
-
-export interface SessionDeleteMsg {
-  type: 'session:delete'
-  sessionId: string
-}
-
-export interface SessionListMsg {
-  type: 'session:list'
-}
-
-export interface ResolveInputMsg {
-  type: 'resolve:input'
-  id: string
-  value: string
-}
-
-export interface SessionLoadMsg {
-  type: 'session:load'
-  sessionId: string
-}
-
-export interface SessionUpdateMsg {
-  type: 'session:update'
-  sessionId: string
-  title?: string
-}
-
-export interface DirBrowseMsg {
-  type: 'dir:browse'
-  path?: string
-}
-
-export interface DirBrowseDataMsg {
-  type: 'dir:browse:data'
-  path: string
-  dirs: string[]
-  parent?: string
-  error?: string
-}
-
-export type ClientMsg = PromptMsg | SessionNewMsg | SessionDeleteMsg | SessionLoadMsg | SessionUpdateMsg | SessionGenerateTitleMsg | DirBrowseMsg | ResolveInputMsg | SessionListMsg |
-  ConfigGetMsg | ConfigSetMsg | ConfigSetProviderMsg | ConfigRemoveProviderMsg | ConfigFetchModelsMsg |
-  WorkspaceListMsg | WorkspaceSwitchMsg | WorkspaceConfigGetMsg | WorkspaceConfigSetMsg
-
-// ── 配置/工作区 消息 ──
-
-export interface ConfigGetMsg { type: 'config:get' }
-export interface ConfigSetMsg { type: 'config:set'; config: any }
-export interface ConfigSetProviderMsg { type: 'config:set:provider'; name: string; config: { apiKey: string; baseURL?: string; models?: string[]; modelsPath?: string } }
-export interface ConfigRemoveProviderMsg { type: 'config:remove:provider'; name: string }
-export interface ConfigFetchModelsMsg { type: 'config:fetch:models'; providerName: string }
-export interface WorkspaceListMsg { type: 'workspace:list' }
-export interface WorkspaceSwitchMsg { type: 'workspace:switch'; rootDir: string }
-export interface WorkspaceConfigGetMsg { type: 'workspace:config:get' }
-export interface WorkspaceConfigSetMsg { type: 'workspace:config:set'; config: { provider?: string; model?: string; security?: { mode?: string } } }
-
-// ── 活动项（CrystalAgents 模式） ──
-
-export interface ActivityItem {
-  id: string
-  type: 'thinking' | 'tool' | 'status' | 'plan'
-  status: 'pending' | 'running' | 'completed' | 'error' | 'backgrounded'
-  toolName?: string
-  toolCallId?: string
-  toolInput?: Record<string, unknown>
-  /** 内容：thinking 的文本 / tool 的结果摘要 */
-  content?: string
-  /** 模型在调工具之前说的话（CrystalAgents 模式：intent 而非文本正文） */
-  intent?: string
-  displayName?: string
-  error?: string
-  elapsedSeconds?: number
-  isBackground?: boolean
-  parentId?: string
-  depth?: number
-  timestamp: number
-}
-
-// ── 内部消息模型 ──
+// ── 前端特有类型 ──────────────────────────────────
 
 export interface ChatMessage {
   id: string

@@ -142,7 +142,7 @@ export const KNOWN_MODELS: KnownModelsMap = {
   meta:       LLAMA_MODELS,     // 别名
   mistral:    MISTRAL_MODELS,
   mock: {
-    'mock': { contextWindow: 65536, thinking: true },
+    'mock': { displayName: 'Mock Model', contextWindow: 65536, thinking: true },
   },
 }
 

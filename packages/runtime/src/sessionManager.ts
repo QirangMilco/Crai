@@ -33,8 +33,4 @@ export class SessionManager {
   delete(sessionId: string): void {
     this.sessions.delete(sessionId)
   }
-
-  async listMessages(_sessionId: string) {
-    return []
-  }
 }

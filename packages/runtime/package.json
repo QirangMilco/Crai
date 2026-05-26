@@ -10,7 +10,6 @@
     }
   },
   "dependencies": {
-    "@crai/core": "workspace:*",
-    "tiktoken": "^1.0.22"
+    "@crai/core": "workspace:*"
   }
 }

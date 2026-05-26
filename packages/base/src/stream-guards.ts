@@ -10,6 +10,8 @@ import { ERROR_CODES } from '@crai/core'
 /** 流空闲超时错误 */
 export class StreamTimeoutError extends Error {
   override name = 'StreamTimeoutError'
+  /** 默认错误码。 */
+  readonly code: string = ERROR_CODES.STREAM_TIMEOUT
   constructor(message: string, public readonly idleMs: number) {
     super(message)
   }

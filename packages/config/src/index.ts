@@ -14,7 +14,8 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import type { AppVariant, GlobalConfig, ProviderConfig, WorkspaceConfig, ConfigStore } from '@crai/core'
+import type { GlobalConfig, ProviderConfig, WorkspaceConfig, ConfigStore } from '@crai/core'
+import type { AppVariant } from './types'
 import { encrypt, decrypt } from './crypto'
 
 // ════════════════════════════════════════════════════════
@@ -223,3 +224,4 @@ export class ConfigManager implements ConfigStore {
 // ════════════════════════════════════════════════════════
 
 export { encrypt, decrypt } from './crypto'
+export type { AppVariant } from './types'

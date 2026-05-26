@@ -22,23 +22,15 @@
 
 // Session 操作响应
 { type: 'session:id', id: string }
-{ type: 'session:data', sessionId: string, messages: ChatMessage[], todos?: TodoItem[], metadata?: Record<string, unknown> }
-
-其中消息格式 ChatMessage 同上。todos 字段可选，结构：
-```typescript
-interface TodoItem {
-  id: string
-  content: string
-  activeForm?: string
-  status: 'pending' | 'in_progress' | 'completed'
-}
-```
+{ type: 'session:data', sessionId: string, messages: ChatMessage[], todos?: TodoItem[], metadata?: Record<string, unknown>, activities?: ActivityItem[] }
 { type: 'session:list:data', sessions: Array<{ id, title?, createdAt, updatedAt }> }
 { type: 'session:title', sessionId: string, title: string }
 
 // 配置响应
-{ type: 'config:data', config: { providers, defaultModel, toolModel, recentWorkspaces, debugScopes?, variant? } }
+{ type: 'config:data', config: GlobalConfig }
 { type: 'config:models:data', providerName: string, models: string[], error?: string }
+{ type: 'config:test:result', ok: boolean, error?: string }
+{ type: 'config:known-models:data', firstParty: Array<{name, label, defaultBaseURL}>, knownModels: KnownModelsMap, thinkingLevels: Record<string, string[]>, defaultThinkingLevels: Record<string, string> }
 
 // 工作区响应
 { type: 'workspace:list:data', current: string|null, workspaces: Array<{ rootDir, config }> }
@@ -56,21 +48,24 @@ interface TodoItem {
 
 ```typescript
 // Prompt
-{ type: 'prompt', sessionId?: string, text: string, model?: string, provider?: string }
+{ type: 'prompt', sessionId?: string, text: string, model?: string, provider?: string, thinkingLevel?: string, mode?: string }
 
 // Session 管理
 { type: 'session:new', system?: string }
 { type: 'session:load', sessionId: string }
 { type: 'session:list' }
-{ type: 'session:update', sessionId: string, title?: string }
+{ type: 'session:update', sessionId: string, title?: string, mode?: string, thinkingLevel?: string }
+{ type: 'session:delete', sessionId: string }
 { type: 'session:generate-title', sessionId: string }
 
 // 配置
 { type: 'config:get' }
-{ type: 'config:set', config: any }
-{ type: 'config:set:provider', name: string, config: { apiKey, baseURL?, models?, modelsPath? } }
+{ type: 'config:set', config: GlobalConfig 的部分字段 }
+{ type: 'config:set:provider', name: string, config: ProviderConfig }  // 含 modelConfigs
 { type: 'config:remove:provider', name: string }
 { type: 'config:fetch:models', providerName: string }
+{ type: 'config:test', providerName: string }
+{ type: 'config:known-models' }
 
 // 工作区
 { type: 'workspace:list' }
@@ -94,47 +89,47 @@ interface TodoItem {
 
 ```
 event: model.delta
-payload: { workspaceId, session, turnId, delta: string }
+payload: { session, turnId, delta: string }
 ```
 
-### 思考流
+### 思考流（Activity Timeline 模式）
 
 ```
-event: thinking.delta
-payload: { workspaceId, session, turnId, delta: string }
+event: activity.start
+payload: { session, turnId, activityId, intent?: string }
 
-event: thinking.done
-payload: { workspaceId, session, turnId }
+event: activity.delta  
+payload: { session, turnId, activityId, delta: string }
+
+event: activity.done
+payload: { session, turnId, activityId, name?: string, isError?: boolean, content?: ToolResultContent[] }
 ```
 
 ### 工具流
 
 ```
 event: tool.start
-payload: { workspaceId, session, turnId, toolCallId, name }
+payload: { session, turnId, toolCallId, name, toolInput }
 
 event: tool.delta
-payload: { workspaceId, session, turnId, toolCallId, delta: string }
+payload: { session, turnId, toolCallId, delta: string }
 
 event: tool.done
-payload: { workspaceId, session, turnId, toolCallId, name, isError?, summary? }
-
-event: tool.blocked
-payload: { workspaceId, session, toolCall, reason }
+payload: { session, turnId, toolCallId, name, isError?, summary? }
 ```
 
 ### 模型完成
 
 ```
 event: model.completed
-payload: { workspaceId, session, response }
+payload: { session, response }
 ```
 
 ### 生命周期
 
 ```
 event: turn.started / turn.completed / turn.failed
-payload: { workspaceId, session, turnId, ... }
+payload: { session, turnId, ... }
 ```
 
 ## 4. 确认流 (request:input)
@@ -148,28 +143,91 @@ payload: { workspaceId, session, turnId, ... }
 
 `meta.toolName` 可用于前端自动批准同一会话中的重复工具。
 
-## 5. 内部消息模型 (ChatMessage)
+## 5. 消息模型
+
+### 5.1 ChatMessage
 
 ```typescript
 interface ChatMessage {
   id: string
-  role: 'user' | 'assistant' | 'system'
-  text: string
+  role: 'user' | 'assistant' | 'system' | 'tool'
+  text?: string          // 前端渲染文本
+  parts?: MessagePart[]  // 原始消息部件
   createdAt: number
-  blocks?: ContentBlock[]   // 渲染用，流式内容块
-  activities?: ActivityItem[]  // CrystalAgents 路线，见 frontend-architecture.md
+  activities?: ActivityItem[]
+  content?: ToolResultContent[]  // tool 消息的工具结果
 }
 
-type ContentBlock =
-  | { type: 'thinking'; content: string; sealed: boolean }
-  | { type: 'tool_group'; tools: ToolCallData[]; collapsed: boolean }
-  | { type: 'text'; content: string }
+type MessagePart =
+  | { type: 'text'; text: string }
+  | { type: 'thinking'; thinking: string }
+  | { type: 'tool-call'; toolCallId: string; name: string; arguments: Record<string, unknown> }
+  | { type: 'tool-result'; toolCallId: string; name: string; content: ToolResultContent[]; isError?: boolean }
 
-interface ToolCallData {
-  toolCallId: string
-  name: string
-  args: string
+interface ToolResultContent {
+  type: 'text'
+  text: string
+}
+```
+
+### 5.2 ActivityItem
+
+```typescript
+interface ActivityItem {
+  id: string
+  type: 'thinking' | 'tool'
   status: 'running' | 'success' | 'error'
-  summary?: string
+  intent?: string
+  content?: ToolResultContent[]
+  toolCallId?: string
+  toolName?: string
+  toolInput?: Record<string, unknown>
+}
+```
+
+### 5.3 TodoItem
+
+```typescript
+interface TodoItem {
+  id: string
+  content: string
+  activeForm?: string
+  status: 'pending' | 'in_progress' | 'completed'
+}
+```
+
+### 5.4 GlobalConfig
+
+```typescript
+interface GlobalConfig {
+  providers: Record<string, ProviderConfig>
+  defaultModel?: string       // 格式：provider/model
+  toolModel?: string          // 工具调用/摘要专用模型
+  sandboxEnabled?: boolean
+  compressionThreshold?: number  // 0~1，默认 0.8
+  keepRecentTokens?: number      // 默认 32000
+  customContextWindows?: Record<string, number>
+  recentWorkspaces: string[]
+  variant?: string
+  debugScopes?: string[]
+}
+```
+
+### 5.5 ProviderConfig
+
+```typescript
+interface ProviderConfig {
+  apiKey?: string
+  baseURL?: string
+  models?: string[]
+  modelsPath?: string           // 获取模型列表的 API 路径
+  modelConfigs?: Record<string, ModelConfig>
+}
+
+interface ModelConfig {
+  displayName?: string
+  contextWindow?: number
+  maxOutput?: number
+  vision?: boolean
 }
 ```

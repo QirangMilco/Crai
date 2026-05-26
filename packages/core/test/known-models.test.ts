@@ -81,3 +81,29 @@ describe('getMaxOutput', () => {
     assert.ok(max >= 4096)
   })
 })
+
+describe('displayName', () => {
+  it('真实模型都有 displayName', () => {
+    for (const [provider, models] of Object.entries(KNOWN_MODELS)) {
+      if (provider === 'mock') continue // mock 模型不需要 displayName
+      for (const [name, info] of Object.entries(models)) {
+        assert.ok(info.displayName,
+          `${provider}/${name} 缺少 displayName`)
+        assert.ok(info.displayName!.length > 0,
+          `${provider}/${name} displayName 为空`)
+      }
+    }
+  })
+
+  it('getModelInfo 返回的 info 包含 displayName', () => {
+    const info = getModelInfo('deepseek', 'deepseek-v4-flash')
+    assert.equal(info?.displayName, 'DeepSeek V4 Flash')
+  })
+
+  it('mock 模型允许没有 displayName', () => {
+    const info = getModelInfo('mock', 'mock')
+    // mock 可以有 displayName，但不强制检查
+    assert.ok(info)
+    assert.equal(info!.contextWindow, 65536)
+  })
+})

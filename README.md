@@ -16,13 +16,12 @@ Crai 是一个 **极简的、默认空心的、高度可扩展的 AI Agent 运�
 4. [运行时流程](docs/runtime-flow.md) — prompt、tool、extension 的执行流程
 5. [阶段计划](docs/phase-plan.md) — 分阶段实施计划与验收标准
 6. [运行时内核](docs/runtime-kernel.md) — 最小 runtime 内核定义
-7. [错误与恢复策略](docs/error-recovery.md) — 默认错误与恢复策略
-8. [最小内核示例](docs/minimal-kernel-example.md) — 最小内核示例设计
-9. [术语表](docs/terminology.md) — 统一术语定义
-10. [决策记录](docs/decision-log.md) — 关键架构决策记录
-11. [仓库结构草案](docs/repo-structure.md) — 仓库目录结构草案
-12. [实现跟踪](docs/implementation-tracker.md) — 中文实现跟踪文档
-13. [自举策略](docs/bootstrap-strategy.md) — 自举策略与核心/扩展边界
+7. [传输协议](docs/transport-protocol.md) — WebSocket 协议定义
+8. [术语表](docs/terminology.md) — 统一术语定义
+9. [决策记录](docs/decision-log.md) — 关键架构决策记录
+10. [仓库结构草案](docs/repo-structure.md) — 仓库目录结构草案
+11. [实现跟踪](docs/implementation-tracker.md) — 中文实现跟踪文档
+12. [自举策略](docs/bootstrap-strategy.md) — 自举策略与核心/扩展边界
 
 ## 核心原则
 

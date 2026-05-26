@@ -17,7 +17,8 @@
     "@crai/transport-ws": "workspace:*",
     "@crai/tools-fs": "workspace:*",
     "@crai/tools-shell": "workspace:*",
-    "@crai/tools-web": "workspace:*"
+    "@crai/tools-web": "workspace:*",
+    "@crai/base": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.3"

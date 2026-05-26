@@ -262,31 +262,6 @@ export function createId(prefix: string): string {
 // 配置类型
 // ════════════════════════════════════════════════════════
 
-/** 变体配置：由应用定义（dev/prod 目录隔离、端口等）。 */
-export interface AppVariant {
-  configDirName: string
-  workspaceDataDirName: string
-  server: {
-    defaultPort: number
-  }
-  debug: {
-    trace: boolean
-    /** 日志级别：debug | info | warn | error */
-    logLevel?: string
-    /** 日志文件输出目录。设置后日志以追加模式写入文件。 */
-    logDir?: string
-    /** 单个日志文件最大字节数（默认 10MB）。 */
-    maxFileSize?: number
-    /** 保留的旧日志文件数量（默认 3）。 */
-    maxBackups?: number
-    /** 调试输出范围。兼容两种格式：
-     *   - string[]: 仅服务端 scope（旧格式）
-     *   - { server?, client? }: 前后端分开配置
-     */
-    scopes?: string[] | { server?: string[]; client?: string[] }
-  }
-}
-
 export interface ModelConfig {
   displayName?: string
   contextWindow?: number

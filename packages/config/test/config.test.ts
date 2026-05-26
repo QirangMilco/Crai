@@ -4,7 +4,8 @@ import { mkdtempSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir, homedir } from 'node:os'
 import { ConfigManager } from '../src/index'
-import type { AppVariant, GlobalConfig, WorkspaceConfig } from '@crai/core'
+import type { GlobalConfig, WorkspaceConfig } from '@crai/core'
+import type { AppVariant } from '@crai/config'
 
 // ── 测试用变体 ──
 

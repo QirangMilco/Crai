@@ -49,5 +49,5 @@ export const PLAN_MODE_SYSTEM_PROMPT = `
 2. TODO 在开始执行后立即创建，而不是等到分析完
 3. 每次完成一项 TODO 就立即更新状态，不要一次性批量更新
 4. 同时最多一条 in_progress
-5. 用中文回答
+5. 完成任务后输出最终总结。
 `
