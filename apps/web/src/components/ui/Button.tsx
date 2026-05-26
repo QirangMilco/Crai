@@ -19,6 +19,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   size?: ButtonSize
   icon?: React.ReactNode
+  loading?: boolean
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -47,8 +48,10 @@ export function Button({
   variant = 'primary',
   size = 'md',
   icon,
+  loading,
   className,
   children,
+  disabled,
   ...rest
 }: ButtonProps) {
   return (
@@ -57,11 +60,22 @@ export function Button({
         'inline-flex items-center gap-1.5 transition-all duration-150 select-none',
         variantStyles[variant],
         sizeStyles[size],
+        (loading || disabled) && 'opacity-40 cursor-default pointer-events-none',
         className,
       )}
+      disabled={disabled || loading}
       {...rest}
     >
-      {icon && <span className="shrink-0">{icon}</span>}
+      {loading ? (
+        <span className="shrink-0 animate-spin">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </span>
+      ) : icon ? (
+        <span className="shrink-0">{icon}</span>
+      ) : null}
       {children}
     </button>
   )

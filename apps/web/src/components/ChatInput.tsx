@@ -1,8 +1,12 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { Send, Play, HelpCircle, Lock, Clock, ChevronDown } from 'lucide-react'
-import { Icon, Select } from './ui'
+import { useRef } from 'react'
+import { Send } from 'lucide-react'
+import { Icon } from './ui'
 import { useChatStore } from '../store/chat'
 import { TodoBar } from './TodoDisplay'
+import { InputArea, type InputAreaHandle } from './input/InputArea'
+import { ModeSelector } from './input/ModeSelector'
+import { ModelSelector } from './input/ModelSelector'
+import { ThinkingSelector } from './input/ThinkingSelector'
 
 interface Props {
   onSend: (text: string, model?: string) => void
@@ -17,223 +21,32 @@ interface Props {
   onModeChange?: (mode: string) => void
   providerThinkingLevels?: Record<string, string>
   defaultThinkingLevels?: Record<string, string>
+  sessionId?: string
 }
 
-const THINKING_LEVELS: Array<{ value: string; label: string }> = [
-  { value: 'off', label: '关' },
-  { value: 'auto', label: '自动' },
-  { value: 'low', label: '低' },
-  { value: 'medium', label: '中' },
-  { value: 'high', label: '高' },
-  { value: 'max', label: '最高' },
-  { value: 'xhigh', label: '极高' },
-]
+export function ChatInput({
+  onSend,
+  disabled,
+  className = '',
+  models,
+  currentModel,
+  onModelChange,
+  thinkingLevel,
+  onThinkingLevelChange,
+  sessionMode,
+  onModeChange,
+  providerThinkingLevels,
+  defaultThinkingLevels,
+  sessionId,
+}: Props) {
+  const inputRef = useRef<InputAreaHandle>(null)
 
-const PROVIDER_THINKING_LEVELS: Record<string, string[]> = {
-  deepseek:  ['off', 'high', 'max'],
-  openai:    ['off', 'low', 'medium', 'high'],
-  anthropic: ['off', 'high', 'xhigh'],
-  mock:      ['off', 'auto', 'low', 'medium', 'high', 'xhigh'],
-}
-
-const ALL_THINKING_LEVEL_VALUES = THINKING_LEVELS.map((tl) => tl.value)
-
-function getAvailableThinkingLevels(provider: string, configLevels?: Record<string, string>): Array<{ value: string; label: string }> {
-  if (configLevels) {
-    return Object.entries(configLevels).map(([value, label]) => ({ value, label }))
-  }
-  const levels = PROVIDER_THINKING_LEVELS[provider] ?? ALL_THINKING_LEVEL_VALUES
-  return THINKING_LEVELS.filter((tl) => levels.includes(tl.value))
-}
-
-const MODE_ICONS: Record<string, React.ReactNode> = {
-  execute: <Icon icon={Play} size="sm" />,
-  ask: <Icon icon={HelpCircle} size="sm" />,
-  safe: <Icon icon={Lock} size="sm" />,
-  plan: <Icon icon={Clock} size="sm" />,
-}
-
-const MODE_COLORS: Record<string, { base: string; bg: string; border: string }> = {
-  execute: { base: 'var(--crai-accent)', bg: 'color-mix(in oklch, var(--crai-accent) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-accent) 20%, transparent)' },
-  ask: { base: 'var(--crai-info)', bg: 'color-mix(in oklch, var(--crai-info) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-info) 20%, transparent)' },
-  safe: { base: 'var(--crai-success)', bg: 'color-mix(in oklch, var(--crai-success) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-success) 20%, transparent)' },
-  plan: { base: 'var(--crai-fg)', bg: 'color-mix(in oklch, var(--crai-fg) 5%, var(--crai-bg))', border: 'var(--crai-border)' },
-}
-
-const SESSION_MODES = [
-  { value: 'execute', label: '操作' },
-  { value: 'ask', label: '询问' },
-  { value: 'safe', label: '只读' },
-  { value: 'plan', label: '计划' },
-]
-
-// ── 模式下拉按钮（类 pure-html 风格） ──
-
-function ModeDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const current = SESSION_MODES.find((m) => m.value === value)
-  const label = current?.label ?? '模式'
-  const mc = MODE_COLORS[value] ?? MODE_COLORS.execute
-
-  function toggle() {
-    if (!open && ref.current) {
-      const rect = ref.current.getBoundingClientRect()
-      setOpenUp(window.innerHeight - rect.bottom < 200)
-    }
-    setOpen((o) => !o)
+  function handleInputSend(text: string) {
+    onSend(text, currentModel)
   }
 
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={toggle}
-        className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] transition-colors duration-150 hover:opacity-80"
-        style={{ color: mc.base, backgroundColor: mc.bg, border: `1px solid ${mc.border}`, cursor: 'pointer', whiteSpace: 'nowrap' }}
-      >
-        {MODE_ICONS[value]}
-          <span>{label}</span>
-          <Icon icon={ChevronDown} size="xs" />
-      </button>
-      {open && (
-        <div
-          className={`absolute z-50 py-1 rounded-lg shadow-lg overflow-hidden ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}
-          style={{ minWidth: 130, left: 0, backgroundColor: 'var(--crai-bg)', border: '1px solid var(--crai-border)', boxShadow: 'var(--crai-shadow-modal)' }}
-        >
-          {SESSION_MODES.map((m) => (
-            <button
-              key={m.value}
-              onClick={() => { onChange(m.value); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
-              style={{ color: m.value === value ? 'var(--crai-accent)' : 'var(--crai-fg)', fontWeight: m.value === value ? 500 : 400, backgroundColor: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-            >
-              {MODE_ICONS[m.value]}
-              {m.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 模型下拉（按钮只显示模型名，下拉按 provider 分组） ──
-
-function ModelDropdown({ models, value, onChange }: { models: Array<{ name: string; provider: string }>; value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const current = models.find((m) => m.name === value)
-
-  const grouped = useMemo(() => {
-    const groups: Record<string, typeof models> = {}
-    for (const m of models) {
-      const key = m.provider || ''
-      if (!groups[key]) groups[key] = []
-      groups[key].push(m)
-    }
-    return groups
-  }, [models])
-
-  const providerKeys = Object.keys(grouped)
-  const multiProvider = providerKeys.length > 1
-
-  function toggle() {
-    if (!open && ref.current) {
-      const rect = ref.current.getBoundingClientRect()
-      setOpenUp(window.innerHeight - rect.bottom < 200)
-    }
-    setOpen((o) => !o)
-  }
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        onClick={toggle}
-        className="flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
-        style={{ color: 'var(--crai-fg)', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
-      >
-        <span className="max-w-[100px] truncate">{current?.name ?? '选择模型'}</span>
-          <Icon icon={ChevronDown} size="xs" />
-      </button>
-      {open && (
-        <div
-          className={`absolute z-50 py-1 rounded-lg shadow-lg overflow-hidden ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}
-          style={{ minWidth: 180, right: 0, backgroundColor: 'var(--crai-bg)', border: '1px solid var(--crai-border)', boxShadow: 'var(--crai-shadow-modal)' }}
-        >
-          {providerKeys.map((provider) => (
-            <div key={provider}>
-              {multiProvider && (
-                <div className="px-3 py-1 text-[10px] font-medium" style={{ color: 'var(--crai-fg-40)' }}>
-                  {provider || '—'}
-                </div>
-              )}
-              {grouped[provider].map((m) => (
-                <button
-                  key={`${m.provider}/${m.name}`}
-                  onClick={() => { onChange(m.name); setOpen(false) }}
-                  className="w-full text-left px-3 py-1.5 text-xs transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
-                  style={{ color: m.name === value ? 'var(--crai-accent)' : 'var(--crai-fg)', fontWeight: m.name === value ? 500 : 400, backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
-                >
-                  {m.name}
-                </button>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-export function ChatInput({ onSend, disabled, className = '', models, currentModel, onModelChange, thinkingLevel, onThinkingLevelChange, sessionMode, onModeChange, providerThinkingLevels, defaultThinkingLevels }: Props) {
-  const [text, setText] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    const maxH = parseInt(
-      getComputedStyle(document.documentElement).getPropertyValue('--crai-input-max-height').trim() || '120', 10,
-    )
-    if (el.scrollHeight > maxH) {
-      el.style.height = maxH + 'px'
-      el.style.overflowY = 'auto'
-    } else {
-      el.style.height = el.scrollHeight + 'px'
-      el.style.overflowY = 'hidden'
-    }
-  }, [text])
-
-  function handleSubmit() {
-    const trimmed = text.trim()
-    if (!trimmed || disabled) return
-    onSend(trimmed, currentModel)
-    setText('')
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if ((e.nativeEvent as any).isComposing) return
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit()
-    }
+  function handleButtonClick() {
+    inputRef.current?.submit()
   }
 
   return (
@@ -259,30 +72,12 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
           gap: 'var(--crai-input-gap, 4px)',
           overflow: 'visible',
         }}>
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
+        <InputArea
+          ref={inputRef}
+          onSend={handleInputSend}
+          disabled={disabled}
+          sessionId={sessionId}
           placeholder="输入消息…"
-          rows={1}
-          data-token-group="input-field"
-          style={{
-            display: 'block',
-            width: '100%',
-            backgroundColor: 'transparent',
-            color: 'var(--crai-fg)',
-            fontSize: 'var(--crai-input-font-size)',
-            lineHeight: 'var(--crai-input-line-height)',
-            border: 'none',
-            borderRadius: 0,
-            outline: 'none',
-            resize: 'none',
-            boxSizing: 'border-box',
-            padding: '8px var(--crai-input-padding-x, 14px) 0',
-            maxHeight: 'calc(var(--crai-input-max-height, 120px))',
-            overflowY: 'hidden',
-          }}
         />
 
         {/* 底部工具栏 */}
@@ -297,7 +92,7 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
           }}
         >
           {/* 左：模式 */}
-          <ModeDropdown value={sessionMode ?? 'execute'} onChange={(v) => onModeChange?.(v)} />
+          <ModeSelector value={sessionMode ?? 'execute'} onChange={(v) => onModeChange?.(v)} />
 
           {/* 中：todo 进度 */}
           <div className="flex-1 flex justify-center min-w-0">
@@ -307,34 +102,23 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
           {/* 右：模型 + 思考 + 发送 */}
           <div className="flex items-center gap-1 shrink-0">
             {models && models.length > 0 && (
-              <ModelDropdown
+              <ModelSelector
                 models={models}
                 value={currentModel ?? ''}
                 onChange={(v) => onModelChange?.(v)}
               />
             )}
-            {(() => {
-              const curProvider = models?.find((m) => m.name === currentModel)?.provider ?? ''
-              const availableLevels = getAvailableThinkingLevels(curProvider, providerThinkingLevels)
-              const fallbackLevel = (curProvider && defaultThinkingLevels?.[curProvider]) ?? availableLevels[0]?.value ?? 'off'
-              const effectiveLevel = availableLevels.some((l) => l.value === thinkingLevel) ? thinkingLevel : fallbackLevel
-              if (effectiveLevel !== thinkingLevel) {
-                queueMicrotask(() => onThinkingLevelChange?.(effectiveLevel))
-              }
-              return (
-                <Select
-                  value={effectiveLevel}
-                  onChange={(v) => onThinkingLevelChange?.(v)}
-                  options={availableLevels}
-                  placeholder="思考"
-                  className="shrink-0"
-                  style={{ backgroundColor: 'transparent', border: 'none', padding: '2px 4px', maxWidth: 70, minHeight: 0, height: 'auto' }}
-                />
-              )
-            })()}
+            <ThinkingSelector
+              currentModel={currentModel}
+              models={models}
+              thinkingLevel={thinkingLevel}
+              onThinkingLevelChange={onThinkingLevelChange}
+              providerThinkingLevels={providerThinkingLevels}
+              defaultThinkingLevels={defaultThinkingLevels}
+            />
             <button
-              onClick={handleSubmit}
-              disabled={disabled || !text.trim()}
+              onClick={handleButtonClick}
+              disabled={disabled}
               className="crai-send-btn"
               data-token-group="font-size radius input-bar"
               style={{
@@ -343,9 +127,9 @@ export function ChatInput({ onSend, disabled, className = '', models, currentMod
                 width: 28,
                 height: 28,
                 color: 'var(--crai-btn-color)',
-                opacity: disabled || !text.trim() ? 0.4 : 1,
+                opacity: disabled ? 0.4 : 1,
                 border: 'none',
-                cursor: disabled || !text.trim() ? 'default' : 'pointer',
+                cursor: disabled ? 'default' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',

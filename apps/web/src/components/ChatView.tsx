@@ -216,6 +216,20 @@ export function ChatView({ wsUrl }: Props) {
     }
   }, [status, send])
 
+  // 按 / 聚焦输入框
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '/' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault()
+        // 查找 ChatInput 中的 textarea
+        const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder]')
+        ta?.focus()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   const resolveConfirm = useCallback((id: string, value: string, alwaysAllow?: boolean) => {
     send({ type: 'resolve:input', id, value })
     setPendingConfirm(null)
@@ -296,6 +310,7 @@ export function ChatView({ wsUrl }: Props) {
           onThinkingLevelChange={(level) => { setThinkingLevel(level); if (sessionId) send({ type: 'session:update', sessionId, thinkingLevel: level }) }}
           sessionMode={sessionMode}
           onModeChange={(mode) => { setSessionMode(mode); if (sessionId) send({ type: 'session:update', sessionId, mode }) }}
+          sessionId={sessionId}
           providerThinkingLevels={(() => {
             if (!providerThinkingLevels) return undefined
             const provider = availableModels.find((m) => m.name === currentModel)?.provider

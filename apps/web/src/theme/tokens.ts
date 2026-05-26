@@ -24,6 +24,7 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-foreground-rgb', label: '前景色 RGB', group: 'base', type: 'text', defaultValue: '26, 26, 26', description: '用于阴影计算的 RGB 分量（r, g, b）' },
   { name: '--crai-accent', label: '强调色', group: 'base', type: 'color', defaultValue: '#2563eb', description: '按钮、链接、活跃态——唯一色彩出口' },
   { name: '--crai-accent-rgb', label: '强调色 RGB', group: 'base', type: 'text', defaultValue: '37, 99, 235', description: '用于阴影色调的 RGB 分量' },
+  { name: '--crai-info', label: '信息色', group: 'base', type: 'color', defaultValue: 'var(--crai-accent)', ref: '--crai-accent', description: '警告/提示/询问模式色。默认继承强调色，可独立调节。' },
   { name: '--crai-success', label: '成功色', group: 'base', type: 'color', defaultValue: '#16a34a' },
   { name: '--crai-destructive', label: '危险色', group: 'base', type: 'color', defaultValue: '#dc2626' },
 

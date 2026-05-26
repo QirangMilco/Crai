@@ -47,8 +47,10 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false)
   const [openUp, setOpenUp] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
   const [btnWidth, setBtnWidth] = useState(0)
 
   const selected = options.find((o) => o.value === value)
@@ -63,6 +65,24 @@ export function Select({
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  useEffect(() => {
+    if (!open) setSearchQuery('')
+  }, [open])
+
+  useEffect(() => {
+    if (open && options.length > 8 && searchRef.current) {
+      searchRef.current.focus()
+    }
+  }, [open])
+
+  const showSearch = options.length > 8
+  const filteredOptions = showSearch && searchQuery
+    ? options.filter((o) =>
+        o.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        o.value.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : options
 
   const toggle = useCallback(() => {
     const next = !open
@@ -106,10 +126,21 @@ export function Select({
             boxShadow: 'var(--crai-shadow-modal)',
           }}
         >
-          {options.length === 0 && (
+          {showSearch && (
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索..."
+              className="w-full px-3 py-1.5 text-xs outline-none border-b"
+              style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', borderColor: 'var(--crai-border)' }}
+            />
+          )}
+          {filteredOptions.length === 0 && (
             <div className="px-3 py-2 text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>无选项</div>
           )}
-          {options.map((opt) => (
+          {filteredOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => { onChange(opt.value); setOpen(false) }}
