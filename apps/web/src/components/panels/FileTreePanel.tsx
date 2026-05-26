@@ -320,10 +320,22 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
         {error ? (
           <div className="text-[10px] text-center py-4" style={{ color: 'var(--crai-destructive)' }}>{error}</div>
         ) : root.length === 0 ? (
-          <div className="text-[10px] text-center py-4" style={{ color: 'var(--crai-fg-tertiary)' }}>加载中…</div>
+          <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+              style={{ color: 'var(--crai-fg-40)', opacity: 0.4 }}>
+              <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+            <div className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>正在加载工作区文件…</div>
+          </div>
         ) : displayTree.length === 0 ? (
-          <div className="text-[10px] text-center py-4" style={{ color: 'var(--crai-fg-tertiary)' }}>
-            {search ? '无匹配文件或目录' : '此目录下为空'}
+          <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+              style={{ color: 'var(--crai-fg-40)', opacity: 0.4 }}>
+              <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            </svg>
+            <div className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>
+              {search ? '无匹配文件或目录' : '此目录下为空'}
+            </div>
           </div>
         ) : (
           displayTree.map((node) => renderNode(node, 0))

@@ -177,8 +177,14 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
       {/* 会话列表 */}
       <div className="flex-1 overflow-y-auto px-2 pb-2 min-h-0">
         {groupKeys.length === 0 ? (
-          <div className="text-xs text-center py-8" style={{ color: 'var(--crai-fg-tertiary)' }}>
-            {search ? '无匹配会话' : '暂无会话'}
+          <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+              style={{ color: 'var(--crai-fg-40)', opacity: 0.4 }}>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>
+              {search ? '无匹配会话' : '暂无会话'}
+            </div>
           </div>
         ) : (
           groupKeys.map((label) => (

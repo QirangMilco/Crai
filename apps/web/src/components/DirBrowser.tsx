@@ -61,11 +61,23 @@ export function DirBrowser({ data, onNavigate, onSelect, onClose }: Props) {
         </div>
         <div className="flex-1 overflow-y-auto px-2 py-1" style={{ minHeight: '200px' }}>
           {isEmpty ? (
-            <div className="text-xs text-center py-8" style={{ color: 'var(--crai-fg-tertiary)' }}>加载中…</div>
+            <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: 'var(--crai-fg-40)', opacity: 0.4 }}>
+                <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+              </svg>
+              <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>加载中…</div>
+            </div>
           ) : data.error ? (
             <div className="text-xs text-center py-8" style={{ color: 'var(--crai-destructive)' }}>{data.error}</div>
           ) : data.dirs.length === 0 ? (
-            <div className="text-xs text-center py-8" style={{ color: 'var(--crai-fg-tertiary)' }}>此目录下没有子目录</div>
+            <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: 'var(--crai-fg-40)', opacity: 0.4 }}>
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>此目录下没有子目录</div>
+            </div>
           ) : (
             data.dirs.map((d) => (
               <button key={d} onClick={() => navigate(d)}

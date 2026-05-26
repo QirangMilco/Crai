@@ -5,15 +5,25 @@
  * 1. 颜色（基色 + 衍生色）
  * 2. 表面层级预览
  * 3. 样式（字号、行高、圆角、间距、布局等非色 token）
+ *
+ * 子组件：
+ * - ColorSwatches      行首色块栏
+ * - PresetManager      配色/样式预设管理
+ * - TokenGroupList     可滚动 token 分组列表
+ * - ImportExportBar    导入/导出操作栏
  */
 import { useState, useEffect, useMemo } from 'react'
 import { Select } from './ui'
 import {
-  TOKENS, setToken, getRawToken, resetGroup, resetAll,
+  TOKENS, setToken, getRawToken, resetAll,
   exportTokens, importTokens, COLOR_PRESETS, STYLE_PRESETS,
-  type TokenDef, type TokenGroup,
+  type TokenDef,
 } from '../theme/tokens'
 import { parseDesignMd, generateDesignMd } from '../theme/design-md'
+import { clearHexCache, toHexCssVar } from './inspector/color-utils'
+import { PresetManager } from './inspector/PresetManager'
+import { ImportExportBar } from './inspector/ImportExportBar'
+import { TokenGroupList } from './inspector/TokenGroupList'
 
 // ── 基色 token 名（优先级最高的 5 个） ──
 const BASE_COLORS = ['--crai-bg', '--crai-fg', '--crai-accent', '--crai-success', '--crai-destructive']
@@ -44,6 +54,7 @@ export function InspectorPanel({ onClose }: Props) {
   const [showPreview, setShowPreview] = useState(true)
   const [showStyle, setShowStyle] = useState(true)
   const [styleSearch, setStyleSearch] = useState('')
+  const [locateActiveToken, setLocateActiveToken] = useState<string | null>(null)
 
   // 从 localStorage 加载用户预设
   useEffect(() => {
@@ -72,6 +83,11 @@ export function InspectorPanel({ onClose }: Props) {
     return TOKENS.filter((t) => t.type === 'color' && !BASE_COLORS.includes(t.name) && !SURFACE_TOKENS.includes(t.name))
   }, [])
 
+  // ── 基色 token 定义 ──
+  const baseColorTokens = useMemo(() => {
+    return BASE_COLORS.map((name) => TOKENS.find((t) => t.name === name)!).filter(Boolean) as TokenDef[]
+  }, [])
+
   // ── 脏状态 ──
   const isColorDirty = (() => {
     if (!activeColor) return false
@@ -96,7 +112,6 @@ export function InspectorPanel({ onClose }: Props) {
 
   // ── 定位模式：点击元素 → 展开对应组 + 高亮 → 跳转 ──
   useEffect(() => {
-    // 清理函数：移除高亮
     function clearHighlights() {
       document.querySelectorAll('.crai-locate-highlight').forEach((el) => el.classList.remove('crai-locate-highlight'))
     }
@@ -108,9 +123,7 @@ export function InspectorPanel({ onClose }: Props) {
     }
     const handler = (e: PointerEvent) => {
       const target = e.target as HTMLElement
-      // 点击 Inspector 自身时跳过
       if (target.closest('.crai-inspector-root')) return
-      // pointerdown 捕获阶段在 disabled 元素上仍能工作。找到最近有 data-token-group 的祖先。
       const nearest = target.closest('[data-token-group]')
       if (!nearest) return
       const raw = nearest.getAttribute('data-token-group')
@@ -136,7 +149,6 @@ export function InspectorPanel({ onClose }: Props) {
         }
       })
     }
-    // 用 capture: true 确保在 disabled 按钮上也能收到事件
     document.addEventListener('pointerdown', handler as any, true)
     return () => {
       document.removeEventListener('pointerdown', handler as any, true)
@@ -250,6 +262,23 @@ export function InspectorPanel({ onClose }: Props) {
     i.click()
   }
 
+  function handleReset() {
+    resetAll()
+    clearHexCache()
+    forceUpdate((n) => n + 1)
+  }
+
+  // ── 组合预设列表（包含内置 + 用户自定义，用户自定义加前缀） ──
+  const allColorPresets = useMemo(() => [
+    ...COLOR_PRESETS.map((p) => ({ name: p.name })),
+    ...userColorPresets.map((p) => ({ name: 'uc-' + p.name })),
+  ], [userColorPresets])
+
+  const allStylePresets = useMemo(() => [
+    ...STYLE_PRESETS.map((p) => ({ name: p.name })),
+    ...userStylePresets.map((p) => ({ name: 'us-' + p.name })),
+  ], [userStylePresets])
+
   return (
     <div className="fixed top-0 right-0 h-full z-50 flex flex-col text-sm overflow-hidden crai-inspector-root"
       style={{ width: 'var(--crai-panel-width)', backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg)', borderLeft: '1px solid var(--crai-border)', boxShadow: 'var(--crai-shadow-modal)' }}>
@@ -270,263 +299,64 @@ export function InspectorPanel({ onClose }: Props) {
       </div>
 
       {/* 预设栏 */}
-      <div className="shrink-0 space-y-1 px-3 py-2 border-b" style={{ borderColor: 'var(--crai-border)' }}>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-medium shrink-0" style={{ color: 'var(--crai-fg-secondary)' }}>🎨 配色</span>
-          <Select
-            value={activeColor ?? ''}
-            onChange={(v) => { if (v) applyColorPreset(v) }}
-            options={[
-              { value: '', label: '— 未选择 —' },
-              ...COLOR_PRESETS.map((p) => ({ value: p.name, label: p.name })),
-              ...userColorPresets.map((p) => ({ value: 'uc-' + p.name, label: p.name })),
-            ]}
-            placeholder="— 未选择 —"
-            className="flex-1"
-            style={{
-              borderColor: isColorDirty ? 'var(--crai-accent)' : 'var(--crai-border)',
-            }}
-          />
-          <button onClick={saveColorPreset}
-            className="text-[10px] px-1.5 py-1 rounded shrink-0"
-            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>+ 保存</button>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-medium shrink-0" style={{ color: 'var(--crai-fg-secondary)' }}>⚙️ 样式</span>
-          <Select
-            value={activeStyle ?? ''}
-            onChange={(v) => { if (v) applyStylePreset(v) }}
-            options={[
-              { value: '', label: '— 未选择 —' },
-              ...STYLE_PRESETS.map((p) => ({ value: p.name, label: p.name })),
-              ...userStylePresets.map((p) => ({ value: 'us-' + p.name, label: p.name })),
-            ]}
-            placeholder="— 未选择 —"
-            className="flex-1"
-            style={{
-              borderColor: isStyleDirty ? 'var(--crai-accent)' : 'var(--crai-border)',
-            }}
-          />
-          <button onClick={saveStylePreset}
-            className="text-[10px] px-1.5 py-1 rounded shrink-0"
-            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>+ 保存</button>
-        </div>
-        <div className="flex gap-1">
-          <button onClick={exportAll}
-            className="flex-1 text-[10px] px-2 py-1 rounded"
-            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📤</button>
-          <button onClick={importAll}
-            className="flex-1 text-[10px] px-2 py-1 rounded"
-            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📥</button>
-          <button onClick={exportDesignMd}
-            className="flex-1 text-[10px] px-2 py-1 rounded"
-            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📄</button>
-          <button onClick={importDesignMd}
-            className="flex-1 text-[10px] px-2 py-1 rounded"
-            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>📂</button>
-          <button onClick={() => { resetAll(); clearHexCache(); forceUpdate((n) => n + 1) }}
-            className="flex-1 text-[10px] px-2 py-1 rounded"
-            style={{ color: 'var(--crai-destructive)', border: '1px solid var(--crai-destructive)' }}>↺</button>
-        </div>
-      </div>
+      <PresetManager
+        activeColor={activeColor}
+        activeStyle={activeStyle}
+        colorPresets={allColorPresets}
+        stylePresets={allStylePresets}
+        isColorDirty={isColorDirty}
+        isStyleDirty={isStyleDirty}
+        onColorPresetChange={applyColorPreset}
+        onStylePresetChange={applyStylePreset}
+        onSaveColor={saveColorPreset}
+        onSaveStyle={saveStylePreset}
+      />
 
-      {/* 可滚动内容 */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {/* ── 颜色（基色 + 衍生色） ── */}
-        <div className="px-3 pt-3 pb-1">
-          <button
-            onClick={() => setShowColors((s) => !s)}
-            className="w-full flex items-center justify-between text-[11px] font-medium mb-1"
-            style={{ color: 'var(--crai-fg-secondary)' }}
-          >
-            <span>🎨 颜色</span>
-            <span className="text-[10px]">{showColors ? '▼' : '▶'}</span>
-          </button>
-          {showColors && (
-            <div className="space-y-0.5">
-              {/* 基色 */}
-              <CollapsibleGroup label="基色" locateMode={locateMode} defaultOpen={true}>
-                {BASE_COLORS.map((name) => {
-                  const token = TOKENS.find((t) => t.name === name)!
-                  return <TokenControl key={token.name} token={token} onChange={forceUpdate as any} />
-                })}
-              </CollapsibleGroup>
-              {/* 衍生色 */}
-              <CollapsibleGroup label="衍生色" locateMode={locateMode} defaultOpen={false}>
-                {derivedColorTokens.map((token) => <TokenControl key={token.name} token={token} onChange={forceUpdate as any} />)}
-              </CollapsibleGroup>
-            </div>
-          )}
-        </div>
+      {/* 导入/导出操作栏 */}
+      <ImportExportBar
+        onExportJson={exportAll}
+        onImportJson={importAll}
+        onExportMd={exportDesignMd}
+        onImportMd={importDesignMd}
+        onReset={handleReset}
+      />
 
-        {/* ── 表面预览 ── */}
-        <div className="px-3 py-2">
-          <button
-            onClick={() => setShowPreview((s) => !s)}
-            className="w-full flex items-center justify-between text-[11px] font-medium mb-2"
-            style={{ color: 'var(--crai-fg-secondary)' }}
-          >
-            <span>表面层级预览</span>
-            <span className="text-[10px]">{showPreview ? '▼' : '▶'}</span>
-          </button>
-          {showPreview && <SurfacePreview />}
-        </div>
-
-        {/* ── 样式控制（非色 token 分组） ── */}
-        <div className="px-3 pb-1">
-          <button
-            onClick={() => setShowStyle((s) => !s)}
-            className="w-full flex items-center justify-between text-[11px] font-medium mb-2"
-            style={{ color: 'var(--crai-fg-secondary)' }}
-          >
-            <span>⚙️ 样式</span>
-            <span className="text-[10px]">{showStyle ? '▼' : '▶'}</span>
-          </button>
-          {showStyle && (
-            <div className="space-y-1">
-              {/* 搜索框 */}
-              <input
-                type="text"
-                value={styleSearch}
-                onChange={(e) => setStyleSearch(e.target.value)}
-                placeholder="搜索 token…"
-                className="w-full text-[10px] px-2 py-1 rounded outline-none mb-1"
-                style={{
-                  backgroundColor: 'var(--crai-bg-secondary)',
-                  color: 'var(--crai-fg)',
-                  border: '1px solid var(--crai-border)',
-                }}
-              />
-              {styleSearch.trim() ? (
-                // 搜索结果——跨所有组扁平化展示
-                (() => {
-                  const q = styleSearch.trim().toLowerCase()
-                  const matched = Object.entries(nonColorTokens).flatMap(([group, tokens]) =>
-                    tokens.filter((t) =>
-                      t.label.toLowerCase().includes(q) ||
-                      t.name.toLowerCase().includes(q) ||
-                      (t.description ?? '').toLowerCase().includes(q)
-                    )
-                  )
-                  return matched.length === 0
-                    ? <div className="text-[10px] py-2 text-center" style={{ color: 'var(--crai-fg-tertiary)' }}>无匹配</div>
-                    : matched.map((token) => <TokenControl key={token.name} token={token} onChange={forceUpdate as any} />)
-                })()
-              ) : (
-                Object.entries(nonColorTokens)
-                  .filter(([group]) => !filterLocate || targetGroups.length === 0 || targetGroups.includes(GROUP_LABELS[group] ?? group))
-                  .map(([group, tokens]) => (
-                  <CollapsibleGroup key={group} label={GROUP_LABELS[group] ?? group} locateMode={locateMode} forceOpen={targetGroups.includes(GROUP_LABELS[group] ?? group)}>
-                    {tokens.map((token) => <TokenControl key={token.name} token={token} onChange={forceUpdate as any} />)}
-                  </CollapsibleGroup>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-      </div>
+      {/* Token 分组列表 */}
+      <TokenGroupList
+        searchQuery={styleSearch}
+        onSearchQueryChange={setStyleSearch}
+        activeToken={locateActiveToken}
+        onTokenSelect={setLocateActiveToken}
+        nonColorTokens={nonColorTokens}
+        derivedColorTokens={derivedColorTokens}
+        baseColorTokens={baseColorTokens}
+        surfaceTokens={[]}
+        locateMode={locateMode}
+        filterLocate={filterLocate}
+        targetGroups={targetGroups}
+        forceUpdate={forceUpdate}
+        showColors={showColors}
+        showPreview={showPreview}
+        showStyle={showStyle}
+        onShowColorsChange={setShowColors}
+        onShowPreviewChange={setShowPreview}
+        onShowStyleChange={setShowStyle}
+        groupLabels={GROUP_LABELS}
+        renderTokenControl={(token) => <TokenControl key={token.name} token={token} onChange={forceUpdate as any} />}
+      />
 
       <div className="px-4 py-2 border-t text-[10px] shrink-0" style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}>修改实时生效</div>
     </div>
   )
 }
 
-// ── 表面预览卡片 ──
-
-function SurfacePreview() {
-  function resolve(cssVar: string): string {
-    // 直接使用 CSS 变量，让浏览器渲染引擎自己算
-    return `var(${cssVar})`
-  }
-  // Resolve the accent color for display
-  const accentHex = toHexCssVar('--crai-accent')
-  return (
-    <div style={{
-      borderRadius: 'var(--crai-radius-sm)',
-      border: '1px solid',
-      borderColor: resolve('--crai-border'),
-      overflow: 'hidden',
-      fontSize: 11,
-    }}>
-      {/* 最底层 bg */}
-      <div style={{ backgroundColor: resolve('--crai-bg'), padding: 12 }}>
-        <div className="text-[10px] font-medium mb-1.5" style={{ color: 'var(--crai-fg)' }}>bg <span style={{ color: resolve('--crai-fg-40') }}>— 最底层背景</span></div>
-
-        {/* bg-3 → msg / code / tool 背景 */}
-        <div style={{ backgroundColor: resolve('--crai-bg-3'), borderRadius: 4, padding: '8px 10px', marginBottom: 4 }}>
-          <div style={{ color: 'var(--crai-fg)' }}>bg-3 <span style={{ color: resolve('--crai-fg-40') }}>— 消息/代码/工具背景</span></div>
-        </div>
-
-        {/* bg-5 → hover 背景 */}
-        <div style={{ backgroundColor: resolve('--crai-bg-5'), borderRadius: 4, padding: '6px 10px', marginBottom: 4 }}>
-          <div style={{ color: 'var(--crai-fg)' }}>bg-5 <span style={{ color: resolve('--crai-fg-40') }}>— hover/选中</span></div>
-        </div>
-
-        {/* 文字预览 */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-          <div style={{ flex: 1, padding: '4px 6px', borderRadius: 3, backgroundColor: resolve('--crai-bg-3'), color: resolve('--crai-fg') }}>fg 主要</div>
-          <div style={{ flex: 1, padding: '4px 6px', borderRadius: 3, backgroundColor: resolve('--crai-bg-3'), color: resolve('--crai-fg-40') }}>fg-40 次要</div>
-          <div style={{ flex: 1, padding: '4px 6px', borderRadius: 3, backgroundColor: resolve('--crai-bg-3'), color: resolve('--crai-fg-60') }}>fg-60 三级</div>
-        </div>
-
-        {/* border */}
-        <div style={{ marginTop: 6, padding: '4px 8px', border: '1px solid', borderColor: resolve('--crai-border'), borderRadius: 3, color: resolve('--crai-fg-40') }}>
-          边框 border
-        </div>
-
-        {/* accent 色块 */}
-        <div style={{ marginTop: 6, padding: '4px 10px', borderRadius: 3, backgroundColor: resolve('--crai-accent'), color: '#fff', fontSize: 10, textAlign: 'center' }}>
-          强调色 accent — {accentHex}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── 可折叠分组 ──
-
-function CollapsibleGroup({ label, locateMode, children, defaultOpen = true, forceOpen = false }: { label: string; locateMode: boolean; children: React.ReactNode; defaultOpen?: boolean; forceOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen)
-  const [flash, setFlash] = useState(false)
-
-  // forceOpen 变化时强制展开 + 闪一下高亮
-  useEffect(() => {
-    if (forceOpen) {
-      setOpen(true)
-      setFlash(true)
-      const t = setTimeout(() => setFlash(false), 1500)
-      return () => clearTimeout(t)
-    }
-  }, [forceOpen])
-
-  return (
-    <div className={`mb-1 rounded transition-colors duration-300 ${flash ? 'crai-locate-flash' : ''}`} data-crai-group={label}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-2 py-1.5 rounded text-[11px] font-medium"
-        style={{ color: 'var(--crai-fg-secondary)' }}
-      >
-        <span>{label}</span>
-        <span className="text-[10px]">{open ? '▼' : '▶'}</span>
-      </button>
-      {open && (
-        <div className="ml-1 pl-2 border-l" style={{ borderColor: 'var(--crai-border)' }}>
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 以下是 TokenControl 及其子组件（不改动） ──
+// ── TokenControl 及其子组件（保持原样） ──
 
 function TokenControl({ token, onChange: _onChange }: { token: TokenDef; onChange: (n: number) => void }) {
   const resolved = getComputedStyle(document.documentElement).getPropertyValue(token.name).trim() || token.defaultValue
   const raw = getRawToken(token.name) || token.defaultValue
   const isLinked = token.ref != null && raw.startsWith('var(')
   const parentLabel = token.ref ? (TOKENS.find((t) => t.name === token.ref)?.label ?? token.ref) : undefined
-  // 继承态时用父 token 的解析值作为可编辑值（替代裸 var() 表达式）
   const editValue = isLinked && token.ref
     ? getComputedStyle(document.documentElement).getPropertyValue(token.ref).trim() || resolved
     : resolved
@@ -712,45 +542,4 @@ function NumberControl({ token, resolved, isLinked, parentLabel, onLink, onUnlin
       </div>
     </div>
   )
-}
-
-// ── 颜色解析：用 canvas 渲染 1px 像素并读取实际 RGBA ──
-
-const _hexCache = new Map<string, string>()
-function toHexCssVar(cssVar: string): string {
-  const cached = _hexCache.get(cssVar)
-  if (cached) return cached
-  // ... compute and cache
-  return computeHex(cssVar)
-}
-/** 清空缓存（颜色变更后调用） */
-function clearHexCache() { _hexCache.clear() }
-
-function computeHex(cssVar: string): string {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
-  if (!raw) { _hexCache.set(cssVar, '#4f46e5'); return '#4f46e5' }
-
-  const canvas = document.createElement('canvas')
-  canvas.width = 1; canvas.height = 1
-  const ctx = canvas.getContext('2d')
-  if (!ctx) { _hexCache.set(cssVar, '#4f46e5'); return '#4f46e5' }
-
-  let colorValue = raw
-  if (raw.includes('var(') || raw.startsWith('color-mix')) {
-    const proxy = document.createElement('div')
-    const rootStyle = document.documentElement.style
-    const vars = Array.from(rootStyle).map((k) => `${k}:${rootStyle.getPropertyValue(k)}`).join(';')
-    proxy.style.cssText = vars
-    document.body.appendChild(proxy)
-    proxy.style.backgroundColor = `var(${cssVar})`
-    colorValue = getComputedStyle(proxy).backgroundColor
-    document.body.removeChild(proxy)
-  }
-
-  ctx.fillStyle = colorValue
-  ctx.fillRect(0, 0, 1, 1)
-  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data
-  const hex = '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')
-  _hexCache.set(cssVar, hex)
-  return hex
 }

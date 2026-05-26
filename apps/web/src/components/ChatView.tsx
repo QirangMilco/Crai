@@ -69,7 +69,14 @@ export function ChatView({ wsUrl }: Props) {
     send,
     setCurrentModel: (m) => setCurrentModel((prev) => prev || m),
     onSessionId: (id) => setSessionId(id),
-    onSessionList: (list) => setSessions(list),
+    onSessionList: (list) => {
+      setSessions(list)
+      // 自动选中最近的活动会话
+      if (list.length > 0 && !sessionId) {
+        const sorted = [...list].sort((a, b) => b.createdAt - a.createdAt)
+        handleSwitchSession(sorted[0].id)
+      }
+    },
     onSessionTitle: (id, title) => setSessions((prev) => prev.map((s) => s.id === id ? { ...s, title } : s)),
     onConfigData: (config) => {
       setGlobalConfig(config)
@@ -90,6 +97,7 @@ export function ChatView({ wsUrl }: Props) {
     onWorkspaceList: (current, list) => {
       setWorkspaces(list)
       if (current) setCurrentWorkspace(current)
+      else if (list.length > 0) send({ type: 'workspace:switch', rootDir: list[0].rootDir })
     },
     onWorkspaceSwitched: (rootDir) => {
       setCurrentWorkspace(rootDir)

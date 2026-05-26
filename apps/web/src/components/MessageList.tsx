@@ -24,9 +24,12 @@ export function MessageList({ messages, className = '' }: Props) {
       >
         <div className="w-full">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full min-h-[300px] opacity-30 select-none">
-              <div className="text-3xl mb-3">💬</div>
-              <div className="text-xs">开始对话，在下方输入消息</div>
+            <div className="flex flex-col items-center justify-center h-full min-h-[300px] select-none">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: 'var(--crai-fg-40)', marginBottom: 12, opacity: 0.5 }}>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <div className="text-xs" style={{ color: 'var(--crai-fg-40)' }}>输入消息开始对话</div>
             </div>
           ) : (
             messages.map((msg, idx) => {
