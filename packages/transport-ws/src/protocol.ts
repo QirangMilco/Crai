@@ -80,6 +80,19 @@ export interface WorkspaceSwitchMessage {
   rootDir: string
 }
 
+/** 客户端测试 provider 连接（API key + base URL 是否有效）。 */
+export interface ConfigTestMessage {
+  type: 'config:test'
+  providerName: string
+}
+
+/** 连接测试响应。 */
+export interface ConfigTestResultMessage {
+  type: 'config:test:result'
+  ok: boolean
+  error?: string
+}
+
 /** 客户端请求获取指定 provider 的可用模型列表。 */
 export interface ConfigFetchModelsMessage {
   type: 'config:fetch:models'
@@ -148,6 +161,7 @@ export type ClientMessage =
   | ConfigSetProviderMessage
   | ConfigRemoveProviderMessage
   | ConfigFetchModelsMessage
+  | ConfigTestMessage
   | ConfigKnownModelsMessage
   | WorkspaceListMessage
   | WorkspaceSwitchMessage
@@ -252,6 +266,7 @@ export type ServerMessage =
   | DirBrowseDataMessage
   | SessionTitleMessage
   | ConfigKnownModelsDataMessage
+  | ConfigTestResultMessage
 
 /** 目录浏览响应。 */
 export interface DirBrowseDataMessage {

@@ -29,6 +29,7 @@ export function ChatView({ wsUrl }: Props) {
   const [availableModels, setAvailableModels] = useState<Array<{ name: string; provider: string }>>([])
   const [currentModel, setCurrentModel] = useState<string>('')
   const [modelsFetchResult, setModelsFetchResult] = useState<{ providerName: string; models: string[]; error?: string } | null>(null)
+  const [configTestResult, setConfigTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [thinkingLevel, setThinkingLevel] = useState<string>('auto')
   const [sessionMode, setSessionMode] = useState<string>('ask')
   const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>> | null>(null)
@@ -85,6 +86,7 @@ export function ChatView({ wsUrl }: Props) {
       }
     },
     onConfigModels: (providerName, models, error) => setModelsFetchResult({ providerName, models, error }),
+    onConfigTest: (ok, error) => setConfigTestResult({ ok, error }),
     onWorkspaceList: (current, list) => {
       setWorkspaces(list)
       if (current) setCurrentWorkspace(current)
@@ -408,7 +410,7 @@ export function ChatView({ wsUrl }: Props) {
               boxShadow: 'var(--crai-shadow-modal)',
             }}
           >
-            <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />
+            <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} configTestResult={configTestResult} onClearTestResult={() => setConfigTestResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />
           </div>
         </div>
       )}

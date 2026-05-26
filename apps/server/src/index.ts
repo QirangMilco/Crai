@@ -269,6 +269,24 @@ async function main() {
         }
         return result
       },
+      onConfigTest: async (providerName) => {
+        if (providerName?.toLowerCase().includes('mock')) {
+          return { ok: true }
+        }
+        const global = config.getGlobal()
+        const p = global.providers[providerName]
+        if (!p) return { ok: false, error: `Provider "${providerName}" 不存在` }
+        log.info(`正在测试 ${providerName} 的连接...`)
+        try {
+          const result = await listModels(p.apiKey, p.baseURL, p.modelsPath)
+          if (result.error) {
+            return { ok: false, error: result.error }
+          }
+          return { ok: true }
+        } catch (err) {
+          return { ok: false, error: String(err) }
+        }
+      },
       onConfigKnownModels: async () => {
         // 从活跃 runtime 收集 provider 声明的思考深度
         const thinkingLevels: Record<string, string[]> = {}
@@ -284,7 +302,7 @@ async function main() {
         return {
           firstParty: [...FIRST_PARTY_PROVIDERS],
           knownModels: (() => {
-            const result: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>> = {}
+            const result: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>> = {}
             for (const [provider, models] of Object.entries(KNOWN_MODELS)) {
               result[provider] = {}
               for (const [model, info] of Object.entries(models)) {

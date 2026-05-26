@@ -18,6 +18,7 @@ interface WsHandlers {
   onSessionTitle: (id: string, title: string) => void
   onConfigData: (config: any) => void
   onConfigModels: (providerName: string, models: string[], error?: string) => void
+  onConfigTest: (ok: boolean, error?: string) => void
   onWorkspaceList: (current: string | null, workspaces: Array<{ rootDir: string }>) => void
   onWorkspaceSwitched: (rootDir: string) => void
   onThinkingLevel: (level: string) => void
@@ -107,6 +108,9 @@ export function useWsHandler(h: WsHandlers) {
       }
       case 'config:models:data':
         h.onConfigModels(msg.providerName, msg.models ?? [], msg.error)
+        break
+      case 'config:test:result':
+        h.onConfigTest(msg.ok, msg.error)
         break
       case 'workspace:list:data': {
         const list = msg.workspaces?.map((w: any) => ({ rootDir: w.rootDir })) ?? []

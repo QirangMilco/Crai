@@ -21,6 +21,8 @@ export interface WsTransportHandlers {
   onConfigSetProvider?: (name: string, config: ProviderConfig) => void | Promise<void>
   onConfigRemoveProvider?: (name: string) => void | Promise<void>
   onConfigFetchModels?: (providerName: string) => Promise<{ models: string[]; error?: string }>
+  /** 测试 provider 连接。返回 ok 表示连接成功，error 为失败原因。 */
+  onConfigTest?: (providerName: string) => Promise<{ ok: boolean; error?: string }>
   /** 返回已知模型信息和第一方 provider 列表。 */
   onConfigKnownModels?: () => Promise<{
     firstParty: Array<{ name: string; label: string; defaultBaseURL: string }>
@@ -92,6 +94,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'config:set:provider':
       case 'config:remove:provider':
       case 'config:fetch:models':
+      case 'config:test':
       case 'config:known-models':
       case 'workspace:list':
       case 'workspace:switch':
@@ -386,6 +389,13 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         if (!handlers?.onConfigFetchModels) { ws.send(JSON.stringify({ type: 'error', message: 'model fetching not available' } satisfies ServerMessage)); break }
         const result = await handlers.onConfigFetchModels(msg.providerName)
         ws.send(JSON.stringify({ type: 'config:models:data', providerName: msg.providerName, ...result } satisfies ServerMessage))
+        break
+      }
+
+      case 'config:test': {
+        if (!handlers?.onConfigTest) { ws.send(JSON.stringify({ type: 'error', message: 'config test not available' } satisfies ServerMessage)); break }
+        const testResult = await handlers.onConfigTest(msg.providerName)
+        ws.send(JSON.stringify({ type: 'config:test:result', ...testResult } satisfies ServerMessage))
         break
       }
 

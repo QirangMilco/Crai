@@ -8,15 +8,30 @@
  */
 import { useState, useCallback, useEffect } from 'react'
 import { Select } from './ui'
+import { ComboInput } from './ui'
 
 // 由服务端 knownModels prop 提供,见 config:known-models 协议。
 // 不再硬编码。
 function getModelContextWindow(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>): number | undefined {
-  return knownModels?.[provider]?.[model]?.contextWindow
+  return knownModels?.[provider.toLowerCase()]?.[model]?.contextWindow
 }
 
 function getKnownModelDisplayName(provider: string, model: string, knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>): string | undefined {
-  return knownModels?.[provider]?.[model]?.displayName
+  return knownModels?.[provider.toLowerCase()]?.[model]?.displayName
+}
+
+function formatCtx(tokens: number): string {
+  const K = 1024
+  const M = K * K
+  if (tokens >= M && tokens % M === 0) return `${tokens / M}M`
+  if (tokens >= K && tokens % K === 0) return `${tokens / K}K`
+  if (tokens >= M) return `${(tokens / M).toFixed(2).replace(/\.?0+$/, '')}M`
+  if (tokens >= K) return `${(tokens / K).toFixed(1).replace(/\.?0+$/, '')}K`
+  return String(tokens)
+}
+
+function formatCtxExact(tokens: number): string {
+  return tokens.toLocaleString('en-US')
 }
 
 interface Props {
@@ -41,6 +56,10 @@ interface Props {
   modelsFetchResult?: { providerName: string; models: string[]; error?: string } | null
   /** 清除模型结果(组件已消费后调用)。 */
   onClearModelsResult?: () => void
+  /** 连接测试结果。 */
+  configTestResult?: { ok: boolean; error?: string } | null
+  /** 清除测试结果。 */
+  onClearTestResult?: () => void
   /** 已知模型窗口数据,由服务端提供。 */
   knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>
   /** 第一方 provider 列表,由服务端提供。 */
@@ -52,7 +71,7 @@ function maskKey(key: string): string {
   return key.slice(0, 4) + '...' + key.slice(-4)
 }
 
-export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearModelsResult, knownModels, firstParty }: Props) {
+export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearModelsResult, configTestResult, onClearTestResult, knownModels, firstParty }: Props) {
   const [editing, setEditing] = useState<string | null>(null)     // 展开编辑的 provider name
   const [editKey, setEditKey] = useState('')                      // 编辑中的 API key
   const [editBaseURL, setEditBaseURL] = useState('')              // 编辑中的 base URL
@@ -82,7 +101,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
       setEditFormMaxOut(String(mc.maxOutput ?? ''))
       setEditFormVision(mc.vision ?? false)
     }
-  }, [editingModel])
+  }, [editingModel]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 当 config prop 更新时，同步本地状态
   useEffect(() => {
@@ -92,6 +111,15 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
       setLocalModelConfigs(p.modelConfigs ?? {})
     }
   }, [config, editing])
+
+  // 连接测试结果显示反馈
+  const [testButtonState, setTestButtonState] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle')
+  useEffect(() => {
+    if (!configTestResult) return
+    setTestButtonState(configTestResult.ok ? 'ok' : 'fail')
+    const timer = setTimeout(() => { setTestButtonState('idle'); onClearTestResult?.() }, 2500)
+    return () => clearTimeout(timer)
+  }, [configTestResult])
 
   const [showAddDropdown, setShowAddDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -403,15 +431,46 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                             className="flex-1 px-3 py-2 rounded text-xs outline-none"
                             style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
                           <button
-                            onClick={() => send?.({ type: 'config:test', providerName: editing })}
-                            className="w-7 h-7 flex items-center justify-center rounded transition-colors"
-                            style={{ color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}
-                            title="测试连接"
+                            onClick={() => {
+                              setTestButtonState('testing')
+                              send?.({ type: 'config:test', providerName: editing })
+                            }}
+                            className="w-7 h-7 flex items-center justify-center rounded transition-colors shrink-0"
+                            style={{
+                              color: testButtonState === 'ok' ? 'var(--crai-success)' : testButtonState === 'fail' ? 'var(--crai-destructive)' : 'var(--crai-fg-tertiary)',
+                              border: `1px solid ${
+                                testButtonState === 'ok' ? 'var(--crai-success)' :
+                                testButtonState === 'fail' ? 'var(--crai-destructive)' :
+                                testButtonState === 'testing' ? 'var(--crai-accent)' :
+                                'var(--crai-border)'
+                              }`,
+                            }}
+                            title={
+                              testButtonState === 'ok' ? '连接成功' :
+                              testButtonState === 'fail' ? '连接失败' :
+                              testButtonState === 'testing' ? '测试中…' :
+                              '测试连接'
+                            }
                           >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                            </svg>
+                            {testButtonState === 'testing' ? (
+                              <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                              </svg>
+                            ) : testButtonState === 'ok' ? (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--crai-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : testButtonState === 'fail' ? (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--crai-destructive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            ) : (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                              </svg>
+                            )}
                           </button>
                         </div>
                       </div>
@@ -500,6 +559,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                 const knownCtx = getModelContextWindow(editing!, m, knownModels)
                                 const ctx = mc.contextWindow ?? knownCtx
                                 const displayName = mc.displayName || getKnownModelDisplayName(editing!, m, knownModels) || m
+                                const ctxLabel = ctx ? formatCtx(ctx) : '—'
                                 return (
                                   <div
                                     key={m}
@@ -509,26 +569,32 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                       border: editModel === m ? '1px solid var(--crai-accent)' : '1px solid transparent',
                                     }}
                                   >
-                                    {/* 显示名 */}
-                                    <span className="text-xs font-medium truncate max-w-[120px]">{displayName || m}</span>
+                                    {/* 显示名（固定宽度，溢出省略） */}
+                                    <span
+                                      className="text-xs font-medium truncate shrink-0"
+                                      style={{ width: 120 }}
+                                      title={displayName !== m ? `${displayName}\n${m}` : displayName}
+                                    >{displayName}</span>
 
-                                    {/* 原始 ID（显示名与 ID 不同时显示） */}
+                                    {/* 模型 ID（固定宽度，浅色文字，无背景） */}
                                     {displayName !== m && (
                                       <span
-                                        className="text-[9px] px-1 py-0.5 rounded shrink-0 max-w-[80px] truncate"
-                                        style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg-tertiary)' }}
-                                      >
-                                        {m}
-                                      </span>
+                                        className="text-[10px] truncate shrink-0"
+                                        style={{ width: 80, color: 'var(--crai-fg-tertiary)' }}
+                                        title={m}
+                                      >{m}</span>
                                     )}
 
-                                    {/* 上下文长度 */}
-                                    <span className="text-[9px] opacity-50 tabular-nums shrink-0">
-                                      {ctx ? `${(ctx / 1000).toFixed(0)}k` : '—'} ctx
-                                    </span>
-
                                     {/* 视觉标记 */}
-                                    {mc.vision && <span className="text-[9px] opacity-50 shrink-0">🖼</span>}
+                                    {mc.vision && (
+                                      <span className="text-[10px] shrink-0" title="支持视觉">🖼</span>
+                                    )}
+
+                                    {/* 上下文长度（可读格式） */}
+                                    <span
+                                      className="text-[10px] tabular-nums shrink-0"
+                                      style={{ color: 'var(--crai-fg-tertiary)', width: 48, textAlign: 'right' as const }}
+                                    >{ctxLabel}</span>
 
                                     {/* 操作按钮 */}
                                     <div className="flex items-center gap-1 ml-auto shrink-0">
@@ -717,24 +783,33 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                 </div>
 
                                 <div className="flex gap-3">
-                                  <div className="flex-1 space-y-0.5">
+                                  <div className="flex-1 space-y-1">
                                     <label className="text-[10px] opacity-50">输入上下文</label>
-                                    <input
+                                    <ComboInput
+                                      presets={[
+                                        { label: '64K', value: 65536 },
+                                        { label: '128K', value: 131072 },
+                                        { label: '256K', value: 262144 },
+                                        { label: '512K', value: 524288 },
+                                        { label: '1M', value: 1048576 },
+                                      ]}
                                       value={editFormCtx}
-                                      onChange={e => setEditFormCtx(e.target.value.replace(/[^0-9]/g, ''))}
-                                      placeholder={String(getModelContextWindow(editing!, editingModel, knownModels) || 128000)}
-                                      className="w-full px-2 py-1.5 rounded text-xs outline-none tabular-nums"
-                                      style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                                      onChange={setEditFormCtx}
+                                      placeholder={formatCtxExact(getModelContextWindow(editing!, editingModel, knownModels) ?? 131072)}
                                     />
                                   </div>
-                                  <div className="flex-1 space-y-0.5">
+                                  <div className="flex-1 space-y-1">
                                     <label className="text-[10px] opacity-50">输出上限</label>
-                                    <input
+                                    <ComboInput
+                                      presets={[
+                                        { label: '8K', value: 8192 },
+                                        { label: '16K', value: 16384 },
+                                        { label: '32K', value: 32768 },
+                                        { label: '64K', value: 65536 },
+                                      ]}
                                       value={editFormMaxOut}
-                                      onChange={e => setEditFormMaxOut(e.target.value.replace(/[^0-9]/g, ''))}
-                                      placeholder="16384"
-                                      className="w-full px-2 py-1.5 rounded text-xs outline-none tabular-nums"
-                                      style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+                                      onChange={setEditFormMaxOut}
+                                      placeholder="16,384"
                                     />
                                   </div>
                                 </div>
@@ -768,7 +843,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                                   <button
                                     onClick={() => {
                                       const cfg: any = {}
-                                      if (editFormName.trim()) cfg.displayName = editFormName.trim()
+                                      cfg.displayName = editFormName.trim() || undefined
                                       if (editFormCtx) cfg.contextWindow = parseInt(editFormCtx, 10)
                                       if (editFormMaxOut) cfg.maxOutput = parseInt(editFormMaxOut, 10)
                                       cfg.vision = editFormVision
