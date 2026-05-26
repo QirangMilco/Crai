@@ -31,7 +31,7 @@ export function ChatView({ wsUrl }: Props) {
   const [modelsFetchResult, setModelsFetchResult] = useState<{ providerName: string; models: string[]; error?: string } | null>(null)
   const [thinkingLevel, setThinkingLevel] = useState<string>('auto')
   const [sessionMode, setSessionMode] = useState<string>('ask')
-  const [knownModels, setKnownModels] = useState<Record<string, Record<string, { contextWindow: number; maxOutput?: number }>> | null>(null)
+  const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>> | null>(null)
   const [firstPartyProviders, setFirstPartyProviders] = useState<Array<{ name: string; label: string; defaultBaseURL: string }> | null>(null)
   const [providerThinkingLevels, setProviderThinkingLevels] = useState<Record<string, string[]> | null>(null)
   const [defaultThinkingLevels, setDefaultThinkingLevels] = useState<Record<string, string> | null>(null)
@@ -401,7 +401,7 @@ export function ChatView({ wsUrl }: Props) {
             onClick={(e) => e.stopPropagation()}
             className="flex flex-col overflow-hidden rounded-xl"
             style={{
-              width: 800,
+              width: 660,
               height: '75vh',
               backgroundColor: 'var(--crai-bg)',
               border: '1px solid var(--crai-border)',

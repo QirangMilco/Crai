@@ -288,7 +288,7 @@ async function main() {
             for (const [provider, models] of Object.entries(KNOWN_MODELS)) {
               result[provider] = {}
               for (const [model, info] of Object.entries(models)) {
-                result[provider][model] = { contextWindow: info.contextWindow, maxOutput: info.maxOutput }
+                result[provider][model] = { displayName: info.displayName, contextWindow: info.contextWindow, maxOutput: info.maxOutput }
               }
             }
             return result

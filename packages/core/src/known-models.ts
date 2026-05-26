@@ -14,6 +14,8 @@
  */
 
 export interface ModelInfo {
+  /** 显示名称（如 "DeepSeek V4 Flash"）。未设置时回退使用模型 ID。 */
+  displayName?: string
   /** 总上下文窗口（token）。 */
   contextWindow: number
   /** 最大输出 token（可选，默认取窗口的 1/4）。 */
@@ -47,12 +49,12 @@ export type KnownModelsMap = Record<string, Record<string, ModelInfo>>
 // ════════════════════════════════════════════════════════════════
 
 const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
-  'deepseek-v4-flash': { contextWindow: 1048576, thinking: true },
-  'deepseek-v4-pro':   { contextWindow: 1048576, thinking: true },
-  'deepseek-v3':       { contextWindow: 1048576, thinking: true },
-  'deepseek-reasoner': { contextWindow: 65536, thinking: true },
-  'deepseek-chat':     { contextWindow: 32768, supportedThinkingLevels: ['off'] },
-  'deepseek-coder':    { contextWindow: 16384, supportedThinkingLevels: ['off'] },
+  'deepseek-v4-flash': { displayName: 'DeepSeek V4 Flash', contextWindow: 1048576, thinking: true },
+  'deepseek-v4-pro':   { displayName: 'DeepSeek V4 Pro', contextWindow: 1048576, thinking: true },
+  'deepseek-v3':       { displayName: 'DeepSeek V3', contextWindow: 1048576, thinking: true },
+  'deepseek-reasoner': { displayName: 'DeepSeek Reasoner', contextWindow: 65536, thinking: true },
+  'deepseek-chat':     { displayName: 'DeepSeek Chat', contextWindow: 32768, supportedThinkingLevels: ['off'] },
+  'deepseek-coder':    { displayName: 'DeepSeek Coder', contextWindow: 16384, supportedThinkingLevels: ['off'] },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -60,20 +62,20 @@ const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const OPENAI_MODELS: Record<string, ModelInfo> = {
-  'gpt-4o':           { contextWindow: 131072, maxOutput: 16384 },
-  'gpt-4o-2024-08-06': { contextWindow: 131072, maxOutput: 16384 },
-  'gpt-4o-mini':       { contextWindow: 131072, maxOutput: 16384 },
-  'gpt-4-turbo':       { contextWindow: 131072, maxOutput: 4096 },
-  'gpt-4':             { contextWindow: 8192,   maxOutput: 4096 },
-  'gpt-4-32k':         { contextWindow: 32768,  maxOutput: 4096 },
-  'gpt-3.5-turbo':     { contextWindow: 16384,  maxOutput: 4096 },
-  'gpt-3.5-turbo-16k': { contextWindow: 16384,  maxOutput: 4096 },
+  'gpt-4o':           { displayName: 'GPT-4o', contextWindow: 131072, maxOutput: 16384 },
+  'gpt-4o-2024-08-06': { displayName: 'GPT-4o (2024-08-06)', contextWindow: 131072, maxOutput: 16384 },
+  'gpt-4o-mini':       { displayName: 'GPT-4o Mini', contextWindow: 131072, maxOutput: 16384 },
+  'gpt-4-turbo':       { displayName: 'GPT-4 Turbo', contextWindow: 131072, maxOutput: 4096 },
+  'gpt-4':             { displayName: 'GPT-4', contextWindow: 8192,   maxOutput: 4096 },
+  'gpt-4-32k':         { displayName: 'GPT-4 32K', contextWindow: 32768,  maxOutput: 4096 },
+  'gpt-3.5-turbo':     { displayName: 'GPT-3.5 Turbo', contextWindow: 16384,  maxOutput: 4096 },
+  'gpt-3.5-turbo-16k': { displayName: 'GPT-3.5 Turbo 16K', contextWindow: 16384,  maxOutput: 4096 },
 
   // o 系列
-  'o1':         { contextWindow: 204800, maxOutput: 102400 },
-  'o1-mini':    { contextWindow: 131072, maxOutput: 65536 },
-  'o1-preview': { contextWindow: 131072, maxOutput: 32768 },
-  'o3-mini':    { contextWindow: 204800, maxOutput: 102400 },
+  'o1':         { displayName: 'o1', contextWindow: 204800, maxOutput: 102400 },
+  'o1-mini':    { displayName: 'o1 Mini', contextWindow: 131072, maxOutput: 65536 },
+  'o1-preview': { displayName: 'o1 Preview', contextWindow: 131072, maxOutput: 32768 },
+  'o3-mini':    { displayName: 'o3 Mini', contextWindow: 204800, maxOutput: 102400 },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -81,13 +83,13 @@ const OPENAI_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const ANTHROPIC_MODELS: Record<string, ModelInfo> = {
-  'claude-3-5-sonnet-20241022': { contextWindow: 204800, maxOutput: 8192 },
-  'claude-3-5-haiku-20241022':  { contextWindow: 204800, maxOutput: 8192 },
-  'claude-3-opus-20240229':     { contextWindow: 204800, maxOutput: 4096 },
-  'claude-3-sonnet-20240229':   { contextWindow: 204800, maxOutput: 4096 },
-  'claude-3-haiku-20240307':    { contextWindow: 204800, maxOutput: 4096 },
-  'claude-4-opus':              { contextWindow: 204800, maxOutput: 8192, thinking: true },
-  'claude-4-sonnet':            { contextWindow: 204800, maxOutput: 8192, thinking: true },
+  'claude-3-5-sonnet-20241022': { displayName: 'Claude 3.5 Sonnet', contextWindow: 204800, maxOutput: 8192 },
+  'claude-3-5-haiku-20241022':  { displayName: 'Claude 3.5 Haiku', contextWindow: 204800, maxOutput: 8192 },
+  'claude-3-opus-20240229':     { displayName: 'Claude 3 Opus', contextWindow: 204800, maxOutput: 4096 },
+  'claude-3-sonnet-20240229':   { displayName: 'Claude 3 Sonnet', contextWindow: 204800, maxOutput: 4096 },
+  'claude-3-haiku-20240307':    { displayName: 'Claude 3 Haiku', contextWindow: 204800, maxOutput: 4096 },
+  'claude-4-opus':              { displayName: 'Claude 4 Opus', contextWindow: 204800, maxOutput: 8192, thinking: true },
+  'claude-4-sonnet':            { displayName: 'Claude 4 Sonnet', contextWindow: 204800, maxOutput: 8192, thinking: true },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -95,11 +97,11 @@ const ANTHROPIC_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const GEMINI_MODELS: Record<string, ModelInfo> = {
-  'gemini-2.0-flash':     { contextWindow: 1048576, maxOutput: 8192 },
-  'gemini-2.0-flash-lite': { contextWindow: 1048576, maxOutput: 8192 },
-  'gemini-1.5-pro':       { contextWindow: 2097152, maxOutput: 8192 },
-  'gemini-1.5-flash':     { contextWindow: 1048576, maxOutput: 8192 },
-  'gemini-1.5-flash-8b':  { contextWindow: 1048576, maxOutput: 8192 },
+  'gemini-2.0-flash':     { displayName: 'Gemini 2.0 Flash', contextWindow: 1048576, maxOutput: 8192 },
+  'gemini-2.0-flash-lite': { displayName: 'Gemini 2.0 Flash Lite', contextWindow: 1048576, maxOutput: 8192 },
+  'gemini-1.5-pro':       { displayName: 'Gemini 1.5 Pro', contextWindow: 2097152, maxOutput: 8192 },
+  'gemini-1.5-flash':     { displayName: 'Gemini 1.5 Flash', contextWindow: 1048576, maxOutput: 8192 },
+  'gemini-1.5-flash-8b':  { displayName: 'Gemini 1.5 Flash 8B', contextWindow: 1048576, maxOutput: 8192 },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -107,11 +109,11 @@ const GEMINI_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const LLAMA_MODELS: Record<string, ModelInfo> = {
-  'llama-3.1-405b':  { contextWindow: 131072 },
-  'llama-3.1-70b':   { contextWindow: 131072 },
-  'llama-3.1-8b':    { contextWindow: 131072 },
-  'llama-3-70b':     { contextWindow: 8192 },
-  'llama-3-8b':      { contextWindow: 8192 },
+  'llama-3.1-405b':  { displayName: 'Llama 3.1 405B', contextWindow: 131072 },
+  'llama-3.1-70b':   { displayName: 'Llama 3.1 70B', contextWindow: 131072 },
+  'llama-3.1-8b':    { displayName: 'Llama 3.1 8B', contextWindow: 131072 },
+  'llama-3-70b':     { displayName: 'Llama 3 70B', contextWindow: 8192 },
+  'llama-3-8b':      { displayName: 'Llama 3 8B', contextWindow: 8192 },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -119,11 +121,11 @@ const LLAMA_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const MISTRAL_MODELS: Record<string, ModelInfo> = {
-  'mistral-large':       { contextWindow: 131072 },
-  'mistral-medium':      { contextWindow: 32768 },
-  'mistral-small':       { contextWindow: 32768 },
-  'codestral':           { contextWindow: 262144 },
-  'ministral-8b':        { contextWindow: 131072 },
+  'mistral-large':       { displayName: 'Mistral Large', contextWindow: 131072 },
+  'mistral-medium':      { displayName: 'Mistral Medium', contextWindow: 32768 },
+  'mistral-small':       { displayName: 'Mistral Small', contextWindow: 32768 },
+  'codestral':           { displayName: 'Codestral', contextWindow: 262144 },
+  'ministral-8b':        { displayName: 'Ministral 8B', contextWindow: 131072 },
 }
 
 // ════════════════════════════════════════════════════════════════

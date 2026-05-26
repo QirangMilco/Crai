@@ -287,7 +287,7 @@ export interface ConfigKnownModelsDataMessage {
   /** 第一方 provider 列表。 */
   firstParty: Array<{ name: string; label: string; defaultBaseURL: string }>
   /** 已知模型窗口数据。provider → model → { contextWindow, maxOutput? }。 */
-  knownModels: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>
+  knownModels: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>
   /** Provider 声明的思考深度列表。provider → string[]。 */
   thinkingLevels?: Record<string, string[]>
   /** 各 provider 的默认思考深度。provider → level。 */
