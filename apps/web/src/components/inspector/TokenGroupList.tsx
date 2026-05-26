@@ -37,6 +37,8 @@ interface Props {
   onShowStyleChange: (v: boolean) => void
   /** CollapsibleGroup 分组标签映射 */
   groupLabels: Record<string, string>
+  /** CollapsibleGroup 分组图标（svg path d 值） */
+  groupIcons?: Record<string, string>
   /** 渲染单个 token 编辑控件 */
   renderTokenControl: (token: TokenDef) => React.ReactNode
 }
@@ -49,7 +51,7 @@ export function TokenGroupList({
   forceUpdate,
   showColors, showPreview, showStyle,
   onShowColorsChange, onShowPreviewChange, onShowStyleChange,
-  groupLabels,
+  groupLabels, groupIcons,
   renderTokenControl,
 }: Props) {
   return (
@@ -68,8 +70,14 @@ export function TokenGroupList({
           className="w-full flex items-center justify-between text-[11px] font-medium mb-1"
           style={{ color: 'var(--crai-fg-secondary)' }}
         >
-          <span>🎨 颜色</span>
-          <span className="text-[10px]">{showColors ? '▼' : '▶'}</span>
+          <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: 'var(--crai-fg-secondary)' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            颜色
+          </span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: showColors ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
         </button>
         {showColors && (
           <div className="space-y-0.5">
@@ -91,7 +99,10 @@ export function TokenGroupList({
           style={{ color: 'var(--crai-fg-secondary)' }}
         >
           <span>表面层级预览</span>
-          <span className="text-[10px]">{showPreview ? '▼' : '▶'}</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: showPreview ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
         </button>
         {showPreview && <SurfacePreview />}
       </div>
@@ -103,8 +114,14 @@ export function TokenGroupList({
           className="w-full flex items-center justify-between text-[11px] font-medium mb-2"
           style={{ color: 'var(--crai-fg-secondary)' }}
         >
-          <span>⚙️ 样式</span>
-          <span className="text-[10px]">{showStyle ? '▼' : '▶'}</span>
+          <span className="flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            样式
+          </span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: showStyle ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
         </button>
         {showStyle && (
           <div className="space-y-1">
@@ -143,6 +160,7 @@ export function TokenGroupList({
                     label={groupLabels[group] ?? group}
                     locateMode={locateMode}
                     forceOpen={targetGroups.includes(groupLabels[group] ?? group)}
+                    iconPath={groupIcons?.[group]}
                   >
                     {tokens.map((token) => renderTokenControl(token))}
                   </CollapsibleGroup>
@@ -200,8 +218,8 @@ function SurfacePreview() {
 
 // ── 可折叠分组 ──
 
-function CollapsibleGroup({ label, locateMode, children, defaultOpen = true, forceOpen = false }: {
-  label: string; locateMode: boolean; children: React.ReactNode; defaultOpen?: boolean; forceOpen?: boolean
+function CollapsibleGroup({ label, locateMode, children, defaultOpen = true, forceOpen = false, iconPath }: {
+  label: string; locateMode: boolean; children: React.ReactNode; defaultOpen?: boolean; forceOpen?: boolean; iconPath?: string
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const [flash, setFlash] = useState(false)
@@ -222,8 +240,18 @@ function CollapsibleGroup({ label, locateMode, children, defaultOpen = true, for
         className="w-full flex items-center justify-between px-2 py-1.5 rounded text-[11px] font-medium"
         style={{ color: 'var(--crai-fg-secondary)' }}
       >
-        <span>{label}</span>
-        <span className="text-[10px]">{open ? '▼' : '▶'}</span>
+        <span className="flex items-center gap-1.5">
+          {iconPath && (
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d={iconPath}/>
+            </svg>
+          )}
+          <span>{label}</span>
+        </span>
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
       </button>
       {open && (
         <div className="ml-1 pl-2 border-l" style={{ borderColor: 'var(--crai-border)' }}>

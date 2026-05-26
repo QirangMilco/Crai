@@ -32,11 +32,31 @@ const BASE_COLORS = ['--crai-bg', '--crai-fg', '--crai-accent', '--crai-success'
 const SURFACE_TOKENS = ['--crai-bg-3', '--crai-bg-5', '--crai-bg-8', '--crai-bg-12', '--crai-fg-40', '--crai-fg-60', '--crai-border', '--crai-border-hover']
 
 const GROUP_LABELS: Record<string, string> = {
-  'font-size': '🔤 字号', 'line-height': '📏 行高', radius: '⭕ 圆角', spacing: '↔️ 间距',
-  layout: '📐 布局', 'user-msg': '💬 用户消息', 'ai-msg': '🤖 AI 消息',
-  'code-block': '📄 代码块', table: '📊 表格', blockquote: '📝 引用', heading: '📰 标题',
-  'input-box': '📦 输入框', 'input-bar': '🔧 工具栏', 'thinking-block': '🧠 思考', 'tool-block': '🔧 工具',
-  base: '🎨 基础', 'input-field': '🖊️ 文本区',
+  'font-size': '字号', 'line-height': '行高', radius: '圆角', spacing: '间距',
+  layout: '布局', 'user-msg': '用户消息', 'ai-msg': 'AI 消息',
+  'code-block': '代码块', table: '表格', blockquote: '引用', heading: '标题',
+  'input-box': '输入框', 'input-bar': '工具栏', 'thinking-block': '思考', 'tool-block': '工具',
+  base: '基础', 'input-field': '文本区', 'z-index': 'Z 层级',
+}
+
+const GROUP_ICONS: Record<string, string> = {
+  'font-size': 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7',
+  'line-height': 'M17 10H3M21 6H3M21 14H3M17 18H3',
+  radius: 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z',
+  spacing: 'M8 3v2M16 3v2M8 19v2M16 19v2M4 7h16M4 17h16',
+  layout: 'M3 9h18M3 15h18M9 3v18M15 3v18',
+  'user-msg': 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+  'ai-msg': 'M12 8V4m0 16v-4M8 12H4m16 0h-4m-6.34-5.66l-2.83-2.83m14.14 14.14l-2.83-2.83M6.34 17.66l-2.83 2.83M20.48 4.52l-2.83 2.83',
+  'code-block': 'M16 18l6-6-6-6M8 6l-6 6 6 6',
+  table: 'M3 3h18v18H3zM21 9H3M21 15H3M12 3v18',
+  blockquote: 'M4 12l4-4-4-4M20 12l-4-4 4-4',
+  heading: 'M6 4v16M18 4v16M6 12h12',
+  'input-box': 'M21 15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+  'input-bar': 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a1 1 0 0 0 0-1.42l-1.58-1.58a1 1 0 0 0-1.42 0L14.7 6.3z',
+  'thinking-block': 'M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01',
+  'tool-block': 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a1 1 0 0 0 0-1.42l-1.58-1.58a1 1 0 0 0-1.42 0L14.7 6.3z',
+  base: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  'z-index': 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
 }
 
 interface Props { onClose: () => void }
@@ -287,14 +307,22 @@ export function InspectorPanel({ onClose }: Props) {
         <span className="font-semibold text-base">Inspector</span>
         <div className="flex gap-2">
           <button onClick={() => setLocateMode((m) => !m)}
-            className="text-xs px-2 py-1 rounded"
-            style={{ color: locateMode ? '#fff' : 'var(--crai-fg-secondary)', backgroundColor: locateMode ? 'var(--crai-accent)' : 'transparent', border: '1px solid var(--crai-border)' }}>🔍 定位</button>
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded"
+            style={{ color: locateMode ? '#fff' : 'var(--crai-fg-secondary)', backgroundColor: locateMode ? 'var(--crai-accent)' : 'transparent', border: '1px solid var(--crai-border)' }}
+            title="定位元素">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+            定位
+          </button>
           {locateMode && targetGroups.length > 0 && (
             <button onClick={() => setFilterLocate((f) => !f)}
-              className="text-xs px-2 py-1 rounded"
-              style={{ color: filterLocate ? '#fff' : 'var(--crai-fg-secondary)', backgroundColor: filterLocate ? 'var(--crai-accent)' : 'transparent', border: '1px solid var(--crai-border)' }}>🔍 过滤</button>
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded"
+              style={{ color: filterLocate ? '#fff' : 'var(--crai-fg-secondary)', backgroundColor: filterLocate ? 'var(--crai-accent)' : 'transparent', border: '1px solid var(--crai-border)' }}
+              title="过滤匹配项">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              过滤
+            </button>
           )}
-          <button onClick={onClose} className="text-lg leading-none opacity-50 hover:opacity-100">✕</button>
+          <button onClick={onClose} className="text-lg leading-none opacity-50 hover:opacity-100 transition-opacity">✕</button>
         </div>
       </div>
 
@@ -342,6 +370,7 @@ export function InspectorPanel({ onClose }: Props) {
         onShowPreviewChange={setShowPreview}
         onShowStyleChange={setShowStyle}
         groupLabels={GROUP_LABELS}
+        groupIcons={GROUP_ICONS}
         renderTokenControl={(token) => <TokenControl key={token.name} token={token} onChange={forceUpdate as any} />}
       />
 
