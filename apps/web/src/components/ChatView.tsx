@@ -391,7 +391,27 @@ export function ChatView({ wsUrl }: Props) {
       )}
 
       {showInspector && <InspectorPanel onClose={() => setShowInspector(false)} />}
-      {showConfig && <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />}
+      {/* 配置弹窗 */}
+      {showConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
+          onClick={() => setShowConfig(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex flex-col overflow-hidden rounded-xl"
+            style={{
+              width: 560,
+              height: '75vh',
+              backgroundColor: 'var(--crai-bg)',
+              border: '1px solid var(--crai-border)',
+              boxShadow: 'var(--crai-shadow-modal)',
+            }}
+          >
+            <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
