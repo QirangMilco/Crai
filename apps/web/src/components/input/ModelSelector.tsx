@@ -30,7 +30,7 @@ export function ModelSelector({ models, value, onChange }: ModelSelectorProps) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const current = models.find((m) => m.name === value)
+  const current = models.find((m) => `${m.provider}/${m.name}` === value) || models.find((m) => m.name === value)
 
   const grouped = useMemo(() => {
     const groups: Record<string, typeof models> = {}
@@ -78,9 +78,9 @@ export function ModelSelector({ models, value, onChange }: ModelSelectorProps) {
               {grouped[provider].map((m) => (
                 <button
                   key={`${m.provider}/${m.name}`}
-                  onClick={() => { onChange(m.name); setOpen(false) }}
+                  onClick={() => { onChange(`${m.provider}/${m.name}`); setOpen(false) }}
                   className="w-full text-left px-3 py-1.5 text-xs transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
-                  style={{ color: m.name === value ? 'var(--crai-accent)' : 'var(--crai-fg)', fontWeight: m.name === value ? 500 : 400, backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
+                  style={{ color: `${m.provider}/${m.name}` === value ? 'var(--crai-accent)' : 'var(--crai-fg)', fontWeight: `${m.provider}/${m.name}` === value ? 500 : 400, backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
                 >
                   {m.name}
                 </button>

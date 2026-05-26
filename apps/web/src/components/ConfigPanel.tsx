@@ -16,11 +16,38 @@ import { ProviderList, ProviderEditor, ModelList, ModelEditModal, GlobalModelSet
 
 // 由服务端 knownModels prop 提供,见 config:known-models 协议。
 function getModelContextWindow(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>): number | undefined {
-  return knownModels?.[provider.toLowerCase()]?.[model]?.contextWindow
+  // 先按 provider 精确匹配
+  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.contextWindow
+  if (byProvider) return byProvider
+  // 跨所有 provider 按模型名搜索
+  if (knownModels) {
+    for (const models of Object.values(knownModels)) {
+      if (models[model]?.contextWindow) return models[model].contextWindow
+    }
+  }
+  return undefined
 }
 
 function getKnownModelDisplayName(provider: string, model: string, knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>): string | undefined {
-  return knownModels?.[provider.toLowerCase()]?.[model]?.displayName
+  // 先按 provider 精确匹配
+  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.displayName
+  if (byProvider) return byProvider
+  // 跨所有 provider 按模型名搜索
+  if (knownModels) {
+    for (const models of Object.values(knownModels)) {
+      if (models[model]?.displayName) return models[model].displayName
+    }
+  }
+  return undefined
+}
+
+/** 跨所有 provider 查找已知模型信息。 */
+function findModelInfoAcrossProviders(model: string, knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>): { displayName?: string; contextWindow?: number; maxOutput?: number } | undefined {
+  if (!knownModels) return undefined
+  for (const models of Object.values(knownModels)) {
+    if (models[model]) return models[model]
+  }
+  return undefined
 }
 
 interface Props {
@@ -157,7 +184,10 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setEditBaseURL(p.baseURL || firstPartyDefault(name)?.defaultBaseURL || '')
     setEditModel(config?.defaultModel ?? '')
     setEditModelsPath((p as any).modelsPath ?? '')
-    setFetchedModels([])
+    // 优先从 knownModels 预填充发现列表，避免空列表
+    const providerKey = name.toLowerCase()
+    const known = knownModels?.[providerKey]
+    setFetchedModels(known ? Object.keys(known) : [])
     setShowAddDropdown(false)
     setLocalModels(p.models ?? [])
     setLocalModelConfigs(p.modelConfigs ?? {})
@@ -210,11 +240,29 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setEditBaseURL(customBaseURL || undefined)
     setEditModel('')
     setEditModelsPath(customModelsPath || '')
+    // 从 knownModels 预填充模型发现列表
+    const providerKey = customName.toLowerCase()
+    const known = knownModels?.[providerKey]
+    if (known) setFetchedModels(Object.keys(known))
+    send({ type: 'config:get' })
   }
 
   // 模型操作（在 ProviderEditor 之外调用 saveProviderConfig）
   const addModel = (modelId: string) => {
-    saveProviderConfig({ models: [...localModels, modelId] })
+    // 添加模型时自动从 knownModels 继承设置
+    const knownInfo = findModelInfoAcrossProviders(modelId, knownModels)
+    const defaultCfg: Record<string, any> = {}
+    if (knownInfo?.contextWindow) defaultCfg.contextWindow = knownInfo.contextWindow
+    if (knownInfo?.maxOutput) defaultCfg.maxOutput = knownInfo.maxOutput
+    if (knownInfo?.displayName) defaultCfg.displayName = knownInfo.displayName
+    const hasOverrides = Object.keys(defaultCfg).length > 0
+
+    if (hasOverrides) {
+      const updated = { ...localModelConfigs, [modelId]: { ...defaultCfg } }
+      saveProviderConfig({ models: [...localModels, modelId], modelConfigs: updated })
+    } else {
+      saveProviderConfig({ models: [...localModels, modelId] })
+    }
   }
 
   const removeModel = (modelId: string) => {

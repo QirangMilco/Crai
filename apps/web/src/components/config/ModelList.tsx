@@ -4,11 +4,25 @@
  */
 
 function getModelContextWindow(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>): number | undefined {
-  return knownModels?.[provider.toLowerCase()]?.[model]?.contextWindow
+  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.contextWindow
+  if (byProvider) return byProvider
+  if (knownModels) {
+    for (const models of Object.values(knownModels)) {
+      if (models[model]?.contextWindow) return models[model].contextWindow
+    }
+  }
+  return undefined
 }
 
 function getKnownModelDisplayName(provider: string, model: string, knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>): string | undefined {
-  return knownModels?.[provider.toLowerCase()]?.[model]?.displayName
+  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.displayName
+  if (byProvider) return byProvider
+  if (knownModels) {
+    for (const models of Object.values(knownModels)) {
+      if (models[model]?.displayName) return models[model].displayName
+    }
+  }
+  return undefined
 }
 
 function formatCtx(tokens: number): string {
@@ -99,9 +113,9 @@ export function ModelList({
           {models.map(m => {
             const mc = modelConfigs[m] || {}
             const knownCtx = editing ? getModelContextWindow(editing, m, knownModels) : undefined
-            const ctx = mc.contextWindow ?? knownCtx
+            const ctx = mc.contextWindow ?? knownCtx ?? 131072
             const displayName = mc.displayName || (editing ? getKnownModelDisplayName(editing, m, knownModels) : undefined) || m
-            const ctxLabel = ctx ? formatCtx(ctx) : '—'
+            const ctxLabel = formatCtx(ctx)
             return (
               <div
                 key={m}
@@ -121,15 +135,13 @@ export function ModelList({
                 </span>
 
                 {/* 模型 ID */}
-                {displayName !== m && (
-                  <span
-                    className="text-[10px] truncate shrink-0"
-                    style={{ width: 80, color: 'var(--crai-fg-tertiary)' }}
-                    title={m}
-                  >
-                    {m}
-                  </span>
-                )}
+                <span
+                  className="text-[10px] truncate shrink-0"
+                  style={{ width: 80, color: 'var(--crai-fg-tertiary)' }}
+                  title={m}
+                >
+                  {m}
+                </span>
 
                 {/* 视觉标记 */}
                 {mc.vision && (
@@ -181,8 +193,10 @@ export function ModelList({
       {/* 添加模型下拉面板 */}
       {showAddDropdown && (
         <div
-          className="rounded-xl border overflow-hidden"
+          className="fixed z-50 rounded-xl border overflow-hidden"
           style={{
+            left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+            width: 320, maxHeight: '70vh',
             backgroundColor: 'var(--crai-bg)',
             borderColor: 'var(--crai-border)',
             boxShadow: 'var(--crai-shadow-modal)',
@@ -285,7 +299,7 @@ export function ModelList({
       {showAddDropdown && (
         <div
           className="fixed inset-0 z-40"
-          style={{ backgroundColor: 'transparent' }}
+          style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}
           onClick={onCloseAddDropdown}
         />
       )}

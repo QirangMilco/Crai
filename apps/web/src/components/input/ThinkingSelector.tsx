@@ -54,7 +54,12 @@ export function ThinkingSelector({
   providerThinkingLevels,
   defaultThinkingLevels,
 }: ThinkingSelectorProps) {
-  const curProvider = models?.find((m) => m.name === currentModel)?.provider ?? ''
+  const curProvider = (() => {
+    if (!currentModel || !models) return ''
+    const slashIdx = currentModel.indexOf('/')
+    if (slashIdx > 0) return currentModel.slice(0, slashIdx)
+    return models.find((m) => m.name === currentModel)?.provider ?? ''
+  })()
   const availableLevels = getAvailableThinkingLevels(curProvider, providerThinkingLevels)
   const fallbackLevel = (curProvider && defaultThinkingLevels?.[curProvider]) ?? availableLevels[0]?.value ?? 'off'
   const effectiveLevel = availableLevels.some((l) => l.value === thinkingLevel) ? thinkingLevel : fallbackLevel

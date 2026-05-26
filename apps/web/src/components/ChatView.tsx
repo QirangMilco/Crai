@@ -122,14 +122,18 @@ export function ChatView({ wsUrl }: Props) {
   }).handler
   onMessageRef.current = wsHandler
 
-  const handleSend = useCallback((text: string, model?: string) => {
+  const handleSend = useCallback((text: string, modelArg?: string) => {
     store.getState().appendPlaceholders(text, Date.now(), sessionId ?? undefined)
     if (sessionId && !sessions.find((s) => s.id === sessionId)?.title) {
       const title = text.length > 30 ? text.slice(0, 30) + '…' : text
       setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, title } : s))
       send({ type: 'session:update', sessionId, title })
     }
-    send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model: model || undefined, thinkingLevel, mode: sessionMode })
+    // 解析 provider/model 格式
+    const slashIdx = modelArg?.indexOf('/')
+    const provider = slashIdx && slashIdx! > 0 ? modelArg!.slice(0, slashIdx) : undefined
+    const model = slashIdx && slashIdx! > 0 ? modelArg!.slice(slashIdx! + 1) : (modelArg || undefined)
+    send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model, provider, thinkingLevel, mode: sessionMode })
   }, [sessionId, send, sessions, store, thinkingLevel, sessionMode])
 
   const handleNewSession = useCallback(() => {
@@ -321,7 +325,10 @@ export function ChatView({ wsUrl }: Props) {
           sessionId={sessionId}
           providerThinkingLevels={(() => {
             if (!providerThinkingLevels) return undefined
-            const provider = availableModels.find((m) => m.name === currentModel)?.provider
+            const provider = (() => {
+              const slashIdx = currentModel.indexOf('/')
+              return slashIdx > 0 ? currentModel.slice(0, slashIdx) : availableModels.find((m) => m.name === currentModel)?.provider
+            })()
             if (!provider) return undefined
             const levels = providerThinkingLevels[provider]
             if (!levels) return undefined
