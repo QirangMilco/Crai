@@ -73,7 +73,7 @@ export interface HookMap {
   'session:beforeStart': { session: Session; input?: Metadata }
   'session:afterStop': { session: Session; messages: Message[] }
   'turn:beforeModel': { session: Session; request: ModelRequest }
-  'turn:afterToolExec': { session: Session; result: ToolExecutionResult }
+  'turn:afterToolExec': { session: Session; turnId: string; messages: Message[] }
 }
 
 export interface HookBus<THooks extends Record<string, any>> {

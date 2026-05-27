@@ -504,12 +504,18 @@ export async function runTurn(
 
     allRoundMessages.push(response.message)
     finalResponse = response
+    // 每轮结束立即持久化（防止后续轮次失败时本轮消息丢失）
+    // 第一轮同时持久化用户消息
+    const roundMessages = allRoundMessages.length === 1
+      ? [inputAsMsg, response.message]
+      : [response.message]
+    await deps.hooks.run(HOOKS.TURN_AFTER_TOOL_EXEC, { session, turnId, messages: roundMessages }, { runtime })
 
     // 提取 tool-call
     const toolCalls = response.message.parts.filter(
       (p): p is ToolCallPart => p.type === MESSAGE_PART_TYPES.TOOL_CALL,
     )
-
+    // 本轮新增的消息（仅当前 round，不含之前 round 的）
     if (toolCalls.length === 0) {
       // 模型返回纯文本，退出循环
       break
@@ -551,6 +557,10 @@ export async function runTurn(
     // 每条 tool result 独立追加到上下文
     for (const toolMsg of toolResultMessages) {
       allRoundMessages.push(toolMsg)
+    }
+    // 持久化工具执行结果
+    if (toolResultMessages.length > 0) {
+      await deps.hooks.run(HOOKS.TURN_AFTER_TOOL_EXEC, { session, turnId, messages: toolResultMessages }, { runtime })
     }
     contextWithTools = {
       ...contextWithTools,

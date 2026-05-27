@@ -15,15 +15,17 @@ export function createPersistenceExtension(): Extension {
   return {
     name: 'persistence',
     setup(ctx) {
-      // 每个 turn 后保存消息
-      ctx.hooks.on(HOOKS.TURN_AFTER, async (payload) => {
-        const { session, messages } = payload as { session: any; messages: any[] }
+      // 已持久化的消息 ID（防止增量保存和最终保存之间重复）
+      const persistedIds = new Set<string>()
+
+      async function persistMessages(session: any, messages: any[]) {
         const storage = ctx.registry.storages.list()[0]?.value
-        if (!storage) return { continue: true }
+        if (!storage) return
 
         await storage.updateSession(session)
         for (const msg of messages) {
-          // 保存前脱敏 PII
+          if (persistedIds.has(msg.id)) continue
+          persistedIds.add(msg.id)
           const { parts, hits } = sanitizeParts(msg.parts ?? [])
           if (hits.length > 0) {
             ;(ctx as any).logger?.info?.(
@@ -32,6 +34,17 @@ export function createPersistenceExtension(): Extension {
           }
           await storage.appendMessage(session.id, { ...msg, parts })
         }
+      }
+
+      // 每轮完成后立即保存（防止后续轮次失败时本轮消息丢失）
+      ctx.hooks.on(HOOKS.TURN_AFTER_TOOL_EXEC, async (payload) => {
+        await persistMessages(payload.session, payload.messages)
+        return { continue: true }
+      })
+
+      // 整体 turn 结束后保存（兜底，含用户消息和最终文本）
+      ctx.hooks.on(HOOKS.TURN_AFTER, async (payload) => {
+        await persistMessages(payload.session, payload.messages)
         return { continue: true }
       })
 
