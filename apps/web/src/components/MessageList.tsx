@@ -10,15 +10,19 @@ interface Props {
 
 export function MessageList({ messages, className = '' }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
+  const isStreaming = messages.some((m) => m.role !== 'user' && m.activities?.some((a) => a.status === 'running'))
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages.length])
+    // 流式传输中立刻跳转到底部（smooth 会与布局变化冲突）
+    bottomRef.current?.scrollIntoView({ behavior: isStreaming ? 'instant' : 'smooth' })
+  })
 
   const total = messages.length
 
   return (
-    <div className={`flex-1 overflow-y-auto ${className}`}>
+    <div className={`flex-1 overflow-y-auto ${className}`}
+      style={{ overflowAnchor: 'auto' }}
+    >
       <div className="mx-auto px-[var(--crai-chat-padding)]"
         style={{ maxWidth: 'var(--crai-chat-max-width)', width: '100%', paddingBottom: 'var(--crai-gap, 0px)' }}
       >
@@ -37,7 +41,6 @@ export function MessageList({ messages, className = '' }: Props) {
               return (
                 <motion.div
                   key={msg.id}
-                  layout={isRecent}
                   initial={isRecent ? { opacity: 0, y: 12 } : undefined}
                   animate={isRecent ? { opacity: 1, y: 0 } : undefined}
                   transition={isRecent ? { type: 'spring', stiffness: 300, damping: 28 } : undefined}

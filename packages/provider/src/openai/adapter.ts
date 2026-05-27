@@ -252,8 +252,8 @@ function buildOpenAIBody(
   const tl = (request.settings as any)?.thinkingLevel
   if (tl === 'off') {
     // off: 不传任何 reasoning 参数
-  } else if (tl === 'low' || tl === 'medium' || tl === 'high') {
-    // OpenAI o-series 支持 reasoning_effort
+  } else if (tl && ['low', 'medium', 'high', 'max'].includes(tl)) {
+    // OpenAI o-series 及 DeepSeek 兼容 API 支持 reasoning_effort
     body.reasoning_effort = tl
   }
 

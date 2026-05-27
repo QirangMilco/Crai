@@ -6,7 +6,7 @@
  * - 从配置文件读取配，无需环境变量
  */
 import { createRuntime } from '@crai/runtime'
-import type { RuntimeHandle } from '@crai/core'
+import type { Extension, Logger, ModelAdapter, RuntimeHandle } from '@crai/core'
 import { createOpenAIProvider, createDeepSeekProvider, createMockProvider, listModels, DeepSeekAdapter, OpenAIAdapter } from '@crai/provider'
 import { ConsoleLogger, createSandbox } from '@crai/base'
 import { createFileStorage } from '@crai/storage-fs'
@@ -20,13 +20,46 @@ import type { AppVariant } from '@crai/config'
 import { ConfigManager } from '@crai/config'
 import { EVENTS } from '@crai/core'
 import { KNOWN_MODELS } from '@crai/core'
-import type { Extension } from '@crai/core'
 import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
 const VARIANT = process.env.CRAI_VARIANT ?? 'dev'
+
+// ── Adapter 注册表 ──
+// 按 apiFormat（小写）查找对应的 Extension 工厂和 ModelAdapter 类。
+// 新增 provider 类型时只需要在这里注册，无需改动选择逻辑。
+
+interface AdapterEntry {
+  extensionFactory: (opts: {
+    apiKey: string
+    baseURL?: string
+    models?: string[]
+    logger?: Logger
+  }) => Extension
+  AdapterClass?: new (opts: { apiKey: string; baseURL?: string; logger?: Logger }) => ModelAdapter
+}
+
+const ADAPTER_REGISTRY: Record<string, AdapterEntry> = {
+  deepseek: {
+    extensionFactory: (opts) => createDeepSeekProvider(opts),
+    AdapterClass: DeepSeekAdapter,
+  },
+  openai: {
+    extensionFactory: (opts) => createOpenAIProvider(opts),
+    AdapterClass: OpenAIAdapter,
+  },
+  mock: {
+    extensionFactory: (opts) => createMockProvider(opts),
+  },
+}
+
+function resolveAdapterFactory(providerName: string, pcfg?: { api?: string }): string {
+  if (providerName === 'mock') return 'mock'
+  const apiFormat = (pcfg?.api || providerName).toLowerCase()
+  return ADAPTER_REGISTRY[apiFormat] ? apiFormat : 'openai'
+}
 
 async function loadVariant(): Promise<AppVariant> {
   const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -86,15 +119,18 @@ class WorkspaceManager {
 
     this.log.info(`ensure: provider=${eff.provider}, model=${eff.model}, apiKey=${eff.apiKey ? '***' : '(空)'}`)
 
-    // 根据 provider 类型创建对应适配器。Mock 不需要 API key。
-    let provider
-    if (eff.provider === 'deepseek') {
-      provider = createDeepSeekProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined, logger: this.log })
-    } else if (eff.provider === 'mock') {
-      provider = createMockProvider({ logger: this.log })
-    } else {
-      provider = createOpenAIProvider({ apiKey: eff.apiKey, baseURL: eff.baseURL, models: eff.model ? [eff.model] : undefined, logger: this.log })
-    }
+    // 根据 provider 配置的 API 格式选择适配器。Mock 不需要 API key。
+    // 优先使用 provider 配置中的 api 字段（DeepSeek / OpenAI），其次按名称匹配。
+    const global = this.config.getGlobal()
+    const pcfg = global.providers[eff.provider]
+    const adapterKey = resolveAdapterFactory(eff.provider, pcfg)
+    const entry = ADAPTER_REGISTRY[adapterKey]
+    const provider = entry.extensionFactory({
+      apiKey: eff.apiKey,
+      baseURL: eff.baseURL,
+      models: eff.model ? [eff.model] : undefined,
+      logger: this.log,
+    })
 
     const runtime = await createRuntime({
       logger: this.log,
@@ -116,10 +152,8 @@ class WorkspaceManager {
           const pcfg = global.providers[toolProvider]
           if (!pcfg?.apiKey) return []
           this.log.info(`预注册工具模型: ${toolModel}`)
-          if (toolProvider === 'deepseek') {
-            return [createDeepSeekProvider({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, models: [toolModelName], logger: this.log })]
-          }
-          return [createOpenAIProvider({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, models: [toolModelName], logger: this.log })]
+          const toolEntry = ADAPTER_REGISTRY[resolveAdapterFactory(toolProvider, pcfg)]
+          return [toolEntry.extensionFactory({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, models: [toolModelName], logger: this.log })]
         })(),
         createFileStorage({ baseDir: dataDir }),
         createPersistenceExtension(),
@@ -160,15 +194,10 @@ class WorkspaceManager {
         const pcfg = global.providers[provider]
         if (!pcfg?.apiKey) return undefined
         this.log.info(`惰性注册模型: ${provider}/${modelName}`)
-        // 按 API 格式选择适配器
-        const api = (pcfg as any).api || ''
-        if (api === 'deepseek' || provider === 'deepseek') {
-          return new DeepSeekAdapter({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, logger: this.log })
-        }
-        if (provider === 'mock') {
-          return undefined
-        }
-        return new OpenAIAdapter({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, logger: this.log })
+        const adapterKey = resolveAdapterFactory(provider, pcfg)
+        const entry = ADAPTER_REGISTRY[adapterKey]
+        if (!entry?.AdapterClass) return undefined
+        return new entry.AdapterClass({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, logger: this.log })
       },
     })
     this.runtimes.set(rootDir, runtime)
