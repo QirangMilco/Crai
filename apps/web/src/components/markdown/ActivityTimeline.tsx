@@ -129,12 +129,28 @@ const ActivityRow = memo(function ActivityRow({
         onClick={handleClick}
         className={cn(
           'group cursor-pointer rounded-md transition-colors duration-150',
-          'hover:bg-[var(--crai-bg-3)]',
         )}
       >
-        {/* 思考状态文字 */}
-        <div className="text-xs" style={{ color: 'var(--crai-fg-40)' }}>
-          {activity.status === 'running' ? (
+        {/* 顶栏：展开收起指示器 + 状态文字 */}
+        <div className="flex items-center gap-1.5">
+          {/* 指示器列（14px，与工具行 StatusIcon 对齐） */}
+          {isDone ? (
+            <motion.div
+              initial={false}
+              animate={{ rotate: localCollapsed ? 0 : 90 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="shrink-0 flex items-center justify-center"
+              style={{ width: 14, height: 14, color: 'var(--crai-fg-40)' }}
+            >
+              <Icon icon={ChevronRight} size="xs" />
+            </motion.div>
+          ) : (
+            <div className="shrink-0" style={{ width: 14 }} />
+          )}
+
+          {/* 状态文字 */}
+          <div className="flex-1 text-xs" style={{ color: 'var(--crai-fg-40)' }}>
+            {activity.status === 'running' ? (
               <span>
                 思考中
                 {elapsed > 0 && <span className="tabular-nums">（{elapsed}s）</span>}
@@ -146,18 +162,20 @@ const ActivityRow = memo(function ActivityRow({
               </span>
             )}
           </div>
+        </div>
 
-        {/* 内容区：左侧竖条 */}
+        {/* 内容区：左侧竖条对齐指示器 */}
         {activity.content && (
           <motion.div
             initial={false}
             animate={{ height: localCollapsed ? '1.4em' : 'auto', opacity: 1 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="ml-[14px] mr-1.5 pb-1 overflow-hidden text-xs"
+            className="overflow-hidden text-xs mr-1.5 pb-1"
             style={{
+              marginLeft: 6,
+              paddingLeft: 10,
               color: 'var(--crai-fg-40)',
               borderLeft: '1px solid color-mix(in srgb, var(--crai-fg) 12%, transparent)',
-              paddingLeft: 10,
               whiteSpace: localCollapsed ? 'nowrap' : 'pre-wrap',
             }}
           >
@@ -185,8 +203,8 @@ const ActivityRow = memo(function ActivityRow({
       )}
     >
       {/* 顶栏：图标 + 标签 + 参数 + 耗时 */}
-      <div className="flex items-center">
-        {/* 状态图标（第一个元素，左侧无占位） */}
+      <div className="flex items-center gap-1.5">
+        {/* 状态图标（14px 列） */}
         <div className="shrink-0 flex items-center justify-center" style={{ width: 14, color: statusColor }}>
           <StatusIcon activity={activity} />
         </div>
@@ -213,7 +231,7 @@ const ActivityRow = memo(function ActivityRow({
       </div>
 
       {/* 下方内容区 */}
-      <div className="ml-[14px] pb-1 pr-1.5">
+      <div className="ml-[20px] pb-1 pr-1.5">
         {/* 意图文本 */}
         {isTool && activity.intent && !isError && (
           <div className="text-xs truncate" style={{ color: 'var(--crai-fg-40)' }}>
