@@ -140,7 +140,7 @@ const ActivityRow = memo(function ActivityRow({
               animate={{ rotate: localCollapsed ? 0 : 90 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
               className="shrink-0 flex items-center justify-center"
-              style={{ width: 14, height: 14, color: 'var(--crai-fg-40)' }}
+              style={{ width: 14, height: 14, color: 'var(--crai-fg)' }}
             >
               <Icon icon={ChevronRight} size="xs" />
             </motion.div>
@@ -149,7 +149,7 @@ const ActivityRow = memo(function ActivityRow({
           )}
 
           {/* 状态文字 */}
-          <div className="flex-1 text-xs" style={{ color: 'var(--crai-fg-40)' }}>
+          <div className="flex-1 text-xs" style={{ color: 'var(--crai-fg)' }}>
             {activity.status === 'running' ? (
               <span>
                 思考中
@@ -173,7 +173,7 @@ const ActivityRow = memo(function ActivityRow({
             className="overflow-hidden text-xs mr-1.5 pb-1"
             style={{
               marginLeft: 6,
-              paddingLeft: 10,
+              paddingLeft: 14,
               color: 'var(--crai-fg-40)',
               borderLeft: '1px solid color-mix(in srgb, var(--crai-fg) 12%, transparent)',
               whiteSpace: localCollapsed ? 'nowrap' : 'pre-wrap',
