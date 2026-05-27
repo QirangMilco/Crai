@@ -6,7 +6,6 @@
  */
 import { useEffect } from 'react'
 import { Select } from '../ui/Select'
-import { PROVIDER_DEFAULT_THINKING_LEVELS } from '@crai/core'
 
 export const THINKING_LEVELS: Array<{ value: string; label: string }> = [
   { value: 'off', label: '关' },
@@ -20,9 +19,9 @@ export const THINKING_LEVELS: Array<{ value: string; label: string }> = [
 
 const LABEL_MAP: Record<string, string> = { off: '关', auto: '自动', low: '低', medium: '中', high: '高', max: '最高', xhigh: '极高' }
 
-/** 按提供商标识查找 thinking levels：provider 名 → 硬编码默认值 → ALL */
-function getProviderLevels(provider: string): string[] {
-  return PROVIDER_DEFAULT_THINKING_LEVELS[provider.toLowerCase()] ?? ['off', 'auto', 'low', 'medium', 'high', 'xhigh', 'max']
+/** 按提供商标识查找 thinking levels（兜底 fallback）。 */
+function getProviderLevels(_provider: string): string[] {
+  return ['off', 'high', 'max']
 }
 
 export function getAvailableThinkingLevels(
@@ -53,30 +52,32 @@ export function getAvailableThinkingLevels(
 
 interface ThinkingSelectorProps {
   currentModel?: string
-  models?: Array<{ name: string; provider: string }>
   thinkingLevel?: string
   onThinkingLevelChange?: (level: string) => void
-  defaultThinkingLevels?: Record<string, string>
   knownModels?: Record<string, Record<string, { displayName?: string; contextWindow?: number; maxOutput?: number; supportedThinkingLevels?: string[] }>>
 }
 
 export function ThinkingSelector({
   currentModel,
-  models,
   thinkingLevel,
   onThinkingLevelChange,
-  defaultThinkingLevels,
   knownModels,
 }: ThinkingSelectorProps) {
-  const curProvider = (() => {
-    if (!currentModel || !models) return ''
-    const slashIdx = currentModel.indexOf('/')
-    if (slashIdx > 0) return currentModel.slice(0, slashIdx)
-    return models.find((m) => m.name === currentModel)?.provider ?? ''
-  })()
   const modelName = currentModel ? (currentModel.indexOf('/') > 0 ? currentModel.split('/')[1] : currentModel) : undefined
   const availableLevels = getAvailableThinkingLevels(knownModels, modelName)
-  const fallbackLevel = (curProvider && defaultThinkingLevels?.[curProvider]) ?? availableLevels[0]?.value ?? 'off'
+  // 从模型 supportedThinkingLevels 推导默认值：第一个非 off 的值
+  const modelDefault = (() => {
+    if (!knownModels || !modelName) return undefined
+    for (const models of Object.values(knownModels)) {
+      const info = models[modelName]
+      if (info?.supportedThinkingLevels) {
+        const nonOff = info.supportedThinkingLevels.filter(l => l !== 'off')
+        return nonOff[0] ?? info.supportedThinkingLevels[0]
+      }
+    }
+    return undefined
+  })()
+  const fallbackLevel = modelDefault ?? availableLevels[0]?.value ?? 'off'
   const effectiveLevel = availableLevels.some((l) => l.value === thinkingLevel) ? thinkingLevel : fallbackLevel
 
   // 若外部传入的 thinkingLevel 对当前 provider 无效，自动同步修正

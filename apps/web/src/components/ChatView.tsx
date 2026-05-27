@@ -34,7 +34,6 @@ export function ChatView({ wsUrl }: Props) {
   const [sessionMode, setSessionMode] = useState<string>('ask')
   const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[] }>> | null>(null)
   const [firstPartyProviders, setFirstPartyProviders] = useState<Array<{ name: string; label: string; defaultBaseURL: string }> | null>(null)
-  const [defaultThinkingLevels, setDefaultThinkingLevels] = useState<Record<string, string> | null>(null)
   const [pendingConfirm, setPendingConfirm] = useState<{ id: string; question: string; options?: string[]; meta?: Record<string, unknown> } | null>(null)
 
   const store = useChatStore
@@ -108,7 +107,6 @@ export function ChatView({ wsUrl }: Props) {
     onKnownModels: (known, firstParty, levels, defaults) => {
       setKnownModels(known)
       setFirstPartyProviders(firstParty)
-      setDefaultThinkingLevels(defaults ?? null)
     },
     onRequestInput: (id, question, options, meta) => setPendingConfirm({ id, question, options, meta }),
     onDirBrowse: (data) => {
@@ -137,12 +135,23 @@ export function ChatView({ wsUrl }: Props) {
   const handleNewSession = useCallback(() => {
     store.getState().clearMessages()
     setSessionId(null)
-    // 使用预设的默认思考深度，没有预设时用 'auto'
-    const defaultLevel = defaultThinkingLevels?.[currentModel.split('/')[0] ?? ''] ?? 'auto'
+    // 从模型的 supportedThinkingLevels 推导默认思考深度（第一个非 off 的值）
+    const modelName = currentModel?.includes('/') ? currentModel.split('/')[1] : currentModel
+    let defaultLevel = 'auto'
+    if (knownModels && modelName) {
+      for (const models of Object.values(knownModels)) {
+        const info = models[modelName]
+        if (info?.supportedThinkingLevels) {
+          const nonOff = info.supportedThinkingLevels.filter(l => l !== 'off')
+          defaultLevel = nonOff[0] ?? info.supportedThinkingLevels[0]
+          break
+        }
+      }
+    }
     setThinkingLevel(defaultLevel)
     setSessionMode('ask')
     send({ type: 'session:new' })
-  }, [send, store, defaultThinkingLevels, currentModel])
+  }, [send, store, currentModel, knownModels])
 
   const handleDeleteSession = useCallback((sid: string) => {
     send({ type: 'session:delete', sessionId: sid })
@@ -323,7 +332,6 @@ export function ChatView({ wsUrl }: Props) {
           sessionMode={sessionMode}
           onModeChange={(mode) => { setSessionMode(mode); if (sessionId) send({ type: 'session:update', sessionId, mode }) }}
           sessionId={sessionId}
-          defaultThinkingLevels={defaultThinkingLevels ?? undefined}
           knownModels={knownModels ?? undefined}
         />
       </ShellLayout>

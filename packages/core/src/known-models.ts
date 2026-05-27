@@ -34,13 +34,6 @@ export interface ModelInfo {
  * 各 provider 默认支持的思考深度列表。
  * 模型未定义 supportedThinkingLevels 时继承 provider 默认值。
  */
-export const PROVIDER_DEFAULT_THINKING_LEVELS: Record<string, string[]> = {
-  'deepseek': ['off', 'high', 'max'],
-  'openai':   ['off', 'low', 'medium', 'high'],
-  'anthropic': ['off', 'high', 'xhigh'],
-  'mock':     ['off', 'auto', 'low', 'medium', 'high', 'xhigh'],
-}
-
 /** Provider → model name → info */
 export type KnownModelsMap = Record<string, Record<string, ModelInfo>>
 
@@ -51,8 +44,8 @@ export type KnownModelsMap = Record<string, Record<string, ModelInfo>>
 const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
   'deepseek-v4-flash': { displayName: 'DeepSeek V4 Flash', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
   'deepseek-v4-pro':   { displayName: 'DeepSeek V4 Pro', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
-  'deepseek-v3':       { displayName: 'DeepSeek V3', contextWindow: 1048576, thinking: true },
-  'deepseek-reasoner': { displayName: 'DeepSeek Reasoner', contextWindow: 65536, thinking: true },
+  'deepseek-v3':       { displayName: 'DeepSeek V3', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
+  'deepseek-reasoner': { displayName: 'DeepSeek Reasoner', contextWindow: 65536, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
   'deepseek-chat':     { displayName: 'DeepSeek Chat', contextWindow: 32768, supportedThinkingLevels: ['off'] },
   'deepseek-coder':    { displayName: 'DeepSeek Coder', contextWindow: 16384, supportedThinkingLevels: ['off'] },
 }
@@ -72,10 +65,10 @@ const OPENAI_MODELS: Record<string, ModelInfo> = {
   'gpt-3.5-turbo-16k': { displayName: 'GPT-3.5 Turbo 16K', contextWindow: 16384,  maxOutput: 4096 },
 
   // o 系列
-  'o1':         { displayName: 'o1', contextWindow: 204800, maxOutput: 102400 },
-  'o1-mini':    { displayName: 'o1 Mini', contextWindow: 131072, maxOutput: 65536 },
-  'o1-preview': { displayName: 'o1 Preview', contextWindow: 131072, maxOutput: 32768 },
-  'o3-mini':    { displayName: 'o3 Mini', contextWindow: 204800, maxOutput: 102400 },
+  'o1':         { displayName: 'o1', contextWindow: 204800, maxOutput: 102400, supportedThinkingLevels: ['off', 'low', 'medium', 'high'] },
+  'o1-mini':    { displayName: 'o1 Mini', contextWindow: 131072, maxOutput: 65536, supportedThinkingLevels: ['off', 'low', 'medium', 'high'] },
+  'o1-preview': { displayName: 'o1 Preview', contextWindow: 131072, maxOutput: 32768, supportedThinkingLevels: ['off', 'low', 'medium', 'high'] },
+  'o3-mini':    { displayName: 'o3 Mini', contextWindow: 204800, maxOutput: 102400, supportedThinkingLevels: ['off', 'low', 'medium', 'high'] },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -88,8 +81,8 @@ const ANTHROPIC_MODELS: Record<string, ModelInfo> = {
   'claude-3-opus-20240229':     { displayName: 'Claude 3 Opus', contextWindow: 204800, maxOutput: 4096 },
   'claude-3-sonnet-20240229':   { displayName: 'Claude 3 Sonnet', contextWindow: 204800, maxOutput: 4096 },
   'claude-3-haiku-20240307':    { displayName: 'Claude 3 Haiku', contextWindow: 204800, maxOutput: 4096 },
-  'claude-4-opus':              { displayName: 'Claude 4 Opus', contextWindow: 204800, maxOutput: 8192, thinking: true },
-  'claude-4-sonnet':            { displayName: 'Claude 4 Sonnet', contextWindow: 204800, maxOutput: 8192, thinking: true },
+  'claude-4-opus':              { displayName: 'Claude 4 Opus', contextWindow: 204800, maxOutput: 8192, thinking: true, supportedThinkingLevels: ['off', 'high', 'xhigh'] },
+  'claude-4-sonnet':            { displayName: 'Claude 4 Sonnet', contextWindow: 204800, maxOutput: 8192, thinking: true, supportedThinkingLevels: ['off', 'high', 'xhigh'] },
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -142,7 +135,7 @@ export const KNOWN_MODELS: KnownModelsMap = {
   meta:       LLAMA_MODELS,     // 别名
   mistral:    MISTRAL_MODELS,
   mock: {
-    'mock': { displayName: 'Mock Model', contextWindow: 65536, thinking: true },
+    'mock': { displayName: 'Mock Model', contextWindow: 65536, thinking: true, supportedThinkingLevels: ['off', 'auto', 'low', 'medium', 'high', 'xhigh', 'max'] },
   },
 }
 
@@ -230,28 +223,10 @@ export function getKnownModels(provider: string): string[] {
 
 /**
  * 获取模型支持的思考深度列表。
- * 优先级：
- *   1. 模型级定义（supportedThinkingLevels）
- *   2. 匹配到的已知模型的 provider 默认值（跨 provider 查找有效）
- *   3. provider 默认值
- *   4. 全部级别
+ * 优先级：模型级 supportedThinkingLevels > 全部级别。
  */
 export function getSupportedThinkingLevels(provider: string, model: string): string[] {
   const info = getModelInfo(provider, model)
   if (info?.supportedThinkingLevels) return info.supportedThinkingLevels
-
-  // 如果模型在已知模型中找到，尝试从查找路径推断 provider 默认值
-  if (info) {
-    for (const [knownProvider, models] of Object.entries(KNOWN_MODELS)) {
-      if (models[model] || Object.keys(models).some(k => model.includes(k) || k.includes(model))) {
-        const pDefault = PROVIDER_DEFAULT_THINKING_LEVELS[knownProvider]
-        if (pDefault) return pDefault
-        break
-      }
-    }
-  }
-
-  const providerDefault = PROVIDER_DEFAULT_THINKING_LEVELS[provider.toLowerCase()]
-  if (providerDefault) return providerDefault
   return ['off', 'auto', 'low', 'medium', 'high', 'xhigh', 'max']
 }
