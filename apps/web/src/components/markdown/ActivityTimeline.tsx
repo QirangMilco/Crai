@@ -7,7 +7,7 @@
  */
 import { memo, useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, XCircle, LoaderCircle, ChevronRight, ArrowRight } from 'lucide-react'
+import { CheckCircle2, XCircle, LoaderCircle, ChevronRight } from 'lucide-react'
 import { Icon } from '../ui/Icon'
 import { cn } from '../ui/cn'
 import type { ActivityItem } from '../../types/messages'
@@ -87,13 +87,15 @@ const ActivityRow = memo(function ActivityRow({
   const [elapsed, setElapsed] = useState(activity.elapsedSeconds ?? 0)
   const isDone = activity.status !== 'running'
   const isError = activity.status === 'error'
+  const isThinking = activity.type === 'thinking'
+  const isTool = activity.type === 'tool'
 
   // 自动折叠思考（完成后）
   useEffect(() => {
-    if (activity.type === 'thinking' && activity.status === 'completed') {
+    if (isThinking && activity.status === 'completed') {
       setLocalCollapsed(true)
     }
-  }, [activity.type, activity.status])
+  }, [isThinking, activity.status])
 
   // 运行中计时
   useEffect(() => {
@@ -108,20 +110,91 @@ const ActivityRow = memo(function ActivityRow({
     return () => clearInterval(timer)
   }, [activity.status, activity.elapsedSeconds])
 
-  const label = activity.type === 'tool'
-    ? (toolNameMap[activity.toolName ?? ''] ?? activity.displayName ?? activity.toolName ?? '工具')
-    : '思考'
-  const argLabel = activity.type === 'tool' ? formatToolArg(activity) : ''
+  const toolLabel = toolNameMap[activity.toolName ?? ''] ?? activity.displayName ?? activity.toolName ?? '工具'
+  const argLabel = isTool ? formatToolArg(activity) : ''
   const statusColor = isError ? 'var(--crai-tool-error)' : STATUS_COLORS[activity.status] || 'var(--crai-border)'
 
   const handleClick = useCallback(() => {
-    if (activity.type === 'thinking' && isDone) {
+    if (isThinking && isDone) {
       setLocalCollapsed((v) => !v)
-    } else if (activity.type === 'tool' && isDone && onOpenDetail) {
+    } else if (isTool && isDone && onOpenDetail) {
       onOpenDetail(activity)
     }
-  }, [activity, isDone, onOpenDetail])
+  }, [isThinking, isTool, isDone, activity, onOpenDetail])
 
+  // ── Thinking 行 ──
+  if (isThinking) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        onClick={handleClick}
+        className={cn(
+          'group cursor-pointer rounded-md transition-colors duration-150',
+          'hover:bg-[var(--crai-bg-3)]',
+        )}
+      >
+        {/* 顶栏：状态文字 */}
+        <div className="flex items-center py-1 px-1.5">
+          {/* 左列占位（对齐工具行的 16px 占位） */}
+          <div className="shrink-0" style={{ width: 16 }} />
+
+          {/* 图标列：收起展开箭头（对齐工具行的 StatusIcon） */}
+          {isDone ? (
+            <motion.div
+              initial={false}
+              animate={{ rotate: localCollapsed ? 0 : 90 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="shrink-0 flex items-center justify-center"
+              style={{ width: 14, height: 14, color: 'var(--crai-fg-40)' }}
+            >
+              <Icon icon={ChevronRight} size="xs" />
+            </motion.div>
+          ) : (
+            <div className="shrink-0" style={{ width: 14 }} />
+          )}
+
+          <div className="flex-1 text-xs" style={{ color: 'var(--crai-fg-40)' }}>
+            {activity.status === 'running' ? (
+              <span>
+                思考中
+                {elapsed > 0 && <span className="tabular-nums">（{elapsed}s）</span>}
+              </span>
+            ) : (
+              <span>
+                思考完毕
+                <span className="tabular-nums">（{elapsed}s）</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* 内容区：左侧竖条 */}
+        {activity.content && (
+          <motion.div
+            initial={false}
+            animate={{ height: localCollapsed ? '1.4em' : 'auto', opacity: 1 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="ml-[36px] mr-1.5 pb-1 overflow-hidden text-xs"
+            style={{
+              color: 'var(--crai-fg-40)',
+              borderLeft: '1px solid color-mix(in srgb, var(--crai-fg) 12%, transparent)',
+              paddingLeft: 10,
+              whiteSpace: localCollapsed ? 'nowrap' : 'pre-wrap',
+            }}
+          >
+            {localCollapsed
+              ? (activity.content.length > 80 ? activity.content.slice(0, 80) + '…' : activity.content)
+              : activity.content
+            }
+          </motion.div>
+        )}
+      </motion.div>
+    )
+  }
+
+  // ── Tool 行 ──
   return (
     <motion.div
       initial={{ opacity: 0, x: -6 }}
@@ -134,25 +207,13 @@ const ActivityRow = memo(function ActivityRow({
         isDone && 'cursor-pointer',
       )}
     >
-      {/* 顶栏：箭头+图标+标签+耗时 */}
-      <div className="flex items-center gap-2 py-1 px-1.5">
-        {/* 展开箭头（仅 thinking 类型可折叠） */}
-        {activity.type === 'thinking' && isDone ? (
-          <motion.div
-            initial={false}
-            animate={{ rotate: localCollapsed ? 0 : 90 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="shrink-0 flex items-center justify-center"
-            style={{ width: 16, height: 16, color: 'var(--crai-fg-40)' }}
-          >
-            <Icon icon={ChevronRight} size="xs" />
-          </motion.div>
-        ) : (
-          <div className="shrink-0" style={{ width: 16 }} />
-        )}
+      {/* 顶栏：图标 + 标签 + 参数 + 耗时 */}
+      <div className="flex items-center py-1 px-1.5">
+        {/* 占位箭头对齐 */}
+        <div className="shrink-0" style={{ width: 16 }} />
 
         {/* 状态图标 */}
-        <div className="shrink-0 flex items-center justify-center" style={{ color: statusColor }}>
+        <div className="shrink-0 flex items-center justify-center" style={{ width: 14, color: statusColor }}>
           <StatusIcon activity={activity} />
         </div>
 
@@ -160,7 +221,7 @@ const ActivityRow = memo(function ActivityRow({
         <div className="flex-1 flex items-center gap-1.5 min-w-0 text-xs"
           style={{ color: 'var(--crai-fg)' }}
         >
-          <span className="font-medium shrink-0">{label}</span>
+          <span className="font-medium shrink-0">{toolLabel}</span>
           {argLabel && (
             <span className="truncate text-xs" style={{ color: 'var(--crai-fg-40)' }}>
               <Icon icon={ChevronRight} size="xs" className="inline mr-0.5" />
@@ -169,7 +230,7 @@ const ActivityRow = memo(function ActivityRow({
           )}
         </div>
 
-        {/* 耗时 */}
+        {/* 耗时（运行中） */}
         <div className="shrink-0 text-xs tabular-nums" style={{ color: 'var(--crai-fg-40)' }}>
           {activity.status === 'running' ? (
             <>{elapsed > 0 ? `${elapsed}s` : <Icon icon={LoaderCircle} size="xs" className="animate-spin inline" />}</>
@@ -177,32 +238,10 @@ const ActivityRow = memo(function ActivityRow({
         </div>
       </div>
 
-      {/* 下方内容区（缩进对齐） */}
-      <div className="ml-[37px] pb-1 pr-1.5">
-        {/* 思考内容（可折叠） */}
-        {activity.type === 'thinking' && activity.content && (
-          <motion.div
-            initial={false}
-            className="text-xs overflow-hidden"
-            style={{
-              color: 'var(--crai-fg-40)',
-              whiteSpace: localCollapsed ? 'nowrap' : 'pre-wrap',
-            }}
-            animate={{
-              height: localCollapsed ? '1.4em' : 'auto',
-              opacity: 1,
-            }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-          >
-            {localCollapsed
-              ? (activity.content.length > 80 ? activity.content.slice(0, 80) + '…' : activity.content)
-              : activity.content
-            }
-          </motion.div>
-        )}
-
-        {/* 意图文本（仅 tool） */}
-        {activity.type === 'tool' && activity.intent && !isError && (
+      {/* 下方内容区 */}
+      <div className="ml-[36px] pb-1 pr-1.5">
+        {/* 意图文本 */}
+        {isTool && activity.intent && !isError && (
           <div className="text-xs truncate" style={{ color: 'var(--crai-fg-40)' }}>
             {activity.intent}
           </div>
