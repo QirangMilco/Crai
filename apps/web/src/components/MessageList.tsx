@@ -10,12 +10,27 @@ interface Props {
 
 export function MessageList({ messages, className = '' }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const isStreaming = messages.some((m) => m.role !== 'user' && m.activities?.some((a) => a.status === 'running'))
 
   useEffect(() => {
-    // 流式传输中立刻跳转到底部（smooth 会与布局变化冲突）
     bottomRef.current?.scrollIntoView({ behavior: isStreaming ? 'instant' : 'smooth' })
   })
+
+  // 会话导航跳转
+  useEffect(() => {
+    const handler = (e: CustomEvent<{ index: number }>) => {
+      const container = listRef.current
+      if (!container) return
+      const children = container.children
+      // 消息列表的第一个元素是空的 placeholder div（无消息时），所以跳过它
+      // 实际消息从 children[0] 开始
+      const target = children[e.detail.index] as HTMLElement | undefined
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    window.addEventListener('crai:scroll-to-message', handler as EventListener)
+    return () => window.removeEventListener('crai:scroll-to-message', handler as EventListener)
+  }, [])
 
   const total = messages.length
 
@@ -26,7 +41,7 @@ export function MessageList({ messages, className = '' }: Props) {
       <div className="mx-auto px-[var(--crai-chat-padding)]"
         style={{ maxWidth: 'var(--crai-chat-max-width)', width: '100%', paddingBottom: 'var(--crai-gap, 0px)' }}
       >
-        <div className="w-full">
+        <div className="w-full" ref={listRef}>
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full min-h-[300px] select-none">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"

@@ -1,38 +1,38 @@
 /**
  * ShellLayout — 主布局容器。
  *
- * 管理左右侧栏的展开/收起状态机：
- * - 鼠标悬停在 FixedBar 上 → 侧栏展开（推开内容区）
- * - 鼠标离开侧栏区域（含 FixedBar + 侧栏内容）→ 侧栏收起
- * - 侧栏宽度可拖拽调整，宽度持久化到 localStorage
+ * 左侧：固定内容区侧栏。触发区为屏幕左侧 6px 宽不可见区域，鼠标移入展开。
+ *   侧栏内有标签页（会话 / 文件 / 等）和 Pin 按钮。
  *
- * 布局结构：
- *   [FixedBar][Sidebar Content][ResizeHandle][Message Area][ResizeHandle][Sidebar Content][FixedBar]
+ * 右侧：浮动悬浮侧栏。触发区为屏幕右侧 6px 宽不可见区域。
+ *   展开后覆盖在内容区之上（不推挤布局），仿 OpenHanako 风格。
  *
- * CSS tokens（Inspector 管理）：
- *   --crai-sidebar-fixed-bar-width: 固定栏宽度（默认 36px）
+ * Pin 左右独立：左侧固定在展开状态，右侧固定在展开状态，互不影响。
+ *
+ * CSS tokens：
+ *   --crai-sidebar-trigger-width: 触发区宽度（默认 6px）
+ *   --crai-sidebar-header-height: 面板头部高度（默认 36px）
+ *   --crai-sidebar-tab-width: 标签宽度（默认 32px）
  *   --crai-sidebar-min-width: 侧栏最小宽度（默认 160px）
  *   --crai-sidebar-max-width: 侧栏最大宽度（默认 520px）
- *   --crai-sidebar-handle-width: 拖拽手柄宽度（默认 4px）
- *   --crai-sidebar-handle-color: 拖拽手柄颜色（默认 border）
- *   --crai-sidebar-header-height: 面板头部高度（默认 36px）
+ *   --crai-sidebar-max-height: 右侧浮栏最大高度（默认 70vh）
  */
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FixedBar } from './FixedBar'
-import { ResizeHandle } from './ResizeHandle'
+import { Pin, PinOff } from 'lucide-react'
+import { Icon } from '../ui/Icon'
 import { getAllSidePanels } from './PanelRegistry'
 
 interface Props {
-  /** 消息区域（主内容） */
   children: React.ReactNode
-  /** 发送 WS 消息的回调 */
   send: (msg: any) => void
 }
 
-// ── 侧栏宽度持久化 ──
+// ── 持久化键 ──
 
 const SIDEBAR_WIDTH_KEY = 'crai:sidebarWidth'
+const PIN_KEY = 'crai:sidebarPin'
+const TAB_KEY = 'crai:sidebarTab'
 
 function loadWidth(side: 'left' | 'right', fallback: number): number {
   try {
@@ -55,149 +55,279 @@ function saveWidth(side: 'left' | 'right', width: number): void {
   } catch {}
 }
 
+function loadPin(side: 'left' | 'right'): boolean {
+  try {
+    const raw = localStorage.getItem(PIN_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return parsed[side] === true
+    }
+  } catch {}
+  return false
+}
+
+function savePin(side: 'left' | 'right', val: boolean): void {
+  try {
+    const raw = localStorage.getItem(PIN_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    parsed[side] = val
+    localStorage.setItem(PIN_KEY, JSON.stringify(parsed))
+  } catch {}
+}
+
+function loadActiveTab(side: 'left' | 'right'): string | null {
+  try {
+    const raw = localStorage.getItem(TAB_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      const t = parsed[side]
+      if (typeof t === 'string') return t
+    }
+  } catch {}
+  return null
+}
+
+function saveActiveTab(side: 'left' | 'right', tabId: string | null): void {
+  try {
+    const raw = localStorage.getItem(TAB_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    parsed[side] = tabId
+    localStorage.setItem(TAB_KEY, JSON.stringify(parsed))
+  } catch {}
+}
+
 // ── ShellLayout ──
 
 export function ShellLayout({ children, send }: Props) {
   const [leftWidth, setLeftWidth] = useState(() => loadWidth('left', 260))
-  const [rightWidth, setRightWidth] = useState(() => loadWidth('right', 260))
+  const [rightWidth, setRightWidth] = useState(() => loadWidth('right', 220))
   const [hoveredSide, setHoveredSide] = useState<'left' | 'right' | null>(null)
-  const [hoveredPanelId, setHoveredPanelId] = useState<string | null>(null)
+  const [leftPinned, setLeftPinned] = useState(() => loadPin('left'))
+  const [rightPinned, setRightPinned] = useState(() => loadPin('right'))
+  const [activeTab, setActiveTab] = useState<string | null>(() => loadActiveTab('left'))
+  const [activeRightTab, setActiveRightTab] = useState<string | null>(() => loadActiveTab('right'))
 
-  // 展开状态：有悬浮的 panel（用 panelId 精确标记）就展开对应侧
-  const leftExpanded = hoveredSide === 'left'
-  const rightExpanded = hoveredSide === 'right'
+  const leftExpanded = leftPinned || hoveredSide === 'left'
+  const rightExpanded = rightPinned || hoveredSide === 'right'
 
-  // 悬浮计时器：避免鼠标经过时频繁闪烁
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const triggerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ── 展开/收起状态机 ──
-  // 鼠标进入 FixedBar 区 → 展开
-  // 鼠标离开整个侧栏区 → 延迟 300ms 收起
+  // ── 固定切换 ──
 
-  const handleFixedBarHover = useCallback((side: 'left' | 'right') => {
-    return (panelId: string | null) => {
-      if (panelId) {
-        // 展开
-        if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
-        collapseTimerRef.current = null
-        setHoveredPanelId(panelId)
-        setHoveredSide(side)
-      }
-      // mouse leave from fixed bar — don't collapse immediately,
-      // wait for the whole sidebar area
-    }
+  const toggleLeftPin = useCallback(() => {
+    setLeftPinned((v) => { const n = !v; savePin('left', n); return n })
   }, [])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleLeftFixedBarHover = useCallback((panelId: string | null) => handleFixedBarHover('left')(panelId), [handleFixedBarHover])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleRightFixedBarHover = useCallback((panelId: string | null) => handleFixedBarHover('right')(panelId), [handleFixedBarHover])
 
-  const handleSidebarEnter = useCallback((side: 'left' | 'right') => {
+  const toggleRightPin = useCallback(() => {
+    setRightPinned((v) => { const n = !v; savePin('right', n); return n })
+  }, [])
+
+  // ── 展开/收起 ──
+
+  const handleTriggerEnter = useCallback((side: 'left' | 'right') => {
     return () => {
+      if (side === 'left' && leftPinned) return
+      if (side === 'right' && rightPinned) return
+      if (triggerTimerRef.current) clearTimeout(triggerTimerRef.current)
       if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
       collapseTimerRef.current = null
       setHoveredSide(side)
     }
-  }, [])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleLeftEnter = useCallback(handleSidebarEnter('left'), [handleSidebarEnter])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleRightEnter = useCallback(handleSidebarEnter('right'), [handleSidebarEnter])
+  }, [leftPinned, rightPinned])
 
-  const handleSidebarLeave = useCallback(() => {
+  const handleSidebarLeave = useCallback((side: 'left' | 'right') => {
     return () => {
+      const pinned = side === 'left' ? leftPinned : rightPinned
+      if (pinned) return
       if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
       collapseTimerRef.current = setTimeout(() => {
-        setHoveredSide(null)
-        setHoveredPanelId(null)
+        setHoveredSide((prev) => prev === side ? null : prev)
       }, 300)
     }
-  }, [])
-  const handleLeftLeave = useCallback(handleSidebarLeave(), [handleSidebarLeave])
-  const handleRightLeave = useCallback(handleSidebarLeave(), [handleSidebarLeave])
+  }, [leftPinned, rightPinned])
 
-  // cleanup timers
   useEffect(() => {
     return () => {
       if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
+      if (triggerTimerRef.current) clearTimeout(triggerTimerRef.current)
     }
   }, [])
 
   const leftPanels = getAllSidePanels('left')
   const rightPanels = getAllSidePanels('right')
 
-  // 根据 panel config 渲染侧栏内容
-  const renderSideContent = useCallback((side: 'left' | 'right') => {
-    if (!hoveredSide) return null
-    if (side !== hoveredSide) return null
-    const panels = side === 'left' ? leftPanels : rightPanels
+  // 首次展开时自动选中第一个 tab
+  useEffect(() => {
+    if (leftExpanded && !activeTab && leftPanels.length > 0) {
+      const firstId = leftPanels[0].def.id
+      setActiveTab(firstId)
+      saveActiveTab('left', firstId)
+    }
+    if (rightExpanded && !activeRightTab && rightPanels.length > 0) {
+      const firstId = rightPanels[0].def.id
+      setActiveRightTab(firstId)
+      saveActiveTab('right', firstId)
+    }
+  }, [leftExpanded, rightExpanded, activeTab, activeRightTab, leftPanels, rightPanels])
+
+  const handleTabClick = useCallback((side: 'left' | 'right', panelId: string) => {
+    return () => {
+      if (side === 'left') { setActiveTab(panelId) }
+      else { setActiveRightTab(panelId) }
+      saveActiveTab(side, panelId)
+    }
+  }, [])
+
+  // ── 渲染左侧栏（内容区，推挤布局） ──
+
+  const renderLeftContent = useCallback(() => {
+    const panels = leftPanels
+    if (panels.length === 0) return null
+    const width = leftWidth
+    const currentTab = activeTab ?? panels[0]?.def.id
+    const activePanel = panels.find((p) => p.def.id === currentTab)
+
     return (
-      <motion.div
-        key={side}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.12 }}
-        className="flex flex-col h-full overflow-hidden"
-        style={{ backgroundColor: 'var(--crai-bg)', width: side === 'left' ? leftWidth : rightWidth }}
-      >
-        {panels.map(({ def }) => (
-          <div key={def.id} className="flex-1 flex flex-col overflow-hidden min-h-0">
-            <div className="shrink-0 flex items-center px-3 border-b text-xs font-medium"
-              style={{
-                height: 'var(--crai-sidebar-header-height, 36px)',
-                borderColor: 'var(--crai-border)',
-                color: 'var(--crai-fg-secondary)',
-              }}
-            >
-              {def.icon} <span className="ml-1.5">{def.label}</span>
-            </div>
-            <div className="flex-1 overflow-y-auto min-h-0">
-              {def.render({
-                width: side === 'left' ? leftWidth : rightWidth,
-                hovered: true,
-                send,
-              })}
-            </div>
-          </div>
-        ))}
-      </motion.div>
-    )
-  }, [hoveredSide, leftPanels, rightPanels, leftWidth, rightWidth, send])
-
-  return (
-    <div className="flex flex-1 overflow-hidden min-h-0">
-      {/* 左侧固定栏 */}
-      {leftPanels.length > 0 && (
-        <FixedBar
-          side="left"
-          panels={leftPanels}
-          expandedPanelId={leftExpanded ? hoveredPanelId : null}
-          onHoverPanel={handleLeftFixedBarHover}
-        />
-      )}
-
-      {/* 左侧栏内容 */}
       <div
-        onMouseEnter={handleLeftEnter}
-        onMouseLeave={handleLeftLeave}
-        className="overflow-hidden shrink-0"
+        className="flex flex-col overflow-hidden rounded-xl"
         style={{
-          width: leftExpanded ? leftWidth : 0,
-          minWidth: 0,
-          overflow: 'hidden',
-          transition: 'width 100ms ease-out',
+          width,
+          height: '100%',
+          backgroundColor: 'var(--crai-bg)',
+          border: '1px solid var(--crai-border)',
+          boxShadow: 'var(--crai-shadow-elevated)',
+          position: 'relative',
         }}
       >
-        {renderSideContent('left')}
-      </div>
+        {/* Tab 栏（仅 2+ 面板时显示标签） */}
+        {panels.length >= 2 && (
+          <div
+            className="flex items-center shrink-0 gap-1 px-2"
+            style={{
+              height: 'var(--crai-sidebar-header-height, 36px)',
+              borderBottom: '1px solid var(--crai-border)',
+            }}
+          >
+            {panels.map(({ def }) => (
+              <button
+                key={def.id} title={def.label}
+                onClick={handleTabClick('left', def.id)}
+                className="flex items-center justify-center rounded transition-all shrink-0"
+                style={{
+                  width: 'var(--crai-sidebar-tab-width, 32px)', height: 28, fontSize: 15,
+                  color: def.id === currentTab ? 'var(--crai-fg)' : 'var(--crai-fg-40)',
+                  backgroundColor: def.id === currentTab ? 'var(--crai-bg-tertiary)' : 'transparent',
+                }}
+              >
+                {def.icon}
+              </button>
+            ))}
+            <div className="flex-1" />
+            <button title={leftPinned ? '解锁左侧' : '固定左侧'}
+              onClick={toggleLeftPin}
+              className="flex items-center justify-center rounded transition-colors shrink-0"
+              style={{ width: 24, height: 24, color: leftPinned ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}
+            >
+              <Icon icon={leftPinned ? PinOff : Pin} size="xs" />
+            </button>
+          </div>
+        )}
+        {/* 仅 1 面板时，Pin 按钮位于右上角 */}
+        {panels.length === 1 && (
+          <button title={leftPinned ? '解锁左侧' : '固定左侧'}
+            onClick={toggleLeftPin}
+            className="absolute top-1 right-1 z-10 flex items-center justify-center rounded transition-colors"
+            style={{ width: 24, height: 24, color: leftPinned ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}
+          >
+            <Icon icon={leftPinned ? PinOff : Pin} size="xs" />
+          </button>
+        )}
 
-      {/* 左侧拖拽手柄 */}
-      {leftExpanded && (
-        <ResizeHandle
-          side="left"
-          width={leftWidth}
-          onResize={(w) => { setLeftWidth(w); saveWidth('left', w) }}
+        {/* 面板内容 */}
+        {activePanel && (
+          <div key={activePanel.def.id} className="flex-1 overflow-y-auto min-h-0">
+            {activePanel.def.render({ width, hovered: true, send })}
+          </div>
+        )}
+      </div>
+    )
+  }, [leftPanels, leftWidth, activeTab, send, leftPinned, toggleLeftPin, handleTabClick])
+
+  // ── 渲染右侧栏（悬浮，不推挤布局） ──
+
+  const renderRightContent = useCallback(() => {
+    const panels = rightPanels
+    if (panels.length === 0) return null
+    const width = rightWidth
+    const currentTab = activeRightTab ?? panels[0]?.def.id
+    const activePanel = panels.find((p) => p.def.id === currentTab)
+
+    return (
+      <div
+        className="flex flex-col overflow-hidden rounded-xl"
+        style={{
+          width,
+          maxHeight: 'min(70vh, calc(100vh - 96px))',
+          backgroundColor: 'var(--crai-bg)',
+          border: '1px solid var(--crai-border)',
+          boxShadow: 'var(--crai-shadow-elevated)',
+        }}
+      >
+        {/* Tab 栏（右，仅 2+ 面板时显示标签） */}
+        {panels.length >= 2 && (
+          <div
+            className="flex items-center shrink-0 gap-1 px-2"
+            style={{
+              height: 'var(--crai-sidebar-header-height, 36px)',
+              borderBottom: '1px solid var(--crai-border)',
+            }}
+          >
+            {panels.map(({ def }) => (
+              <button
+                key={def.id} title={def.label}
+                onClick={handleTabClick('right', def.id)}
+                className="flex items-center justify-center rounded transition-all shrink-0"
+                style={{
+                  width: 'var(--crai-sidebar-tab-width, 32px)', height: 28, fontSize: 15,
+                  color: def.id === currentTab ? 'var(--crai-fg)' : 'var(--crai-fg-40)',
+                  backgroundColor: def.id === currentTab ? 'var(--crai-bg-tertiary)' : 'transparent',
+                }}
+              >
+                {def.icon}
+              </button>
+            ))}
+            <div className="flex-1" />
+            <button title={rightPinned ? '解锁右侧' : '固定右侧'}
+              onClick={toggleRightPin}
+              className="flex items-center justify-center rounded transition-colors shrink-0"
+              style={{ width: 24, height: 24, color: rightPinned ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}
+            >
+              <Icon icon={rightPinned ? PinOff : Pin} size="xs" />
+            </button>
+          </div>
+        )}
+        {/* 仅 1 面板时无额外控件 */}
+        {panels.length === 1 && null}
+
+        {/* 面板内容 */}
+        {activePanel && (
+          <div key={activePanel.def.id} className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: 'calc(min(70vh, 100vh - 96px) - 37px)' }}>
+            {activePanel.def.render({ width, hovered: true, send })}
+          </div>
+        )}
+      </div>
+    )
+  }, [rightPanels, rightWidth, activeRightTab, send, rightPinned, toggleRightPin, handleTabClick])
+
+  return (
+    <div className="flex flex-1 overflow-hidden min-h-0 relative">
+      {/* 左侧触发区（12px 宽，比 6px 更容易触发） */}
+      {leftPanels.length > 0 && (
+        <div
+          onMouseEnter={handleTriggerEnter('left')}
+          className="absolute left-0 top-0 bottom-0 z-10"
+          style={{ width: 12 }}
         />
       )}
 
@@ -206,39 +336,65 @@ export function ShellLayout({ children, send }: Props) {
         {children}
       </div>
 
-      {/* 右侧拖拽手柄 */}
-      {rightExpanded && (
-        <ResizeHandle
-          side="right"
-          width={rightWidth}
-          onResize={(w) => { setRightWidth(w); saveWidth('right', w) }}
-        />
-      )}
 
-      {/* 右侧栏内容 */}
-      <div
-        onMouseEnter={handleRightEnter}
-        onMouseLeave={handleRightLeave}
-        className="overflow-hidden shrink-0"
-        style={{
-          width: rightExpanded ? rightWidth : 0,
-          minWidth: 0,
-          overflow: 'hidden',
-          transition: 'width 100ms ease-out',
-        }}
-      >
-        {renderSideContent('right')}
-      </div>
+      {/* 左侧浮动侧栏 */}
+      <AnimatePresence>
+        {leftExpanded && leftPanels.length > 0 && (
+          <motion.div
+            key="left-panel"
+            initial={{ opacity: 0, x: -20, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 0.9 }}
+            onMouseEnter={() => { if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; setHoveredSide('left') }}
+            onMouseLeave={handleSidebarLeave('left')}
+            className="absolute"
+            style={{
+              left: 8,
+              top: 48,
+              bottom: 0,
+              zIndex: 50,
+            }}
+          >
+            {renderLeftContent()}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* 右侧固定栏 */}
+      {/* 右侧拖拽手柄（浮动侧栏不需要） */}
+
+      {/* 右侧触发区 */}
       {rightPanels.length > 0 && (
-        <FixedBar
-          side="right"
-          panels={rightPanels}
-          expandedPanelId={rightExpanded ? hoveredPanelId : null}
-          onHoverPanel={handleRightFixedBarHover}
+        <div
+          onMouseEnter={handleTriggerEnter('right')}
+          onMouseLeave={handleSidebarLeave('right')}
+          className="absolute right-0 top-0 h-full z-10"
+          style={{ width: 'var(--crai-sidebar-trigger-width, 6px)' }}
         />
       )}
+
+      {/* 右侧浮动侧栏 */}
+      <AnimatePresence>
+        {rightExpanded && rightPanels.length > 0 && (
+          <motion.div
+            key="right-panel"
+            initial={{ opacity: 0, x: 20, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 20, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 0.9 }}
+            onMouseEnter={() => { if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; setHoveredSide('right') }}
+            onMouseLeave={handleSidebarLeave('right')}
+            className="absolute"
+            style={{
+              right: 8,
+              top: 48,
+              zIndex: 50,
+            }}
+          >
+            {renderRightContent()}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

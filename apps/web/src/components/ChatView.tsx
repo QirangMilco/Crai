@@ -12,8 +12,10 @@ import { ShellLayout } from './shell/ShellLayout'
 import { registerPanels } from './shell/PanelRegistry'
 import { SessionListPanel } from './panels/SessionListPanel'
 import { FileTreePanel } from './panels/FileTreePanel'
+import { SessionNavPanel } from './panels/SessionNavPanel'
+import { InfoIsland } from './shell/InfoIsland'
 import { Dropdown, Icon } from './ui'
-import { MessageSquare, FolderTree, X, Folder, ArrowUp, Settings, Palette, Plus, Send } from 'lucide-react'
+import { MessageSquare, FolderTree, X, Folder, ArrowUp, Settings, Palette, Plus, Send, List } from 'lucide-react'
 
 interface Props { wsUrl: string }
 
@@ -214,7 +216,7 @@ export function ChatView({ wsUrl }: Props) {
         id: 'files',
         label: '文件树',
         icon: <Icon icon={FolderTree} size="sm" />,
-        defaultSide: 'right',
+        defaultSide: 'left',
         defaultVisible: true,
         render: () => (
           <FileTreePanel
@@ -225,6 +227,14 @@ export function ChatView({ wsUrl }: Props) {
             hovered={true}
           />
         ),
+      },
+      {
+        id: 'session-nav',
+        label: '会话导航',
+        icon: <Icon icon={List} size="sm" />,
+        defaultSide: 'right',
+        defaultVisible: true,
+        render: () => <SessionNavPanel />,
       },
     ])
   }, [sessions, sessionId, currentWorkspace, send, handleNewSession, handleDeleteSession, handleSwitchSession])
@@ -260,14 +270,14 @@ export function ChatView({ wsUrl }: Props) {
 
   return (
     <div className="flex h-dvh flex-col" style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg)' }}>
-      <header className="flex items-center justify-between px-5 shrink-0 border-b"
+      <header className="flex items-center px-5 shrink-0 border-b"
         style={{
           borderColor: 'var(--crai-border)',
           height: 'var(--crai-header-height, 48px)',
         }}
       >
         {/* 左：工作区 badge（可交互，点击展开下拉） + 对话标题 */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0" style={{ flex: 1 }}>
           <Dropdown label={currentWorkspace ? currentWorkspace.split('/').pop()! : '无工作区'}
             items={workspaces.map((w) => ({ id: w.rootDir, display: w.rootDir.split('/').pop() ?? w.rootDir, active: w.rootDir === currentWorkspace }))}
             selected={currentWorkspace}
@@ -287,8 +297,19 @@ export function ChatView({ wsUrl }: Props) {
           )}
         </div>
 
+        {/* 中：Dynamic Island */}
+        <div className="flex items-center justify-center" style={{ flex: 1 }}>
+          <InfoIsland
+            model={currentModel?.includes('/') ? currentModel.split('/')[1] : currentModel}
+            provider={currentModel?.includes('/') ? currentModel.split('/')[0] : undefined}
+            thinkingLevel={thinkingLevel}
+            mode={sessionMode}
+            connected={status === 'connected'}
+          />
+        </div>
+
         {/* 右：状态 + 设置 */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-end" style={{ flex: 1 }}>
           <button onClick={() => { send({ type: 'config:get' }); setShowConfig((s) => !s) }}
             className="px-2 py-1 rounded text-xs font-medium transition-colors duration-150 inline-flex items-center gap-1"
             style={{ backgroundColor: showConfig ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)', color: showConfig ? '#fff' : 'var(--crai-fg-secondary)' }}>
