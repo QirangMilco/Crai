@@ -105,7 +105,7 @@ const ActivityRow = memo(function ActivityRow({
       setElapsed(Math.floor((Date.now() - start) / 1000))
     }, 1000)
     return () => clearInterval(timer)
-  }, [activity.status, activity.elapsedSeconds])
+  }, [activity.status])
 
   const toolLabel = toolNameMap[activity.toolName ?? ''] ?? activity.displayName ?? activity.toolName ?? '工具'
   const argLabel = isTool ? formatToolArg(activity) : ''
