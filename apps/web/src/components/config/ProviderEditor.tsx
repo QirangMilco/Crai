@@ -38,11 +38,17 @@ interface Props {
   customKey: string
   customBaseURL: string
   customModelsPath: string
+  customApi: string
   onCustomNameChange: (val: string) => void
   onCustomKeyChange: (val: string) => void
   onCustomBaseURLChange: (val: string) => void
   onCustomModelsPathChange: (val: string) => void
+  onCustomApiChange: (val: string) => void
   onAddCustom: () => void
+
+  // 编辑（仅自定义 provider）
+  editApi: string
+  onApiChange: (val: string) => void
 
   ui: Record<string, string>
 }
@@ -52,9 +58,10 @@ export function ProviderEditor({
   editKey, editBaseURL, editModelsPath,
   onKeyChange, onBaseURLChange, onPathChange,
   onBlur, onTest, testButtonState, isPreset, firstPartyDefaultBaseURL, onDelete,
-  customName, customKey, customBaseURL, customModelsPath,
-  onCustomNameChange, onCustomKeyChange, onCustomBaseURLChange, onCustomModelsPathChange,
+  customName, customKey, customBaseURL, customModelsPath, customApi,
+  onCustomNameChange, onCustomKeyChange, onCustomBaseURLChange, onCustomModelsPathChange, onCustomApiChange,
   onAddCustom,
+  editApi, onApiChange,
   ui: _ui,
 }: Props) {
   // 未选择
@@ -116,6 +123,19 @@ export function ProviderEditor({
                 className="w-full px-3 py-2 rounded text-xs outline-none"
                 style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
               />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium opacity-60">API 格式</label>
+              <select
+                value={customApi}
+                onChange={e => onCustomApiChange(e.target.value)}
+                className="w-full px-3 py-2 rounded text-xs outline-none"
+                style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+              >
+                <option value="">自动（按名称匹配）</option>
+                <option value="openai">OpenAI</option>
+                <option value="deepseek">DeepSeek</option>
+              </select>
             </div>
             <button
               onClick={onAddCustom}
@@ -231,6 +251,23 @@ export function ProviderEditor({
             className="flex-1 px-3 py-2 rounded text-xs outline-none"
             style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
           />
+        </div>
+      )}
+
+      {/* API 格式（仅自定义 provider） */}
+      {!isPreset && (
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-medium opacity-60 shrink-0 w-20">API 格式</span>
+          <select
+            value={editApi}
+            onChange={e => onApiChange(e.target.value)}
+            className="flex-1 px-3 py-2 rounded text-xs outline-none"
+            style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+          >
+            <option value="">自动（按名称匹配）</option>
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+          </select>
         </div>
       )}
     </div>

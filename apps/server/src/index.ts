@@ -160,11 +160,13 @@ class WorkspaceManager {
         const pcfg = global.providers[provider]
         if (!pcfg?.apiKey) return undefined
         this.log.info(`惰性注册模型: ${provider}/${modelName}`)
-        if (provider === 'deepseek') {
+        // 按 API 格式选择适配器
+        const api = (pcfg as any).api || ''
+        if (api === 'deepseek' || provider === 'deepseek') {
           return new DeepSeekAdapter({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, logger: this.log })
         }
         if (provider === 'mock') {
-          return undefined // mock 模型应该在 runtime 启动时已注册
+          return undefined
         }
         return new OpenAIAdapter({ apiKey: pcfg.apiKey, baseURL: pcfg.baseURL, logger: this.log })
       },
@@ -302,11 +304,16 @@ async function main() {
         return {
           firstParty: [...FIRST_PARTY_PROVIDERS],
           knownModels: (() => {
-            const result: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>> = {}
+            const result: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[] }>> = {}
             for (const [provider, models] of Object.entries(KNOWN_MODELS)) {
               result[provider] = {}
               for (const [model, info] of Object.entries(models)) {
-                result[provider][model] = { displayName: info.displayName, contextWindow: info.contextWindow, maxOutput: info.maxOutput }
+                result[provider][model] = {
+              displayName: info.displayName,
+              contextWindow: info.contextWindow,
+              maxOutput: info.maxOutput,
+              supportedThinkingLevels: info.supportedThinkingLevels,
+            }
               }
             }
             return result

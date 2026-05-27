@@ -30,7 +30,7 @@ import type {
   RuntimeRegistries,
   SettingsStore,
 } from '@crai/core'
-import { EVENTS, ERROR_CODES, HOOKS } from '@crai/core'
+import { EVENTS, ERROR_CODES, HOOKS, getSupportedThinkingLevels } from '@crai/core'
 import type { TraceFn } from './bus'
 import {
   createCommandRegistry,
@@ -462,7 +462,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       if (!modelName) throw new Error('No model available')
       // 优先用 provider:modelName 查找，防止同名模型冲突
       let adapter = opts?.provider
-        ? (deps.registries.models.get(`${opts.provider}:${modelName}`) ?? deps.registries.models.get(modelName))
+        ? deps.registries.models.get(`${opts.provider}:${modelName}`)
         : deps.registries.models.get(modelName)
       // 惰性注册：模型不存在时通过回调动态创建
       if (!adapter && options?.onModelNotFound) {
@@ -471,6 +471,11 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
           adapter = newAdapter
           if (opts?.provider) deps.registries.models.register(`${opts.provider}:${modelName}`, newAdapter)
           deps.registries.models.register(modelName, newAdapter)
+          // 注册 thinking levels（自定义 provider 需要）
+          if (opts?.provider && deps.registries.thinkingLevels) {
+            const levels = getSupportedThinkingLevels(opts.provider, modelName)
+            deps.registries.thinkingLevels.register(opts.provider, levels)
+          }
         }
       }
       if (!adapter) throw new Error(`Model "${modelName}" not found`)

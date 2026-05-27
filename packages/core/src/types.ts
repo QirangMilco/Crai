@@ -272,6 +272,8 @@ export interface ModelConfig {
 export interface ProviderConfig {
   apiKey?: string
   baseURL?: string
+  /** API 协议格式。可选值：'openai' | 'deepseek'。留空时自动按 provider 名推断。 */
+  api?: string
   models?: string[]
   /** 获取模型列表的 API 路径。默认 /models。 */
   modelsPath?: string

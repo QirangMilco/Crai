@@ -13,42 +13,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { DEFAULT_COMPRESSION_THRESHOLD, DEFAULT_KEEP_RECENT_TOKENS } from '@crai/core'
 import { ui } from './ConfigPanel.strings'
 import { ProviderList, ProviderEditor, ModelList, ModelEditModal, GlobalModelSettings, GeneralSettingsTab } from './config'
-
-// 由服务端 knownModels prop 提供,见 config:known-models 协议。
-function getModelContextWindow(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>): number | undefined {
-  // 先按 provider 精确匹配
-  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.contextWindow
-  if (byProvider) return byProvider
-  // 跨所有 provider 按模型名搜索
-  if (knownModels) {
-    for (const models of Object.values(knownModels)) {
-      if (models[model]?.contextWindow) return models[model].contextWindow
-    }
-  }
-  return undefined
-}
-
-function getKnownModelDisplayName(provider: string, model: string, knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>): string | undefined {
-  // 先按 provider 精确匹配
-  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.displayName
-  if (byProvider) return byProvider
-  // 跨所有 provider 按模型名搜索
-  if (knownModels) {
-    for (const models of Object.values(knownModels)) {
-      if (models[model]?.displayName) return models[model].displayName
-    }
-  }
-  return undefined
-}
-
-/** 跨所有 provider 查找已知模型信息。 */
-function findModelInfoAcrossProviders(model: string, knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>): { displayName?: string; contextWindow?: number; maxOutput?: number } | undefined {
-  if (!knownModels) return undefined
-  for (const models of Object.values(knownModels)) {
-    if (models[model]) return models[model]
-  }
-  return undefined
-}
+import { getModelContextWindow, getKnownModelDisplayName, findModelInfoAcrossProviders } from '../utils/model-utils'
 
 interface Props {
   config: {
@@ -145,6 +110,8 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const [customKey, setCustomKey] = useState('')
   const [customBaseURL, setCustomBaseURL] = useState('')
   const [customModelsPath, setCustomModelsPath] = useState('')
+  const [customApi, setCustomApi] = useState('')
+  const [editApi, setEditApi] = useState('')
 
   const providers = config?.providers ?? {}
   const isDev = (config as any)?.variant === 'dev'
@@ -184,6 +151,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setEditBaseURL(p.baseURL || firstPartyDefault(name)?.defaultBaseURL || '')
     setEditModel(config?.defaultModel ?? '')
     setEditModelsPath((p as any).modelsPath ?? '')
+    setEditApi((p as any).api ?? '')
     // 优先从 knownModels 预填充发现列表，避免空列表
     const providerKey = name.toLowerCase()
     const known = knownModels?.[providerKey]
@@ -193,12 +161,13 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     setLocalModelConfigs(p.modelConfigs ?? {})
   }
 
-  function saveProviderConfig(overrides?: { models?: string[]; modelConfigs?: Record<string, any> }) {
+  function saveProviderConfig(overrides?: { models?: string[]; modelConfigs?: Record<string, any> }, extraApi?: string) {
     if (!editing) return
     const p = providers[editing] ?? {}
     send({ type: 'config:set:provider', name: editing, config: {
       apiKey: editKey,
       baseURL: editBaseURL || undefined,
+      api: (extraApi ?? editApi) || undefined,
       models: overrides?.models ?? p.models,
       modelConfigs: overrides?.modelConfigs ?? p.modelConfigs,
       modelsPath: editModelsPath || undefined,
@@ -229,12 +198,14 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     send({ type: 'config:set:provider', name: customName, config: {
       apiKey: customKey,
       baseURL: customBaseURL || undefined,
+      api: customApi || undefined,
       modelsPath: customModelsPath || undefined,
     }})
     setCustomName('')
     setCustomKey('')
     setCustomBaseURL('')
     setCustomModelsPath('')
+    setCustomApi('')
     setEditing(customName)
     setEditKey(customKey)
     setEditBaseURL(customBaseURL || undefined)
@@ -401,11 +372,15 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                     customKey={customKey}
                     customBaseURL={customBaseURL}
                     customModelsPath={customModelsPath}
+                    customApi={customApi}
                     onCustomNameChange={setCustomName}
                     onCustomKeyChange={setCustomKey}
                     onCustomBaseURLChange={setCustomBaseURL}
                     onCustomModelsPathChange={setCustomModelsPath}
+                    onCustomApiChange={setCustomApi}
                     onAddCustom={addCustomProvider}
+                    editApi={editApi}
+                    onApiChange={setEditApi}
                     ui={ui as any}
                   />
                 ) : (
@@ -436,7 +411,11 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                       onCustomKeyChange={() => {}}
                       onCustomBaseURLChange={() => {}}
                       onCustomModelsPathChange={() => {}}
+                      customApi=""
+                      onCustomApiChange={() => {}}
                       onAddCustom={() => {}}
+                      editApi={editApi}
+                      onApiChange={(v) => { setEditApi(v); saveProviderConfig(undefined, v) }}
                       ui={ui as any}
                     />
 

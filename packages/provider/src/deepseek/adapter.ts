@@ -150,8 +150,19 @@ function toDeepSeekMessages(contextMessages: Message[], system?: string): DeepSe
         // DeepSeek thinking mode 要求带 tool_calls 的 assistant 消息必须回传 reasoning_content
         // 从 metadata.reasoningContent 读取（由 stream() 捕获时写入）
         const rc = msg.metadata?.reasoningContent
-        if (typeof rc === 'string') {
+        if (typeof rc === 'string' && rc.length > 0) {
           dsMsg.reasoning_content = rc
+          debugLog(DEBUG_SCOPES.THINKING, 'toDeepSeekMessage: reasoning_content echoed', { len: rc.length })
+        } else {
+          debugLog(DEBUG_SCOPES.THINKING, 'toDeepSeekMessage: reasoning_content MISSING', {
+            rcType: typeof rc,
+            rcLen: typeof rc === 'string' ? rc.length : 0,
+            hasMetadata: 'metadata' in (msg as any),
+            metadataKeys: (msg as any).metadata ? Object.keys((msg as any).metadata) : [],
+            msgRole: msg.role,
+            msgPartsCount: msg.parts?.length ?? 0,
+            hasToolCalls: msg.parts?.some(p => p.type === 'tool-call') ?? false,
+          })
         }
 
         // DeepSeek 要求 tool-call 消息的 content 不能为 null（改为空字符串）

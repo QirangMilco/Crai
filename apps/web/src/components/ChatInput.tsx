@@ -19,9 +19,9 @@ interface Props {
   onThinkingLevelChange?: (level: string) => void
   sessionMode?: string
   onModeChange?: (mode: string) => void
-  providerThinkingLevels?: Record<string, string>
   defaultThinkingLevels?: Record<string, string>
   sessionId?: string
+  knownModels?: Record<string, Record<string, { displayName?: string; contextWindow?: number; maxOutput?: number; supportedThinkingLevels?: string[] }>>
 }
 
 export function ChatInput({
@@ -35,9 +35,9 @@ export function ChatInput({
   onThinkingLevelChange,
   sessionMode,
   onModeChange,
-  providerThinkingLevels,
   defaultThinkingLevels,
   sessionId,
+  knownModels,
 }: Props) {
   const inputRef = useRef<InputAreaHandle>(null)
 
@@ -113,8 +113,8 @@ export function ChatInput({
               models={models}
               thinkingLevel={thinkingLevel}
               onThinkingLevelChange={onThinkingLevelChange}
-              providerThinkingLevels={providerThinkingLevels}
               defaultThinkingLevels={defaultThinkingLevels}
+              knownModels={knownModels}
             />
             <button
               onClick={handleButtonClick}

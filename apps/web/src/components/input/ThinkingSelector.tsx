@@ -6,6 +6,7 @@
  */
 import { useEffect } from 'react'
 import { Select } from '../ui/Select'
+import { PROVIDER_DEFAULT_THINKING_LEVELS } from '@crai/core'
 
 export const THINKING_LEVELS: Array<{ value: string; label: string }> = [
   { value: 'off', label: '关' },
@@ -17,24 +18,37 @@ export const THINKING_LEVELS: Array<{ value: string; label: string }> = [
   { value: 'xhigh', label: '极高' },
 ]
 
-export const PROVIDER_THINKING_LEVELS: Record<string, string[]> = {
-  deepseek:  ['off', 'high', 'max'],
-  openai:    ['off', 'low', 'medium', 'high'],
-  anthropic: ['off', 'high', 'xhigh'],
-  mock:      ['off', 'auto', 'low', 'medium', 'high', 'xhigh'],
+const LABEL_MAP: Record<string, string> = { off: '关', auto: '自动', low: '低', medium: '中', high: '高', max: '最高', xhigh: '极高' }
+
+/** 按提供商标识查找 thinking levels：provider 名 → 硬编码默认值 → ALL */
+function getProviderLevels(provider: string): string[] {
+  return PROVIDER_DEFAULT_THINKING_LEVELS[provider.toLowerCase()] ?? ['off', 'auto', 'low', 'medium', 'high', 'xhigh', 'max']
 }
 
-const ALL_THINKING_LEVEL_VALUES = THINKING_LEVELS.map((tl) => tl.value)
-
 export function getAvailableThinkingLevels(
-  provider: string,
-  configLevels?: Record<string, string>,
+  knownModels?: Record<string, Record<string, { displayName?: string; contextWindow?: number; maxOutput?: number; supportedThinkingLevels?: string[] }>>,
+  modelName?: string,
 ): Array<{ value: string; label: string }> {
-  if (configLevels) {
-    return Object.entries(configLevels).map(([value, label]) => ({ value, label }))
+  // 1. 模型自身定义的 supportedThinkingLevels（从 knownModels 跨 provider 查找）
+  if (knownModels && modelName) {
+    for (const models of Object.values(knownModels)) {
+      const info = models[modelName]
+      if (info?.supportedThinkingLevels) {
+        return info.supportedThinkingLevels.map(v => ({ value: v, label: LABEL_MAP[v] ?? v }))
+      }
+    }
   }
-  const levels = PROVIDER_THINKING_LEVELS[provider] ?? ALL_THINKING_LEVEL_VALUES
-  return THINKING_LEVELS.filter((tl) => levels.includes(tl.value))
+  // 2. 在 knownModels 中找到了模型但没有 supportedThinkingLevels → 用模型所在 provider 的默认值
+  if (knownModels && modelName) {
+    for (const [provider, models] of Object.entries(knownModels)) {
+      if (models[modelName]) {
+        const levels = getProviderLevels(provider)
+        return THINKING_LEVELS.filter((tl) => levels.includes(tl.value))
+      }
+    }
+  }
+  // 3. 完全未知 → 全部级别
+  return THINKING_LEVELS
 }
 
 interface ThinkingSelectorProps {
@@ -42,8 +56,8 @@ interface ThinkingSelectorProps {
   models?: Array<{ name: string; provider: string }>
   thinkingLevel?: string
   onThinkingLevelChange?: (level: string) => void
-  providerThinkingLevels?: Record<string, string>
   defaultThinkingLevels?: Record<string, string>
+  knownModels?: Record<string, Record<string, { displayName?: string; contextWindow?: number; maxOutput?: number; supportedThinkingLevels?: string[] }>>
 }
 
 export function ThinkingSelector({
@@ -51,8 +65,8 @@ export function ThinkingSelector({
   models,
   thinkingLevel,
   onThinkingLevelChange,
-  providerThinkingLevels,
   defaultThinkingLevels,
+  knownModels,
 }: ThinkingSelectorProps) {
   const curProvider = (() => {
     if (!currentModel || !models) return ''
@@ -60,7 +74,8 @@ export function ThinkingSelector({
     if (slashIdx > 0) return currentModel.slice(0, slashIdx)
     return models.find((m) => m.name === currentModel)?.provider ?? ''
   })()
-  const availableLevels = getAvailableThinkingLevels(curProvider, providerThinkingLevels)
+  const modelName = currentModel ? (currentModel.indexOf('/') > 0 ? currentModel.split('/')[1] : currentModel) : undefined
+  const availableLevels = getAvailableThinkingLevels(knownModels, modelName)
   const fallbackLevel = (curProvider && defaultThinkingLevels?.[curProvider]) ?? availableLevels[0]?.value ?? 'off'
   const effectiveLevel = availableLevels.some((l) => l.value === thinkingLevel) ? thinkingLevel : fallbackLevel
 

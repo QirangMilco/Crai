@@ -4,14 +4,7 @@
  */
 
 import { ComboInput } from '../ui'
-
-function getModelContextWindow(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>): number | undefined {
-  return knownModels?.[provider.toLowerCase()]?.[model]?.contextWindow
-}
-
-function formatCtxExact(tokens: number): string {
-  return tokens.toLocaleString('en-US')
-}
+import { getModelContextWindow, formatCtxExact } from '../../utils/model-utils'
 
 interface Props {
   editingModel: string

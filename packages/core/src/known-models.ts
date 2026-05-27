@@ -49,8 +49,8 @@ export type KnownModelsMap = Record<string, Record<string, ModelInfo>>
 // ════════════════════════════════════════════════════════════════
 
 const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
-  'deepseek-v4-flash': { displayName: 'DeepSeek V4 Flash', contextWindow: 1048576, thinking: true },
-  'deepseek-v4-pro':   { displayName: 'DeepSeek V4 Pro', contextWindow: 1048576, thinking: true },
+  'deepseek-v4-flash': { displayName: 'DeepSeek V4 Flash', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
+  'deepseek-v4-pro':   { displayName: 'DeepSeek V4 Pro', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
   'deepseek-v3':       { displayName: 'DeepSeek V3', contextWindow: 1048576, thinking: true },
   'deepseek-reasoner': { displayName: 'DeepSeek Reasoner', contextWindow: 65536, thinking: true },
   'deepseek-chat':     { displayName: 'DeepSeek Chat', contextWindow: 32768, supportedThinkingLevels: ['off'] },
@@ -230,11 +230,27 @@ export function getKnownModels(provider: string): string[] {
 
 /**
  * 获取模型支持的思考深度列表。
- * 优先级：模型级定义 > provider 默认值 > 全部级别。
+ * 优先级：
+ *   1. 模型级定义（supportedThinkingLevels）
+ *   2. 匹配到的已知模型的 provider 默认值（跨 provider 查找有效）
+ *   3. provider 默认值
+ *   4. 全部级别
  */
 export function getSupportedThinkingLevels(provider: string, model: string): string[] {
   const info = getModelInfo(provider, model)
   if (info?.supportedThinkingLevels) return info.supportedThinkingLevels
+
+  // 如果模型在已知模型中找到，尝试从查找路径推断 provider 默认值
+  if (info) {
+    for (const [knownProvider, models] of Object.entries(KNOWN_MODELS)) {
+      if (models[model] || Object.keys(models).some(k => model.includes(k) || k.includes(model))) {
+        const pDefault = PROVIDER_DEFAULT_THINKING_LEVELS[knownProvider]
+        if (pDefault) return pDefault
+        break
+      }
+    }
+  }
+
   const providerDefault = PROVIDER_DEFAULT_THINKING_LEVELS[provider.toLowerCase()]
   if (providerDefault) return providerDefault
   return ['off', 'auto', 'low', 'medium', 'high', 'xhigh', 'max']

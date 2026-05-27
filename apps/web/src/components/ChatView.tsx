@@ -32,9 +32,8 @@ export function ChatView({ wsUrl }: Props) {
   const [configTestResult, setConfigTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [thinkingLevel, setThinkingLevel] = useState<string>('auto')
   const [sessionMode, setSessionMode] = useState<string>('ask')
-  const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>> | null>(null)
+  const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[] }>> | null>(null)
   const [firstPartyProviders, setFirstPartyProviders] = useState<Array<{ name: string; label: string; defaultBaseURL: string }> | null>(null)
-  const [providerThinkingLevels, setProviderThinkingLevels] = useState<Record<string, string[]> | null>(null)
   const [defaultThinkingLevels, setDefaultThinkingLevels] = useState<Record<string, string> | null>(null)
   const [pendingConfirm, setPendingConfirm] = useState<{ id: string; question: string; options?: string[]; meta?: Record<string, unknown> } | null>(null)
 
@@ -109,7 +108,6 @@ export function ChatView({ wsUrl }: Props) {
     onKnownModels: (known, firstParty, levels, defaults) => {
       setKnownModels(known)
       setFirstPartyProviders(firstParty)
-      setProviderThinkingLevels(levels ?? null)
       setDefaultThinkingLevels(defaults ?? null)
     },
     onRequestInput: (id, question, options, meta) => setPendingConfirm({ id, question, options, meta }),
@@ -139,10 +137,12 @@ export function ChatView({ wsUrl }: Props) {
   const handleNewSession = useCallback(() => {
     store.getState().clearMessages()
     setSessionId(null)
-    setThinkingLevel('auto')
+    // 使用预设的默认思考深度，没有预设时用 'auto'
+    const defaultLevel = defaultThinkingLevels?.[currentModel.split('/')[0] ?? ''] ?? 'auto'
+    setThinkingLevel(defaultLevel)
     setSessionMode('ask')
     send({ type: 'session:new' })
-  }, [send, store])
+  }, [send, store, defaultThinkingLevels, currentModel])
 
   const handleDeleteSession = useCallback((sid: string) => {
     send({ type: 'session:delete', sessionId: sid })
@@ -323,21 +323,8 @@ export function ChatView({ wsUrl }: Props) {
           sessionMode={sessionMode}
           onModeChange={(mode) => { setSessionMode(mode); if (sessionId) send({ type: 'session:update', sessionId, mode }) }}
           sessionId={sessionId}
-          providerThinkingLevels={(() => {
-            if (!providerThinkingLevels) return undefined
-            const provider = (() => {
-              const slashIdx = currentModel.indexOf('/')
-              return slashIdx > 0 ? currentModel.slice(0, slashIdx) : availableModels.find((m) => m.name === currentModel)?.provider
-            })()
-            if (!provider) return undefined
-            const levels = providerThinkingLevels[provider]
-            if (!levels) return undefined
-            const labelMap: Record<string, string> = { off: '关', auto: '自动', low: '低', medium: '中', high: '高', max: '最高', xhigh: '极高' }
-            const result: Record<string, string> = {}
-            for (const l of levels) result[l] = labelMap[l] ?? l
-            return result
-          })()}
           defaultThinkingLevels={defaultThinkingLevels ?? undefined}
+          knownModels={knownModels ?? undefined}
         />
       </ShellLayout>
 

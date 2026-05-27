@@ -3,37 +3,7 @@
  * 展示已添加模型，支持获取远程模型、搜索、手动输入添加、编辑、删除。
  */
 
-function getModelContextWindow(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>): number | undefined {
-  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.contextWindow
-  if (byProvider) return byProvider
-  if (knownModels) {
-    for (const models of Object.values(knownModels)) {
-      if (models[model]?.contextWindow) return models[model].contextWindow
-    }
-  }
-  return undefined
-}
-
-function getKnownModelDisplayName(provider: string, model: string, knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>): string | undefined {
-  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.displayName
-  if (byProvider) return byProvider
-  if (knownModels) {
-    for (const models of Object.values(knownModels)) {
-      if (models[model]?.displayName) return models[model].displayName
-    }
-  }
-  return undefined
-}
-
-function formatCtx(tokens: number): string {
-  const K = 1024
-  const M = K * K
-  if (tokens >= M && tokens % M === 0) return `${tokens / M}M`
-  if (tokens >= K && tokens % K === 0) return `${tokens / K}K`
-  if (tokens >= M) return `${(tokens / M).toFixed(2).replace(/\.?0+$/, '')}M`
-  if (tokens >= K) return `${(tokens / K).toFixed(1).replace(/\.?0+$/, '')}K`
-  return String(tokens)
-}
+import { getModelContextWindow, getKnownModelDisplayName, formatCtx } from '../../utils/model-utils'
 
 interface Props {
   editing: string | null

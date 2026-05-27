@@ -101,7 +101,7 @@ export function useWsHandler(h: WsHandlers) {
           for (const [provider, cfg] of Object.entries(msg.config.providers) as [string, { models?: string[] }][]) {
             for (const m of cfg.models ?? []) models.push({ name: m, provider })
           }
-          const currentModel = models.length > 0 ? models[0].name : ''
+          const currentModel = msg.config?.defaultModel || (models.length > 0 ? `${models[0].provider}/${models[0].name}` : '')
           h.setCurrentModel(currentModel)
         }
         break
