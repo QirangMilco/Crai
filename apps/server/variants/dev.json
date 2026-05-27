@@ -11,7 +11,7 @@
     "maxFileSize": 10485760,
     "maxBackups": 3,
     "scopes": {
-      "server": ["api", "thinking", "title-gen"],
+      "server": ["middleware", "title-gen"],
       "client": ["timeline", "tools", "title-gen"]
     }
   }

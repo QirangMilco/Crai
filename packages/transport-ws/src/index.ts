@@ -199,15 +199,41 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
 
       case 'session:load': {
         const rt = resolveRuntime()!
-        const raw = await rt.listMessages(msg.sessionId)
+        let raw = await rt.listMessages(msg.sessionId)
         const session = await rt.getSession(msg.sessionId)
-        // 将内部 Message（parts 格式）转为客户端格式，含 blocks
+
+        // 合并同一次回复中多轮 assistant 消息的 parts
+        // 同一 turn 内的思考+工具+正文分属 asst0、asst1 等，中间隔了 tool 消息
+        // 需要跳过 tool 消息回溯到上一个 assistant 来合并
+        const mergedRaw: typeof raw = []
+        for (const m of raw) {
+          if (m.role === 'assistant') {
+            // 从 mergedRaw 末尾跳过 tool 消息找上一个 assistant
+            let backIdx = mergedRaw.length - 1
+            while (backIdx >= 0 && mergedRaw[backIdx]?.role === 'tool') backIdx--
+            const lastAsst = mergedRaw[backIdx]
+            if (lastAsst?.role === 'assistant') {
+              lastAsst.parts.push(...m.parts)
+              continue
+            }
+          }
+          mergedRaw.push(m)
+        }
+        raw = mergedRaw
+        debugLog(DEBUG_SCOPES.MIDDLEWARE, `session:load merge result: ${raw.length} msgs (${raw.filter(m => m.role === 'assistant').length} asst, ${raw.filter(m => m.role === 'tool').length} tool)`, { sessionId: msg.sessionId }, logger)
+
+        // 将内部 Message（parts 格式）转为客户端格式
         const messages = raw
           .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system' || m.role === 'tool')
-          .map((m) => ({
+          .map((m) => {
+            const text = m.role === 'tool' ? '' : extractResponseText(m.parts)
+            if (m.role === 'assistant') {
+              debugLog(DEBUG_SCOPES.MIDDLEWARE, `session:load asst text="${text.substring(0, 60)}" (parts=${m.parts.length})`, { sessionId: msg.sessionId, partTypes: m.parts.map((p: any) => p.type) }, logger)
+            }
+            return {
             id: m.id,
             role: m.role,
-            text: m.role === 'tool' ? '' : extractResponseText(m.parts),
+            text,
             createdAt: m.createdAt,
             activities: m.role === 'assistant' ? buildActivitiesFromParts(m.parts) : undefined,
             // tool-role 消息标记，前端用于把结果合并到对应 activity
@@ -215,7 +241,8 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             toolName: m.role === 'tool' ? (m as any).toolName : undefined,
             isError: m.role === 'tool' ? (m as any).isError : undefined,
             toolResult: m.role === 'tool' ? m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') : undefined,
-          }))
+          }
+          })
 
         // 将 tool 消息的结果合并到对应 assistant 消息的 activities 中
         const assistantMsgs = messages.filter((m: any) => m.role === 'assistant')

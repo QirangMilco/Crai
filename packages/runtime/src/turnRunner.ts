@@ -133,6 +133,7 @@ async function consumeStream(
   const startedTools = new Set<string>()
   let thinkingAccum = ''  // 积累 thinking 内容，用于持久化
   let thinkingActivityId: string | undefined
+  let thinkingStartTime = 0
   let textBeforeTool = ''  // 积累 tool 之前的文本，作为 intent
   for await (const event of stream) {
     switch (event.type) {
@@ -143,6 +144,7 @@ async function consumeStream(
       case 'thinking-delta':
         if (!thinkingActivityId) {
           thinkingActivityId = makeActivityId()
+          thinkingStartTime = Date.now()
           await emitEvent(EVENTS.ACTIVITY_START, {
             session, turnId,
             activity: {
@@ -201,7 +203,11 @@ async function consumeStream(
           const hasText = response.message.parts.some((p: any) => p.type === 'text')
           const textIsThinking = response.message.parts.some((p: any) => p.type === 'text' && p.text === thinkingAccum)
           if (hasText && !textIsThinking) {
-            response.message.parts.push({ type: 'thinking', thinking: thinkingAccum })
+            response.message.parts.push({
+              type: 'thinking',
+              thinking: thinkingAccum,
+              elapsedSeconds: Math.floor((Date.now() - thinkingStartTime) / 1000),
+            })
           }
         }
         // 流结束后，向已发射的 tool activity 补充完整参数
