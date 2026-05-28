@@ -130,7 +130,7 @@ const ActivityRow = memo(function ActivityRow({
           animate={{ opacity: 1 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           onClick={handleClick}
-          className="cursor-pointer rounded-lg px-3 py-2.5"
+          className="cursor-pointer select-none rounded-lg px-3 py-2.5"
           style={{
             backgroundColor: 'var(--crai-bg)',
             boxShadow: 'var(--crai-shadow-minimal)',
@@ -208,7 +208,7 @@ const ActivityRow = memo(function ActivityRow({
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
         onClick={handleClick}
-        className="cursor-pointer rounded-lg px-3 py-2.5"
+        className="cursor-pointer select-none rounded-lg px-3 py-2.5"
         style={{
           backgroundColor: 'var(--crai-bg)',
           boxShadow: 'var(--crai-shadow-minimal)',
