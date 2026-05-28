@@ -13,6 +13,7 @@
     "@crai/core": "workspace:*",
     "@crai/transport-ws": "workspace:*",
     "classnames": "^2.5.1",
+    "@fontsource/noto-serif-sc": "^5.1.1",
     "framer-motion": "^11.15.0",
     "katex": "^0.16.11",
     "lucide-react": "^0.468.0",

@@ -158,12 +158,12 @@ const ActivityRow = memo(function ActivityRow({
               {activity.status === 'running' ? (
                 <span className="shrink-0">
                   思考中
-                  {elapsed > 0 && <span className="tabular-nums">（{elapsed}s）</span>}
+                  {elapsed > 0 && <span className="tabular-nums">（用时 {elapsed} 秒）</span>}
                 </span>
               ) : (
                 <span className="shrink-0">
                   思考完毕
-                  <span className="tabular-nums">（{elapsed}s）</span>
+                  <span className="tabular-nums">（用时 {elapsed} 秒）</span>
                 </span>
               )}
               {/* 折叠预览 */}

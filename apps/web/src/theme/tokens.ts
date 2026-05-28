@@ -61,8 +61,8 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-md-paragraph-font-size', label: '正文字号', group: 'font-size', type: 'size', defaultValue: 'var(--crai-font-size)', ref: '--crai-font-size', max: 32, description: 'Markdown 段落文字大小' },
 
   // ── 字体 ──
-  { name: '--crai-font-sans', label: 'UI 字体', group: 'font-size', type: 'text', defaultValue: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif", description: '界面元素字体（按钮、标签、侧栏）' },
-  { name: '--crai-font-serif', label: '正文字体', group: 'font-size', type: 'text', defaultValue: "Georgia, 'Noto Serif SC', serif", description: '长文本阅读字体（助手消息正文）' },
+  { name: '--crai-font-sans', label: 'UI 字体', group: 'font-size', type: 'text', defaultValue: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif", description: '界面元素字体（按钮、标签、侧栏）' },
+  { name: '--crai-font-serif', label: '正文字体', group: 'font-size', type: 'text', defaultValue: "'Noto Serif SC', Georgia, 'Songti SC', serif", description: '长文本阅读字体（助手消息正文）' },
   { name: '--crai-font-mono', label: '等宽字体', group: 'font-size', type: 'text', defaultValue: "'JetBrains Mono', ui-monospace, 'SF Mono', Monaco, 'Cascadia Code', monospace", description: '代码和工具参数的字体' },
 
   // ============================================================

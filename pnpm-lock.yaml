@@ -65,6 +65,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@crai/base':
+        specifier: workspace:*
+        version: link:../../packages/base
       '@crai/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -105,6 +108,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@crai/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@crai/transport-ws':
+        specifier: workspace:*
+        version: link:../../packages/transport-ws
+      '@fontsource/noto-serif-sc':
+        specifier: ^5.1.1
+        version: 5.2.8
       classnames:
         specifier: ^2.5.1
         version: 2.5.1
@@ -207,6 +219,9 @@ importers:
 
   packages/persistence:
     dependencies:
+      '@crai/base':
+        specifier: workspace:*
+        version: link:../base
       '@crai/core':
         specifier: workspace:*
         version: link:../core
@@ -222,9 +237,6 @@ importers:
       '@crai/core':
         specifier: workspace:*
         version: link:../core
-      tiktoken:
-        specifier: ^1.0.22
-        version: 1.0.22
 
   packages/security:
     dependencies:
@@ -1124,6 +1136,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fontsource/noto-serif-sc@5.2.8':
+    resolution: {integrity: sha512-C7fAr+d1GjOAw1qIbntsnqbA3l5dkdzcmNNgeCXLC8QZ7VNubL7MTrX8UcYKHceX4mI//z8gGtXbOeeQrB6P7g==}
 
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
@@ -4278,6 +4293,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.7':
     optional: true
+
+  '@fontsource/noto-serif-sc@5.2.8': {}
 
   '@iconify/types@2.0.0': {}
 

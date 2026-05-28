@@ -70,7 +70,7 @@ function Bubble({ msg }: Props) {
             <ActivityTimeline activities={msg.activities} />
           )}
           {msg.text ? (
-            <div className="prose prose-sm max-w-none">
+            <div className="prose prose-sm max-w-none" style={{ fontFamily: 'var(--crai-font-serif)' }}>
               <MarkdownRenderer content={msg.text} />
             </div>
           ) : msg.activities?.some((a) => a.status === 'running') ? (
