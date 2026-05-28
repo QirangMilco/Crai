@@ -65,6 +65,11 @@ function findLastAssistantIndex(msgs: ChatMessage[]): number | undefined {
 export interface ChatStore {
   messages: ChatMessage[]
   todos: Array<{ id: string; content: string; activeForm?: string; status: 'pending' | 'in_progress' | 'completed' }>
+  /** 导航面板当前高亮的消息索引 */
+  activeTurnIndex: number
+
+  /** 设置当前高亮索引 */
+  setActiveTurnIndex: (idx: number) => void
 
   /** 创建用户消息 + 空助理消息占位符。 */
   appendPlaceholders: (text: string, ts: number, sessionId?: string | null) => void
@@ -102,6 +107,9 @@ export interface ChatStore {
 export const useChatStore = create<ChatStore>((set) => ({
   messages: [],
   todos: [],
+  activeTurnIndex: -1,
+
+  setActiveTurnIndex: (idx) => set({ activeTurnIndex: idx }),
 
   appendPlaceholders: (text: string, ts: number, _sessionId?: string | null) => {
     set((s) => ({

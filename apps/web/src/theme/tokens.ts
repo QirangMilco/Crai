@@ -201,6 +201,15 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-spring-mass', label: '弹簧质量', group: 'layout', type: 'size', defaultValue: '0.9', min: 0.1, max: 3, step: 0.1, description: 'framer-motion spring mass' },
   { name: '--crai-spring-stiffness', label: '弹簧刚性', group: 'layout', type: 'size', defaultValue: '400', min: 100, max: 1000, step: 10, description: 'framer-motion spring stiffness' },
   { name: '--crai-spring-damping', label: '弹簧阻尼', group: 'layout', type: 'size', defaultValue: '30', min: 10, max: 80, step: 2, description: 'framer-motion spring damping' },
+
+  // ── 排版层级 ──
+  { name: '--crai-font-size-title', label: '标题字号', group: 'typography', type: 'size', defaultValue: '16px', min: 12, max: 28, description: '面板/分区标题' },
+  { name: '--crai-font-size-body', label: '正文字号', group: 'typography', type: 'size', defaultValue: '15px', min: 12, max: 24, description: '正文/对话内容' },
+  { name: '--crai-font-size-caption', label: '标注字号', group: 'typography', type: 'size', defaultValue: '13px', min: 10, max: 20, description: '按钮/标签/次级文字' },
+  { name: '--crai-font-size-small', label: '小字号', group: 'typography', type: 'size', defaultValue: '11px', min: 9, max: 16, description: '元数据/时间戳' },
+  { name: '--crai-font-size-xs', label: '极小号', group: 'typography', type: 'size', defaultValue: '10px', min: 8, max: 14, description: '徽章/角标' },
+  { name: '--crai-line-height-body', label: '正文行高', group: 'typography', type: 'number', defaultValue: '1.65', min: 1.2, max: 2.2, step: 0.05, description: '正文/对话行距' },
+  { name: '--crai-line-height-compact', label: '紧凑行高', group: 'typography', type: 'number', defaultValue: '1.35', min: 1, max: 2, step: 0.05, description: 'UI 标签/按钮行距' },
   { name: '--crai-space-xxs', label: '极小间距', group: 'spacing', type: 'size', defaultValue: '2px', max: 8, description: '图标与文字间隙' },
   { name: '--crai-space-xs', label: '特小间距', group: 'spacing', type: 'size', defaultValue: '4px', max: 16, description: '元素内部紧密间距' },
   { name: '--crai-space-sm', label: '小间距', group: 'spacing', type: 'size', defaultValue: '8px', max: 24, description: '元素之间基本间距' },

@@ -18,6 +18,8 @@ interface NavNode {
 
 export const SessionNavPanel = memo(function SessionNavPanel() {
   const messages = useChatStore((s) => s.messages)
+  const activeTurnIndex = useChatStore((s) => s.activeTurnIndex)
+  const setActiveTurnIndex = useChatStore((s) => s.setActiveTurnIndex)
 
   // 将 messages 分组为 [用户, AI回复] 对
   const nodes: NavNode[] = []
@@ -46,8 +48,9 @@ export const SessionNavPanel = memo(function SessionNavPanel() {
   }
 
   const scrollToMessage = useCallback((userIndex: number) => {
+    setActiveTurnIndex(userIndex)
     window.dispatchEvent(new CustomEvent('crai:scroll-to-message', { detail: { index: userIndex } }))
-  }, [])
+  }, [setActiveTurnIndex])
 
   if (nodes.length === 0) {
     return (
@@ -62,38 +65,48 @@ export const SessionNavPanel = memo(function SessionNavPanel() {
 
   return (
     <div className="flex flex-col gap-0.5 py-2 px-3 overflow-y-auto h-full select-none">
-      {nodes.map((node) => (
-        <button
-          key={`turn-${node.userIndex}`}
-          onClick={() => scrollToMessage(node.userIndex)}
-          className="flex items-start gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors duration-100 w-full"
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--crai-bg-3)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
-        >
-          {/* 指示点 */}
-          <div
-            className="shrink-0 mt-1 rounded-full"
+      {nodes.map((node) => {
+        const isActive = node.userIndex === activeTurnIndex
+        return (
+          <button
+            key={`turn-${node.userIndex}`}
+            onClick={() => scrollToMessage(node.userIndex)}
+            className="flex items-start gap-2 rounded px-2 py-1.5 text-left text-xs transition-all duration-150 w-full"
             style={{
-              width: 6,
-              height: 6,
-              backgroundColor: 'var(--crai-accent)',
-              opacity: 0.7,
+              backgroundColor: isActive ? 'var(--crai-bg-5)' : 'transparent',
             }}
-          />
+            onMouseEnter={(e) => {
+              if (!isActive) e.currentTarget.style.backgroundColor = 'var(--crai-bg-3)'
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'
+            }}
+          >
+            {/* 指示点：高亮时填色 */}
+            <div
+              className="shrink-0 mt-1 rounded-full transition-all duration-150"
+              style={{
+                width: isActive ? 8 : 6,
+                height: isActive ? 8 : 6,
+                backgroundColor: isActive ? 'var(--crai-accent)' : 'var(--crai-accent)',
+                opacity: isActive ? 1 : 0.5,
+              }}
+            />
 
-          {/* 用户消息 + AI 摘要 */}
-          <div className="flex-1 min-w-0 leading-tight">
-            <div className="truncate" style={{ color: 'var(--crai-fg)' }}>
-              {node.preview || '[新对话]'}
-            </div>
-            {node.summary && (
-              <div className="truncate" style={{ color: 'var(--crai-fg-40)', marginTop: 2 }}>
-                {node.summary}
+            {/* 用户消息 + AI 摘要 */}
+            <div className="flex-1 min-w-0 leading-tight">
+              <div className="truncate" style={{ color: 'var(--crai-fg)' }}>
+                {node.preview || '[新对话]'}
               </div>
-            )}
-          </div>
-        </button>
-      ))}
+              {node.summary && (
+                <div className="truncate" style={{ color: 'var(--crai-fg-40)', marginTop: 2 }}>
+                  {node.summary}
+                </div>
+              )}
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 })

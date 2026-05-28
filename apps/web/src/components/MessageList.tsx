@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import type { ChatMessage } from '../types/messages'
 import { MessageBubble } from './MessageBubble'
+import { useChatStore } from '../store/chat'
 
 interface Props {
   messages: ChatMessage[]
@@ -10,7 +11,9 @@ interface Props {
 
 export function MessageList({ messages, className = '' }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const setActiveTurnIndex = useChatStore((s) => s.setActiveTurnIndex)
   const isStreaming = messages.some((m) => m.role !== 'user' && m.activities?.some((a) => a.status === 'running'))
 
   useEffect(() => {
@@ -23,8 +26,6 @@ export function MessageList({ messages, className = '' }: Props) {
       const container = listRef.current
       if (!container) return
       const children = container.children
-      // 消息列表的第一个元素是空的 placeholder div（无消息时），所以跳过它
-      // 实际消息从 children[0] 开始
       const target = children[e.detail.index] as HTMLElement | undefined
       target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
@@ -32,10 +33,44 @@ export function MessageList({ messages, className = '' }: Props) {
     return () => window.removeEventListener('crai:scroll-to-message', handler as EventListener)
   }, [])
 
+  // 滚动时更新导航高亮
+  useEffect(() => {
+    const scrollEl = scrollRef.current
+    const listEl = listRef.current
+    if (!scrollEl || !listEl) return
+
+    const onScroll = () => {
+      const scrollCenter = scrollEl.scrollTop + scrollEl.clientHeight / 2
+      const children = listEl.children
+      const scrollRect = scrollEl.getBoundingClientRect()
+      let closestUser: number | null = null
+      let closestDist = Infinity
+      for (let i = 0; i < children.length; i++) {
+        const el = children[i] as HTMLElement
+        const rect = el.getBoundingClientRect()
+        const mid = rect.top - scrollRect.top + scrollEl.scrollTop + rect.height / 2
+        const dist = Math.abs(mid - scrollCenter)
+        if (dist < closestDist) {
+          closestDist = dist
+          if (messages[i]?.role === 'user') {
+            closestUser = i
+          }
+        }
+      }
+      if (closestUser !== null) {
+        setActiveTurnIndex(closestUser)
+      }
+    }
+
+    scrollEl.addEventListener('scroll', onScroll, { passive: true })
+    return () => scrollEl.removeEventListener('scroll', onScroll)
+  }, [messages, setActiveTurnIndex, scrollRef])
+
   const total = messages.length
 
   return (
     <div className={`flex-1 overflow-y-auto ${className}`}
+      ref={scrollRef}
       style={{ overflowAnchor: 'auto' }}
     >
       <div className="mx-auto px-[var(--crai-chat-padding)]"

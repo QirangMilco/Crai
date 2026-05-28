@@ -38,6 +38,7 @@ const GROUP_LABELS: Record<string, string> = {
   'code-block': '代码块', table: '表格', blockquote: '引用', heading: '标题',
   'input-box': '输入框', 'input-bar': '工具栏', 'thinking-block': '思考', 'tool-block': '工具',
   base: '基础', 'input-field': '文本区', 'z-index': 'Z 层级',
+  typography: '排版',
 }
 
 const GROUP_ICONS: Record<string, string> = {
@@ -58,6 +59,7 @@ const GROUP_ICONS: Record<string, string> = {
   'tool-block': 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a1 1 0 0 0 0-1.42l-1.58-1.58a1 1 0 0 0-1.42 0L14.7 6.3z',
   base: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
   'z-index': 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
+  typography: 'M4 7V4h16v3M9 20h6M12 4v16',
 }
 
 interface Props { onClose: () => void }
