@@ -53,6 +53,8 @@ export function MessageList({ messages, className = '' }: Props) {
           ) : (
             messages.map((msg, idx) => {
               const isRecent = idx >= total - 2
+              // 轮次分割线：上一个消息是 assistant 且当前是 user → 新轮次开始
+              const isTurnBoundary = idx > 0 && messages[idx - 1]?.role === 'assistant' && msg.role === 'user'
               return (
                 <motion.div
                   key={msg.id}
@@ -60,6 +62,16 @@ export function MessageList({ messages, className = '' }: Props) {
                   animate={isRecent ? { opacity: 1, y: 0 } : undefined}
                   transition={isRecent ? { type: 'spring', stiffness: 300, damping: 28 } : undefined}
                 >
+                  {/* 轮次分割线 */}
+                  {isTurnBoundary && (
+                    <div
+                      className="w-full my-4"
+                      style={{
+                        height: '1px',
+                        backgroundColor: 'color-mix(in srgb, var(--crai-fg) 6%, transparent)',
+                      }}
+                    />
+                  )}
                   <MessageBubble msg={msg} />
                 </motion.div>
               )

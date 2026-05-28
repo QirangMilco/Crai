@@ -322,13 +322,39 @@ export function ShellLayout({ children, send }: Props) {
 
   return (
     <div className="flex flex-1 overflow-hidden min-h-0 relative">
-      {/* 左侧触发区（12px 宽，比 6px 更容易触发） */}
+      {/* 左侧触发区（两级） */}
       {leftPanels.length > 0 && (
-        <div
-          onMouseEnter={handleTriggerEnter('left')}
-          className="absolute left-0 top-0 bottom-0 z-10"
-          style={{ width: 12 }}
-        />
+        <>
+          {/* 第一级：提示区（40px，显示蓝线，不展开侧栏） */}
+          <div
+            onMouseEnter={() => {
+              if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
+              collapseTimerRef.current = null
+            }}
+            onMouseLeave={handleSidebarLeave('left')}
+            className="absolute left-0 top-0 bottom-0 cursor-default group"
+            style={{ width: 80, zIndex: 5 }}
+          >
+            {/* 蓝线：40px 区 hover 时显示 */}
+            <div
+              className="absolute transition-all duration-150 ease-out opacity-0 group-hover:opacity-50"
+              style={{
+                left: 0,
+                top: 0,
+                bottom: 0,
+                backgroundColor: 'var(--crai-accent)',
+                width: 2,
+              }}
+            />{/* group-hover: 不用额外配宽度变化，1px 线够用 */}
+
+            {/* 第二级：触发区（12px，嵌套在提示区内，展开侧栏） */}
+            <div
+              onMouseEnter={handleTriggerEnter('left')}
+              className="absolute left-0 top-0 bottom-0 cursor-default"
+              style={{ width: 12, zIndex: 6 }}
+            />
+          </div>
+        </>
       )}
 
       {/* 中间消息区域 */}
@@ -345,13 +371,13 @@ export function ShellLayout({ children, send }: Props) {
             initial={{ opacity: 0, x: -20, scale: 0.96 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -20, scale: 0.96 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 0.9 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 0.9 /* ← crai-spring-* tokens */ }}
             onMouseEnter={() => { if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current); collapseTimerRef.current = null; setHoveredSide('left') }}
             onMouseLeave={handleSidebarLeave('left')}
             className="absolute"
             style={{
               left: 8,
-              top: 48,
+              top: 0,
               bottom: 0,
               zIndex: 50,
             }}
@@ -363,14 +389,38 @@ export function ShellLayout({ children, send }: Props) {
 
       {/* 右侧拖拽手柄（浮动侧栏不需要） */}
 
-      {/* 右侧触发区 */}
+      {/* 右侧触发区（两级） */}
       {rightPanels.length > 0 && (
-        <div
-          onMouseEnter={handleTriggerEnter('right')}
-          onMouseLeave={handleSidebarLeave('right')}
-          className="absolute right-0 top-0 h-full z-10"
-          style={{ width: 'var(--crai-sidebar-trigger-width, 6px)' }}
-        />
+        <>
+          {/* 第一级：提示区（40px，显示蓝线，不展开侧栏） */}
+          <div
+            onMouseEnter={() => {
+              if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current)
+              collapseTimerRef.current = null
+            }}
+            onMouseLeave={handleSidebarLeave('right')}
+            className="absolute right-0 top-0 bottom-0 cursor-default group"
+            style={{ width: 80, zIndex: 5 }}
+          >
+            <div
+              className="absolute transition-all duration-150 ease-out opacity-0 group-hover:opacity-50"
+              style={{
+                right: 0,
+                top: 0,
+                bottom: 0,
+                backgroundColor: 'var(--crai-accent)',
+                width: 2,
+              }}
+            />
+
+            {/* 第二级：触发区（12px，嵌套在提示区内） */}
+            <div
+              onMouseEnter={handleTriggerEnter('right')}
+              className="absolute right-0 top-0 bottom-0 cursor-default"
+              style={{ width: 12, zIndex: 6 }}
+            />
+          </div>
+        </>
       )}
 
       {/* 右侧浮动侧栏 */}

@@ -149,6 +149,8 @@ export interface ActivityItem {
 export interface ThinkingPart {
   type: 'thinking'
   thinking: string
+  /** 思考耗时（秒），持久化后用于加载时展示 */
+  elapsedSeconds?: number
 }
 
 export type MessagePart = TextPart | ImagePart | ToolCallPart | ThinkingPart

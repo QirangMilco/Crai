@@ -50,12 +50,12 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 .msg-enter {
-  animation: msg-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: msg-enter 0.3s var(--crai-ease-default, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 /* ── 发送按钮 ── */
 .crai-send-btn {
-  transition: background-color 0.15s, opacity 0.2s;
+  transition: background-color var(--crai-transition-fast, 0.15s) var(--crai-ease-default, ease), opacity 0.2s var(--crai-ease-default, ease);
 }
 
 /* ── 输入框容器聚焦状态 ── */
@@ -78,7 +78,12 @@ textarea:focus-visible {
 
 /* ── 全局微交互 ── */
 button, [role="button"], select, input[type="text"], input[type="search"] {
-  transition: color 0.15s, background-color 0.15s, border-color 0.15s, opacity 0.15s, box-shadow 0.15s;
+  transition:
+    color var(--crai-transition-fast, 0.15s) var(--crai-ease-default, ease),
+    background-color var(--crai-transition-fast, 0.15s) var(--crai-ease-default, ease),
+    border-color var(--crai-transition-fast, 0.15s) var(--crai-ease-default, ease),
+    opacity var(--crai-transition-fast, 0.15s) var(--crai-ease-default, ease),
+    box-shadow var(--crai-transition-fast, 0.15s) var(--crai-ease-default, ease);
 }
 
 /* ── 工具栏 hover 效果（!important 覆盖 Select inline transparent） ── */
