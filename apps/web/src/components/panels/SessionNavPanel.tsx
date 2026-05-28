@@ -55,10 +55,15 @@ export const SessionNavPanel = memo(function SessionNavPanel() {
   if (nodes.length === 0) {
     return (
       <div
-        className="flex items-center justify-center h-full text-xs select-none"
+        className="flex flex-col items-center justify-center h-full text-xs select-none space-y-2 px-4"
         style={{ color: 'var(--crai-fg-40)' }}
       >
-        尚无对话
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+          style={{ opacity: 0.3 }}>
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          <path d="M8 10h.01M12 10h.01M16 10h.01" />
+        </svg>
+        <span>尚无对话</span>
       </div>
     )
   }

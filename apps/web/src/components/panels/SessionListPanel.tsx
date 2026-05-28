@@ -28,6 +28,7 @@ interface Props {
   onDelete: (id: string) => void
   width: number
   hovered: boolean
+  loading?: boolean
 }
 
 function formatTime(ts: number): string {
@@ -72,7 +73,7 @@ function sortedGroupLabels(groups: Map<string, SessionSummary[]>): string[] {
   return Array.from(groups.keys()).sort((a, b) => (priority[a] ?? 99) - (priority[b] ?? 99))
 }
 
-export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, onDelete, width, hovered }: Props) {
+export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, onDelete, width, hovered, loading }: Props) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('createdAt')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -176,7 +177,18 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
 
       {/* 会话列表 */}
       <div className="flex-1 overflow-y-auto px-2 pb-2 min-h-0">
-        {groupKeys.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              className="animate-spin" style={{ color: 'var(--crai-accent)', opacity: 0.6 }}>
+              <line x1="12" y1="2" x2="12" y2="6" /><line x1="12" y1="18" x2="12" y2="22" />
+              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" /><line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+              <line x1="2" y1="12" x2="6" y2="12" /><line x1="18" y1="12" x2="22" y2="12" />
+              <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" /><line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+            </svg>
+            <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>加载会话列表…</div>
+          </div>
+        ) : groupKeys.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
               style={{ color: 'var(--crai-fg-40)', opacity: 0.4 }}>

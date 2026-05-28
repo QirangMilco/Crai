@@ -318,14 +318,22 @@ export function FileTreePanel({ send, workspaceRoot, onBrowseResultRef, width, h
       {/* 文件树 */}
       <div className="flex-1 overflow-y-auto px-1.5 py-1 min-h-0">
         {error ? (
-          <div className="text-[10px] text-center py-4" style={{ color: 'var(--crai-destructive)' }}>{error}</div>
-        ) : root.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
-              style={{ color: 'var(--crai-fg-40)', opacity: 0.4 }}>
-              <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              style={{ color: 'var(--crai-destructive)', opacity: 0.5 }}>
+              <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
             </svg>
-            <div className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>正在加载工作区文件…</div>
+            <div className="text-xs" style={{ color: 'var(--crai-destructive)' }}>{error || '加载失败'}</div>
+            <button
+              onClick={() => { setError(null); setRoot([]); forceUpdate(v => v + 1) }}
+              className="text-[10px] px-2 py-1 rounded transition-colors"
+              style={{ color: 'var(--crai-accent)', border: '1px solid var(--crai-accent)' }}
+            >重试</button>
+          </div>
+        ) : root.length === 0 ? (
+          <div className="flex items-center justify-center py-10 space-y-2 select-none">
+            <Icon icon={LoaderCircle} size="sm" className="animate-spin" style={{ color: 'var(--crai-accent)', opacity: 0.5 }} />
+            <span className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>加载工作区文件…</span>
           </div>
         ) : displayTree.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2 select-none">
