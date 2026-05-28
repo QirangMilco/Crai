@@ -14,6 +14,7 @@ import { SessionListPanel } from './panels/SessionListPanel'
 import { FileTreePanel } from './panels/FileTreePanel'
 import { SessionNavPanel } from './panels/SessionNavPanel'
 import { InfoIsland } from './shell/InfoIsland'
+import { Dialog } from './ui/Dialog'
 import { Dropdown, Icon } from './ui'
 import { MessageSquare, FolderTree, X, Folder, ArrowUp, Settings, Palette, Plus, Send, List } from 'lucide-react'
 
@@ -441,24 +442,12 @@ export function ChatView({ wsUrl }: Props) {
       {showInspector && <InspectorPanel onClose={() => setShowInspector(false)} />}
       {/* 配置弹窗 */}
       {showConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
-          onClick={() => setShowConfig(false)}
+        <Dialog open={showConfig} onClose={() => setShowConfig(false)} showClose={false}
+          className="rounded-xl flex flex-col overflow-hidden"
+          style={{ width: 660, height: '75vh' }}
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="flex flex-col overflow-hidden rounded-xl"
-            style={{
-              width: 660,
-              height: '75vh',
-              backgroundColor: 'var(--crai-bg)',
-              border: '1px solid var(--crai-border)',
-              boxShadow: 'var(--crai-shadow-modal)',
-            }}
-          >
-            <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} configTestResult={configTestResult} onClearTestResult={() => setConfigTestResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />
-          </div>
-        </div>
+          <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} configTestResult={configTestResult} onClearTestResult={() => setConfigTestResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />
+        </Dialog>
       )}
     </div>
   )
