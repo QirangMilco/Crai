@@ -73,9 +73,9 @@ export function InspectorPanel({ onClose }: Props) {
   const [activeStyle, setActiveStyle] = useState<string>('Crai 默认样式')
   const [userColorPresets, setUserColorPresets] = useState<Array<{ name: string; tokens: Record<string, string> }>>([])
   const [userStylePresets, setUserStylePresets] = useState<Array<{ name: string; tokens: Record<string, string> }>>([])
-  const [showColors, setShowColors] = useState(true)
-  const [showPreview, setShowPreview] = useState(true)
-  const [showStyle, setShowStyle] = useState(true)
+  const [showColors, setShowColors] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [showStyle, setShowStyle] = useState(false)
   const [styleSearch, setStyleSearch] = useState('')
   const [locateActiveToken, setLocateActiveToken] = useState<string | null>(null)
 

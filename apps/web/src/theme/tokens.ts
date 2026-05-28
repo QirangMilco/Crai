@@ -37,7 +37,7 @@ export const TOKENS: TokenDef[] = [
 
   // ── 文字层级（从前景色透明度衍生） ──
   { name: '--crai-fg-40', label: '文字 40%', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 60%, var(--crai-bg))', description: '次级文字（标签、时间戳）' },
-  { name: '--crai-fg-60', label: '文字 60%', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 60%, var(--crai-bg))', description: 'fg-tertiary，三级文字' },
+  { name: '--crai-fg-60', label: '文字 60%', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 75%, var(--crai-bg))', description: '三级文字（禁用状态、占位符）' },
 
   // ── 边框（从前景色微透明衍生） ──
   { name: '--crai-border', label: '边框色', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 5%, var(--crai-bg))', description: '从前景色衍生，换主题时自动跟随' },
@@ -49,9 +49,6 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-ring', label: '焦点环色', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 25%, var(--crai-bg))', description: '输入框/按钮聚焦时的外环颜色' },
   { name: '--crai-ring-width', label: '焦点环宽度', group: 'base', type: 'size', defaultValue: '1px', min: 0, max: 6, description: '聚焦外环的厚度' },
   { name: '--crai-border-width', label: '通用边框宽度', group: 'base', type: 'size', defaultValue: '1px', min: 0, max: 8 },
-  { name: '--crai-shadow-bubble', label: '气泡阴影', group: 'base', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0) 0px 0px 0px 0px, rgba(var(--crai-foreground-rgb, 38,36,42), 0) 0px 0px 0px 0px, rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 1px 2px -0.5px', description: '消息气泡阴影' },
-  { name: '--crai-shadow-panel', label: '面板阴影', group: 'base', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0) 0px 0px 0px 0px, rgba(var(--crai-foreground-rgb, 38,36,42), 0) 0px 0px 0px 0px, rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 2px 4px -1px, rgba(0, 0, 0, 0.02) 0px 4px 6px -2px', description: 'Inspector/Config 面板阴影' },
-  { name: '--crai-shadow-modal', label: '模态框阴影', group: 'base', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0) 0px 0px 0px 0px, rgba(var(--crai-foreground-rgb, 38,36,42), 0) 0px 0px 0px 0px, rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 1px 1px -0.5px, rgba(0, 0, 0, 0.04) 0px 3px 3px 0px, rgba(0, 0, 0, 0.02) 0px 6px 6px 0px, rgba(0, 0, 0, 0.02) 0px 12px 12px 0px, rgba(0, 0, 0, 0.02) 0px 24px 24px 0px', description: '弹窗/对话框阴影' },
 
   // ============================================================
   // 🔤 字号（基础字号 + 继承链）
@@ -191,10 +188,13 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-sidebar-handle-color', label: '拖拽手柄颜色', group: 'layout', type: 'color', defaultValue: 'var(--crai-border)', description: '拖拽手柄 hover 时的颜色' },
   { name: '--crai-sidebar-header-height', label: '面板头部高度', group: 'layout', type: 'size', defaultValue: '36px', min: 24, max: 60 },
 
-  // ── UI 原语 ──
-  { name: '--crai-shadow-card', label: '卡片阴影', group: 'layout', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 1px 2px -0.5px', description: '卡片/活动行的浅阴影' },
-  { name: '--crai-shadow-elevated', label: '抬高阴影', group: 'layout', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 2px 4px -1px, rgba(0, 0, 0, 0.02) 0px 4px 8px -2px', description: '弹窗/次级模态阴影' },
+  // ── 阴影（整理到 layout 组） ──
   { name: '--crai-shadow-minimal', label: '极浅阴影', group: 'layout', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px', description: '仅 1px border-ring，用于分隔/嵌入元素' },
+  { name: '--crai-shadow-card', label: '卡片阴影', group: 'layout', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 1px 2px -0.5px', description: '卡片/活动行的浅阴影' },
+  { name: '--crai-shadow-bubble', label: '气泡阴影', group: 'layout', type: 'text', defaultValue: 'var(--crai-shadow-card)', ref: '--crai-shadow-card', description: '消息气泡阴影（继承卡片阴影）' },
+  { name: '--crai-shadow-elevated', label: '抬高阴影', group: 'layout', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 2px 4px -1px, rgba(0, 0, 0, 0.02) 0px 4px 8px -2px', description: '弹窗/次级模态阴影' },
+  { name: '--crai-shadow-panel', label: '面板阴影', group: 'layout', type: 'text', defaultValue: 'var(--crai-shadow-elevated)', ref: '--crai-shadow-elevated', description: 'Inspector/Config 面板阴影（继承抬高阴影）' },
+  { name: '--crai-shadow-modal', label: '模态框阴影', group: 'layout', type: 'text', defaultValue: 'rgba(var(--crai-foreground-rgb, 38,36,42), 0) 0px 0px 0px 0px, rgba(var(--crai-foreground-rgb, 38,36,42), 0) 0px 0px 0px 0px, rgba(var(--crai-foreground-rgb, 38,36,42), 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.04) 0px 1px 1px -0.5px, rgba(0, 0, 0, 0.04) 0px 3px 3px 0px, rgba(0, 0, 0, 0.02) 0px 6px 6px 0px, rgba(0, 0, 0, 0.02) 0px 12px 12px 0px, rgba(0, 0, 0, 0.02) 0px 24px 24px 0px', description: '弹窗/对话框阴影' },
   { name: '--crai-transition-fast', label: '过渡速度', group: 'layout', type: 'size', defaultValue: '0.15s', min: 0.05, max: 0.5, description: '通用微交互过渡时长' },
   { name: '--crai-ease-default', label: '缓动曲线', group: 'layout', type: 'text', defaultValue: 'cubic-bezier(0.22, 1, 0.36, 1)', description: '默认缓动曲线（ease-out）' },
   { name: '--crai-ease-smooth', label: '平滑缓动', group: 'layout', type: 'text', defaultValue: 'cubic-bezier(0.4, 0, 0.2, 1)', description: '平滑缓动（material ease）' },

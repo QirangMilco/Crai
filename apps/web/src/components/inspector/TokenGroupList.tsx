@@ -81,7 +81,7 @@ export function TokenGroupList({
         </button>
         {showColors && (
           <div className="space-y-0.5">
-            <CollapsibleGroup label="基色" locateMode={locateMode} defaultOpen>
+            <CollapsibleGroup label="基色" locateMode={locateMode} defaultOpen={false}>
               {baseColorTokens.map((token) => renderTokenControl(token))}
             </CollapsibleGroup>
             <CollapsibleGroup label="衍生色" locateMode={locateMode} defaultOpen={false}>
@@ -218,7 +218,7 @@ function SurfacePreview() {
 
 // ── 可折叠分组 ──
 
-function CollapsibleGroup({ label, locateMode, children, defaultOpen = true, forceOpen = false, iconPath }: {
+function CollapsibleGroup({ label, locateMode, children, defaultOpen = false, forceOpen = false, iconPath }: {
   label: string; locateMode: boolean; children: React.ReactNode; defaultOpen?: boolean; forceOpen?: boolean; iconPath?: string
 }) {
   const [open, setOpen] = useState(defaultOpen)
