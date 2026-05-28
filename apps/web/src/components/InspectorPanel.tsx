@@ -24,6 +24,7 @@ import { clearHexCache, toHexCssVar } from './inspector/color-utils'
 import { PresetManager } from './inspector/PresetManager'
 import { ImportExportBar } from './inspector/ImportExportBar'
 import { TokenGroupList } from './inspector/TokenGroupList'
+import { ContrastPreview } from './inspector/ContrastPreview'
 
 // ── 基色 token 名（优先级最高的 5 个） ──
 const BASE_COLORS = ['--crai-bg', '--crai-fg', '--crai-accent', '--crai-success', '--crai-destructive']
@@ -373,6 +374,8 @@ export function InspectorPanel({ onClose }: Props) {
         groupIcons={GROUP_ICONS}
         renderTokenControl={(token) => <TokenControl key={token.name} token={token} onChange={forceUpdate as any} />}
       />
+
+      <ContrastPreview />
 
       <div className="px-4 py-2 border-t text-[10px] shrink-0" style={{ borderColor: 'var(--crai-border)', color: 'var(--crai-fg-tertiary)' }}>修改实时生效</div>
     </div>

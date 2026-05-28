@@ -25,7 +25,7 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-accent', label: '强调色', group: 'base', type: 'color', defaultValue: '#2563eb', description: '按钮、链接、活跃态——唯一色彩出口' },
   { name: '--crai-accent-rgb', label: '强调色 RGB', group: 'base', type: 'text', defaultValue: '37, 99, 235', description: '用于阴影色调的 RGB 分量' },
   { name: '--crai-info', label: '信息色', group: 'base', type: 'color', defaultValue: 'var(--crai-accent)', ref: '--crai-accent', description: '警告/提示/询问模式色。默认继承强调色，可独立调节。' },
-  { name: '--crai-success', label: '成功色', group: 'base', type: 'color', defaultValue: '#16a34a' },
+  { name: '--crai-success', label: '成功色', group: 'base', type: 'color', defaultValue: '#0d7d34' },
   { name: '--crai-destructive', label: '危险色', group: 'base', type: 'color', defaultValue: '#dc2626' },
 
   // ── 表面层级（从前景色混合生成，改前景色同步变化） ──
@@ -36,7 +36,7 @@ export const TOKENS: TokenDef[] = [
   { name: '--crai-bg-12', label: '表面 12%', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 12%, var(--crai-bg))', description: '活跃选中背景' },
 
   // ── 文字层级（从前景色透明度衍生） ──
-  { name: '--crai-fg-40', label: '文字 40%', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 40%, var(--crai-bg))', description: 'fg-secondary，次要文字' },
+  { name: '--crai-fg-40', label: '文字 40%', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 60%, var(--crai-bg))', description: '次级文字（标签、时间戳）' },
   { name: '--crai-fg-60', label: '文字 60%', group: 'base', type: 'color', defaultValue: 'color-mix(in oklch, var(--crai-fg) 60%, var(--crai-bg))', description: 'fg-tertiary，三级文字' },
 
   // ── 边框（从前景色微透明衍生） ──
