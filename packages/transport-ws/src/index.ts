@@ -349,17 +349,24 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           const metadata = { ...session.metadata }
           if (msg.thinkingLevel !== undefined) metadata.thinkingLevel = msg.thinkingLevel
           if (msg.mode !== undefined) metadata.mode = msg.mode
-          const updated = { ...session, title: msg.title ?? session.title, metadata, updatedAt: Date.now() }
+          const updated = {
+            ...session,
+            title: msg.title ?? session.title,
+            pinned: msg.pinned !== undefined ? msg.pinned : session.pinned,
+            archived: msg.archived !== undefined ? msg.archived : session.archived,
+            metadata,
+            updatedAt: Date.now(),
+          }
           const changed = []
           if (msg.title !== undefined) changed.push(`标题: ${(msg.title ?? '(清空)').slice(0, 40)}`)
           if (msg.thinkingLevel !== undefined) changed.push(`思考深度: ${msg.thinkingLevel}`)
           if (msg.mode !== undefined) changed.push(`模式: ${msg.mode}`)
+          if (msg.pinned !== undefined) changed.push(msg.pinned ? '已置顶' : '取消置顶')
+          if (msg.archived !== undefined) changed.push(msg.archived ? '已归档' : '取消归档')
           logger?.info(`已更新 session ${msg.sessionId}: ${changed.join(', ')}`)
-          // 通过 runtime 的内部存储持久化标题
           const storages = (rt as any).registries?.storages?.list()
           const storage = storages?.[0]?.value
           if (storage) await storage.updateSession(updated)
-          // 同步更新 runtime 内存中的 session
           await rt.updateSession(updated)
         }
         const sessions = await rt.listSessions()

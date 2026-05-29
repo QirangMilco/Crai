@@ -121,10 +121,10 @@ export interface SessionUpdateMessage {
   type: 'session:update'
   sessionId: string
   title?: string
-  /** 会话权限模式：operate / ask / read_only。 */
   mode?: string
-  /** 思考深度级别：off / auto / low / medium / high / xhigh。 */
   thinkingLevel?: string
+  pinned?: boolean
+  archived?: boolean
 }
 
 /** 客户端请求浏览指定路径的目录结构。 */

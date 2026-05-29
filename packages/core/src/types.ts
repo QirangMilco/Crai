@@ -75,6 +75,10 @@ export interface Session {
   metadata?: Metadata
   /** TODO 列表，由 todo-write 工具管理 */
   todos?: TodoItem[]
+  /** 是否置顶 */
+  pinned?: boolean
+  /** 是否归档 */
+  archived?: boolean
 }
 
 /** TODO 项，三态状态机 */

@@ -28,7 +28,7 @@ export function ChatView({ wsUrl }: Props) {
   const [globalConfig, setGlobalConfig] = useState<any>(null)
   const [workspaces, setWorkspaces] = useState<Array<{ rootDir: string }>>([])
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
-  const [sessions, setSessions] = useState<Array<{ id: string; title?: string; createdAt: number }>>([])
+  const [sessions, setSessions] = useState<Array<{ id: string; title?: string; createdAt: number; pinned?: boolean; archived?: boolean }>>([])
   const [availableModels, setAvailableModels] = useState<Array<{ name: string; provider: string }>>([])
   const [currentModel, setCurrentModel] = useState<string>('')
   const [modelsFetchResult, setModelsFetchResult] = useState<{ providerName: string; models: string[]; error?: string } | null>(null)
@@ -167,6 +167,11 @@ export function ChatView({ wsUrl }: Props) {
     send({ type: 'session:load', sessionId: sid })
   }, [send, store])
 
+  const handleSessionUpdate = useCallback((sid: string, updates: { title?: string; pinned?: boolean; archived?: boolean }) => {
+    send({ type: 'session:update', sessionId: sid, ...updates })
+    setSessions((prev) => prev.map((s) => s.id === sid ? { ...s, ...updates } : s))
+  }, [send])
+
   const handleSwitchWorkspace = useCallback((rootDir: string) => {
     send({ type: 'workspace:switch', rootDir })
     setSessions([])
@@ -208,6 +213,7 @@ export function ChatView({ wsUrl }: Props) {
             onSelect={handleSwitchSession}
             onNew={handleNewSession}
             onDelete={handleDeleteSession}
+            onUpdate={handleSessionUpdate}
             width={260}
             hovered={true}
           />
@@ -238,7 +244,7 @@ export function ChatView({ wsUrl }: Props) {
         render: () => <SessionNavPanel />,
       },
     ])
-  }, [sessions, sessionId, currentWorkspace, send, handleNewSession, handleDeleteSession, handleSwitchSession])
+  }, [sessions, sessionId, currentWorkspace, send, handleNewSession, handleDeleteSession, handleSwitchSession, handleSessionUpdate])
 
   useEffect(() => {
     if (status === 'connected') {

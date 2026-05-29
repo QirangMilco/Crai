@@ -105,14 +105,14 @@ export class FileStorageAdapter implements StorageAdapter {
     return readJsonl<Message>(messagesPath(this.baseDir, sessionId))
   }
 
-  async listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>> {
+  async listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp; pinned?: boolean; archived?: boolean }>> {
     const dir = join(this.baseDir, DIRS.SESSIONS)
     try {
       const files = await readdir(dir)
-      const sessions: Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }> = []
+      const sessions: Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp; pinned?: boolean; archived?: boolean }> = []
       for (const file of files) {
         if (!file.endsWith(FILE_SUFFIX_JSON)) continue
-        const s = await readJson<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>(join(dir, file))
+        const s = await readJson<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp; pinned?: boolean; archived?: boolean }>(join(dir, file))
         if (s) sessions.push(s)
       }
       return sessions

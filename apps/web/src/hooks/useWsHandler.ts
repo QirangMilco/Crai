@@ -14,7 +14,7 @@ interface BrowseData {
 interface WsHandlers {
   send: (msg: any) => void
   onSessionId: (id: string) => void
-  onSessionList: (list: Array<{ id: string; title?: string; createdAt: number }>) => void
+  onSessionList: (list: Array<{ id: string; title?: string; createdAt: number; pinned?: boolean; archived?: boolean }>) => void
   onSessionTitle: (id: string, title: string) => void
   onConfigData: (config: any) => void
   onConfigModels: (providerName: string, models: string[], error?: string) => void

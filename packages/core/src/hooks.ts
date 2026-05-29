@@ -171,7 +171,7 @@ export interface StorageAdapter {
   appendMessage(sessionId: ID, message: Message): Promise<void>
   listMessages(sessionId: ID): Promise<Message[]>
   /** 列举所有已持久化的 session 摘要，不含完整消息列表。 */
-  listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>>
+  listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp; pinned?: boolean; archived?: boolean }>>
   deleteSession(sessionId: ID): Promise<void>
   saveArtifact(artifact: Artifact): Promise<void>
 }
@@ -371,7 +371,7 @@ export interface RuntimeHandle {
   getSession(sessionId: ID): Promise<Session | undefined>
   /** 更新内存中的 session 元数据。用于 session:update 等非 prompt 场景同步 metadata。 */
   updateSession(session: Session): Promise<void>
-  listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp }>>
+  listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp; pinned?: boolean; archived?: boolean }>>
   listMessages(sessionId: ID): Promise<Message[]>
   /** 删除 session 及其所有消息。 */
   deleteSession(sessionId: ID): Promise<void>
