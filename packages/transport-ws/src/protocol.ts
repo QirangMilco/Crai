@@ -249,6 +249,8 @@ export interface SessionDataMessage {
   metadata?: Record<string, unknown>
   /** 会话 TODO 列表。 */
   todos?: Array<{ id: string; content: string; activeForm?: string; status: 'pending' | 'in_progress' | 'completed' }>
+  /** 本会话累计的 token 用量。 */
+  usageAccumulated?: { inputTokens: number; outputTokens: number; cachedInputTokens: number }
 }
 
 export type ServerMessage =

@@ -1,33 +1,61 @@
-import { Component, type ReactNode } from 'react'
-import { Icon } from './ui/Icon'
-import { AlertCircle } from 'lucide-react'
+import { Component, type ReactNode, type ErrorInfo } from 'react'
 
-interface Props { children: ReactNode }
-interface State { hasError: boolean; error?: Error }
+interface Props {
+  children: ReactNode
+  onError?: (error: Error) => void
+}
+
+interface State {
+  hasError: boolean
+  error: Error | null
+}
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false }
+  constructor(props: Props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error }
   }
 
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[ErrorBoundary]', error, info.componentStack)
+    this.props.onError?.(error)
+  }
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: null })
+  }
+
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center"
-          style={{ color: 'var(--crai-fg-tertiary)' }}>
-          <Icon icon={AlertCircle} size="lg" />
-          <span className="text-sm font-medium">组件渲染异常</span>
-          <span className="text-xs max-w-md opacity-60">{this.state.error?.message}</span>
+        <div
+          className="h-dvh flex items-center justify-center flex-col gap-4 px-4"
+          style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg)' }}
+        >
+          <div className="text-base font-semibold" style={{ color: 'var(--crai-destructive)' }}>
+            渲染异常
+          </div>
+          <div
+            className="text-xs max-w-md text-center leading-relaxed"
+            style={{ color: 'var(--crai-fg-secondary)' }}
+          >
+            {this.state.error?.message ?? '未知错误'}
+          </div>
           <button
-            onClick={() => this.setState({ hasError: false })}
-            className="mt-2 px-3 py-1 rounded text-xs"
-            style={{ backgroundColor: 'var(--crai-bg-5)', color: 'var(--crai-fg)' }}
-          >重试</button>
+            onClick={this.handleReset}
+            className="px-4 py-1.5 rounded text-xs font-medium text-white mt-2"
+            style={{ backgroundColor: 'var(--crai-accent)' }}
+          >
+            重试
+          </button>
         </div>
       )
     }
+
     return this.props.children
   }
 }

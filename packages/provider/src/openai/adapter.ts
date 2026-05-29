@@ -57,6 +57,7 @@ interface OpenAIResponse {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
+    prompt_tokens_details?: { cached_tokens?: number }
   }
 }
 
@@ -171,6 +172,7 @@ function fromOpenAIResponse(openAIResp: OpenAIResponse): ModelResponse {
       ? {
           inputTokens: openAIResp.usage.prompt_tokens,
           outputTokens: openAIResp.usage.completion_tokens,
+          cachedInputTokens: openAIResp.usage.prompt_tokens_details?.cached_tokens,
         }
       : undefined,
     stopReason: choice.finish_reason ?? undefined,
@@ -284,6 +286,7 @@ function buildToolCallPartsFromAccumulator(): ToolCallPart[] {
 function buildDoneResponse(
   text: string,
   finishReason: string | null,
+  streamUsage?: { prompt_tokens: number; completion_tokens: number; prompt_tokens_details?: { cached_tokens?: number } },
 ): ModelStreamEvent & { type: 'done' } {
   const parts: MessagePart[] = text ? [{ type: PART_TYPES.TEXT, text }] : []
   const toolParts = buildToolCallPartsFromAccumulator()
@@ -304,6 +307,13 @@ function buildDoneResponse(
         parts,
       },
       stopReason: finishReason ?? undefined,
+      usage: streamUsage
+        ? {
+            inputTokens: streamUsage.prompt_tokens,
+            outputTokens: streamUsage.completion_tokens,
+            cachedInputTokens: streamUsage.prompt_tokens_details?.cached_tokens,
+          }
+        : undefined,
     },
   }
 }
@@ -394,6 +404,8 @@ export class OpenAIAdapter implements ModelAdapter {
     // 重置工具调用累积器，准备新一轮流式解析
     resetAccumulatedToolCalls()
     let fullContent = ''
+    let capturedFinishReason: string | null | undefined
+    let streamUsage: { prompt_tokens: number; completion_tokens: number; prompt_tokens_details?: { cached_tokens?: number } } | undefined
 
     try {
       for await (const data of sseLines(res.body)) {
@@ -406,6 +418,11 @@ export class OpenAIAdapter implements ModelAdapter {
 
         const { deltaText } = accumulateChunk(chunk)
 
+        // 捕获 usage（final chunk，choices 为空数组或 undefined，有 usage）
+        if (chunk.usage && (!chunk.choices || (Array.isArray(chunk.choices) && chunk.choices.length === 0))) {
+          streamUsage = chunk.usage
+        }
+
         if (deltaText) {
           fullContent += deltaText
           yield { type: STREAM_EVENT_TYPES.TEXT_DELTA, delta: deltaText }
@@ -413,14 +430,15 @@ export class OpenAIAdapter implements ModelAdapter {
 
         const finishChoice = chunk.choices?.[0]
         if (finishChoice?.finish_reason) {
-          yield { type: STREAM_EVENT_TYPES.TEXT_END }
-          yield buildDoneResponse(fullContent, finishChoice.finish_reason)
+          capturedFinishReason = finishChoice.finish_reason
+          if (chunk.usage) streamUsage = chunk.usage
         }
       }
 
-      // 流正常结束但未收到 finish_reason（如 [DONE] 哨兵），也发 done
+      // 流结束：发 done（此时 streamUsage 可能已被后续 usage chunk 更新）
+      const finalReason = capturedFinishReason ?? null
       yield { type: STREAM_EVENT_TYPES.TEXT_END }
-      yield buildDoneResponse(fullContent, null)
+      yield buildDoneResponse(fullContent, finalReason, streamUsage)
     } catch (err) {
       yield {
         type: STREAM_EVENT_TYPES.ERROR,

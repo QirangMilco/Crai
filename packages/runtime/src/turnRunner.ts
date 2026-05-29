@@ -489,8 +489,13 @@ export async function runTurn(
     threshold: compressionThreshold ?? 0.8,
     keepRecentTokens: compressionKeepTokens ?? 32000,
     logger: deps.logger,
-    // Snow-CLI 模式：AI 摘要优先，失败时硬截断回退
     summarize: runtime ? createSummarizerFromRuntime(runtime, toolModel) : undefined,
+    onProgress: (status) => {
+      deps.emitEvent('compression:status', { session, turnId, status })
+      if (status.step === 'done' || status.step === 'truncating') {
+        deps.logger?.info?.(`[context] 压缩完成: ${status.message}`)
+      }
+    },
   })
   if (guarded.compacted) {
     contextWithTools = { ...contextWithTools, messages: guarded.messages }
@@ -638,6 +643,44 @@ export async function runTurn(
 
   await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response: finalResponse! })
   await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: finalResponse!.message })
+
+  debugLog(DEBUG_SCOPES.USAGE, 'model.completed finalResponse', {
+    hasUsage: !!finalResponse?.usage,
+    usage: finalResponse?.usage,
+  }, deps.logger)
+
+  // 累计 token 用量到 session（持久化，跨 restart 保留）
+  if (finalResponse?.usage) {
+    const u = finalResponse.usage
+    // 确保 usage 有实际值（防止 API 返回空对象）
+    if (!u.inputTokens && !u.outputTokens) {
+      debugLog(DEBUG_SCOPES.USAGE, 'usage object empty, estimating from text', {}, deps.logger)
+      const textParts = finalResponse.message.parts.filter(p => p.type === 'text')
+      const totalText = textParts.map((p: any) => p.text || '').join(' ')
+      u.inputTokens = Math.ceil(totalText.length / 4)
+      u.outputTokens = Math.ceil(totalText.length / 4)
+    }
+    const acc = session.usageAccumulated ?? { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }
+    if (u.inputTokens) acc.inputTokens += u.inputTokens
+    if (u.outputTokens) acc.outputTokens += u.outputTokens
+    if (u.cachedInputTokens) acc.cachedInputTokens += u.cachedInputTokens
+    session.usageAccumulated = acc
+    await runtime.updateSession(session)
+  } else if (finalResponse?.message?.parts) {
+    // API 未返回 usage 时从文本估算
+    const textParts = finalResponse.message.parts.filter((p: any) => p.type === 'text')
+    const totalText = textParts.map((p: any) => p.text || '').join(' ')
+    if (totalText) {
+      const inputs = Math.ceil(totalText.length / 4)
+      const acc = session.usageAccumulated ?? { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }
+      acc.inputTokens += inputs
+      acc.outputTokens += Math.ceil(inputs / 2)  // 输出通常比输入少
+      session.usageAccumulated = acc
+      await runtime.updateSession(session)
+      debugLog(DEBUG_SCOPES.USAGE, 'estimated usage from text', { inputTokens: acc.inputTokens, outputTokens: acc.outputTokens }, deps.logger)
+    }
+  }
+
   await deps.emitEvent(EVENTS.TURN_COMPLETED, { session, turnId })
 
   return {

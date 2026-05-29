@@ -2,7 +2,7 @@
  * InfoIsland — 顶栏中间的 Dynamic Island。
  *
  * 常驻：连接状态点 + 上下文进度条 + 轮次数
- * Hover 展开：精确数字
+ * Hover 展开：精确数字 + token 用量 + 成本估算
  */
 import { useState } from 'react'
 
@@ -10,10 +10,22 @@ interface Props {
   status?: 'connected' | 'disconnected'
   isProcessing?: boolean
   turnCount?: number
-  /** 已使用 token（服务端推送后生效） */
+  /** 已使用 token */
   usedTokens?: number
   /** 上下文窗口大小 */
   contextWindow?: number
+  /** 最近一次模型调用的用量 */
+  lastUsage?: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number } | null
+  /** 会话累计输入 token（未命中缓存） */
+  accInputTokens?: number
+  /** 会话累计输出 token */
+  accOutputTokens?: number
+  /** 会话累计命中缓存的输入 token */
+  accCachedInputTokens?: number
+  /** 货币（显示用）'USD' | 'CNY' */
+  currency?: string
+  /** 当前模型的定价信息 */
+  modelPricing?: { inputPrice?: number; cachedInputPrice?: number; outputPrice?: number }
 }
 
 function formatToken(n: number): string {
@@ -35,7 +47,39 @@ function deriveStatus(status?: string, isProcessing?: boolean): keyof typeof STA
   return 'idle'
 }
 
-export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contextWindow }: Props) {
+const USD_CNY_RATE = 7.3
+
+function formatCost(cost: number, currency: string): string {
+  if (currency === 'CNY') {
+    return `¥${(cost * USD_CNY_RATE).toFixed(4)}`
+  }
+  return `$${cost.toFixed(6)}`
+}
+
+/** 将模型结果中的 usage 转换为预估成本 */
+function estimateCost(
+  usage: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number } | null | undefined,
+  pricing: { inputPrice?: number; cachedInputPrice?: number; outputPrice?: number } | undefined,
+): number | null {
+  if (!usage || !pricing) return null
+  let total = 0
+  // 未命中缓存的输入
+  const uncached = (usage.inputTokens ?? 0) - (usage.cachedInputTokens ?? 0)
+  if (uncached > 0 && pricing.inputPrice) {
+    total += (uncached / 1000000) * pricing.inputPrice
+  }
+  // 命中缓存的输入（使用缓存价格，未设置时回退到 inputPrice）
+  if (usage.cachedInputTokens && (pricing.cachedInputPrice ?? pricing.inputPrice)) {
+    total += (usage.cachedInputTokens / 1000000) * (pricing.cachedInputPrice ?? pricing.inputPrice!)
+  }
+  // 输出
+  if (usage.outputTokens && pricing.outputPrice) {
+    total += (usage.outputTokens / 1000000) * pricing.outputPrice
+  }
+  return total > 0 ? total : null
+}
+
+export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contextWindow, lastUsage, accInputTokens, accOutputTokens, accCachedInputTokens, currency, modelPricing }: Props) {
   const [hovered, setHovered] = useState(false)
   const dotKey = deriveStatus(status, isProcessing)
   const dot = STATUS_DOT[dotKey]
@@ -43,6 +87,12 @@ export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contex
     ? Math.min((usedTokens / contextWindow) * 100, 100)
     : undefined
   const isWarning = percentage !== undefined && percentage > 80
+  const cost = estimateCost(lastUsage, modelPricing)
+  const totalCost = estimateCost(
+    { inputTokens: accInputTokens, outputTokens: accOutputTokens, cachedInputTokens: accCachedInputTokens },
+    modelPricing,
+  )
+  const curSymbol = currency === 'CNY' ? '¥' : '$'
 
   return (
     <div
@@ -93,6 +143,13 @@ export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contex
             {turnCount}轮
           </span>
         )}
+
+        {/* 成本（仅当有定价数据时显示） */}
+        {cost !== null && (
+          <span className="text-[11px] tabular-nums" style={{ color: 'var(--crai-fg-40)' }}>
+            {formatCost(cost, currency ?? 'USD')}
+          </span>
+        )}
       </div>
 
       {/* 弹出 */}
@@ -112,28 +169,80 @@ export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contex
             }}
           >
             <table>
-              <tr>
-                <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>状态</td>
-                <td style={{ color: dot.color }}>{dot.label}</td>
-              </tr>
-              {percentage !== undefined && (
+              <tbody>
                 <tr>
-                  <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>上下文</td>
-                  <td className="tabular-nums">{percentage.toFixed(1)}%</td>
+                  <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>状态</td>
+                  <td style={{ color: dot.color }}>{dot.label}</td>
                 </tr>
-              )}
-              {usedTokens !== undefined && contextWindow !== undefined && (
-                <tr>
-                  <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>Tokens</td>
-                  <td className="tabular-nums">{formatToken(usedTokens)} / {formatToken(contextWindow)}</td>
-                </tr>
-              )}
-              {turnCount !== undefined && (
-                <tr>
-                  <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>轮次</td>
-                  <td>{turnCount}</td>
-                </tr>
-              )}
+                {percentage !== undefined && (
+                  <tr>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>上下文</td>
+                    <td className="tabular-nums">{percentage.toFixed(1)}%</td>
+                  </tr>
+                )}
+                {usedTokens !== undefined && contextWindow !== undefined && (
+                  <tr>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>Tokens</td>
+                    <td className="tabular-nums">{formatToken(usedTokens)} / {formatToken(contextWindow)}</td>
+                  </tr>
+                )}
+                {lastUsage?.inputTokens !== undefined && (
+                  <tr>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输入</td>
+                    <td className="tabular-nums">{formatToken(lastUsage.inputTokens)} tokens</td>
+                  </tr>
+                )}
+                {lastUsage?.outputTokens !== undefined && (
+                  <tr>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输出</td>
+                    <td className="tabular-nums">{formatToken(lastUsage.outputTokens)} tokens</td>
+                  </tr>
+                )}
+                {lastUsage?.cachedInputTokens !== undefined && lastUsage.cachedInputTokens > 0 && (
+                  <tr>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>缓存命中</td>
+                    <td className="tabular-nums" style={{ color: 'var(--crai-success)' }}>{formatToken(lastUsage.cachedInputTokens)} tokens</td>
+                  </tr>
+                )}
+                {cost !== null && (
+                  <tr>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>本轮成本</td>
+                    <td className="tabular-nums">{formatCost(cost, currency ?? 'USD')}</td>
+                  </tr>
+                )}
+                {totalCost !== null && (
+                  <>
+                    <tr><td colSpan={2} style={{ height: 6 }} /></tr>
+                    <tr>
+                      <td className="pr-5 text-[10px]" style={{ color: 'var(--crai-fg-40)', opacity: 0.7 }} colSpan={2}>会话累计</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>总成本</td>
+                      <td className="tabular-nums">{formatCost(totalCost, currency ?? 'USD')}</td>
+                    </tr>
+                    <tr>
+                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输入</td>
+                      <td className="tabular-nums">{formatToken(accInputTokens ?? 0)} tokens</td>
+                    </tr>
+                    {accCachedInputTokens !== undefined && accCachedInputTokens > 0 && (
+                      <tr>
+                        <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>缓存</td>
+                        <td className="tabular-nums" style={{ color: 'var(--crai-success)' }}>{formatToken(accCachedInputTokens)} tokens</td>
+                      </tr>
+                    )}
+                    <tr>
+                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输出</td>
+                      <td className="tabular-nums">{formatToken(accOutputTokens ?? 0)} tokens</td>
+                    </tr>
+                  </>
+                )}
+                {turnCount !== undefined && (
+                  <tr>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>轮次</td>
+                    <td>{turnCount}</td>
+                  </tr>
+                )}
+              </tbody>
             </table>
           </div>
         </div>

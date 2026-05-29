@@ -29,6 +29,7 @@ export const DEBUG_SCOPES = {
   TIMELINE: 'timeline',
   TITLE_GEN: 'title-gen',
   TOOLS: 'tools',
+  USAGE: 'usage',
   ALL: 'all',
 } as const
 

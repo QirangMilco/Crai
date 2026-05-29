@@ -35,7 +35,12 @@ export function ChatView({ wsUrl }: Props) {
   const [configTestResult, setConfigTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [thinkingLevel, setThinkingLevel] = useState<string>('auto')
   const [sessionMode, setSessionMode] = useState<string>('ask')
-  const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[] }>> | null>(null)
+  const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[]; inputPrice?: number; cachedInputPrice?: number; outputPrice?: number }>> | null>(null)
+  const [lastUsage, setLastUsage] = useState<{ inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; cost?: number } | null>(null)
+  // 累计用量：跨所有 turn 的汇总（每次切换 session 时重置）
+  const [accInputTokens, setAccInputTokens] = useState(0)
+  const [accOutputTokens, setAccOutputTokens] = useState(0)
+  const [accCachedInputTokens, setAccCachedInputTokens] = useState(0)
   const [firstPartyProviders, setFirstPartyProviders] = useState<Array<{ name: string; label: string; defaultBaseURL: string }> | null>(null)
   const [pendingConfirm, setPendingConfirm] = useState<{ id: string; question: string; options?: string[]; meta?: Record<string, unknown> } | null>(null)
 
@@ -118,6 +123,17 @@ export function ChatView({ wsUrl }: Props) {
       // 转发给工作区选择浏览器
       workspaceBrowseRef.current?.(data)
     },
+    onUsageAccumulated: (acc) => {
+      setAccInputTokens(acc.inputTokens)
+      setAccOutputTokens(acc.outputTokens)
+      setAccCachedInputTokens(acc.cachedInputTokens)
+    },
+    onUsage: (usage) => {
+      setLastUsage(usage)
+      if (usage.inputTokens) setAccInputTokens((p) => p + usage.inputTokens!)
+      if (usage.outputTokens) setAccOutputTokens((p) => p + usage.outputTokens!)
+      if (usage.cachedInputTokens) setAccCachedInputTokens((p) => p + usage.cachedInputTokens!)
+    },
   }).handler
   onMessageRef.current = wsHandler
 
@@ -138,6 +154,9 @@ export function ChatView({ wsUrl }: Props) {
   const handleNewSession = useCallback(() => {
     store.getState().clearMessages()
     setSessionId(null)
+    setAccInputTokens(0)
+    setAccOutputTokens(0)
+    setAccCachedInputTokens(0)
     // 从模型的 supportedThinkingLevels 推导默认思考深度（第一个非 off 的值）
     const modelName = currentModel?.includes('/') ? currentModel.split('/')[1] : currentModel
     let defaultLevel = 'auto'
@@ -164,6 +183,9 @@ export function ChatView({ wsUrl }: Props) {
   const handleSwitchSession = useCallback((sid: string) => {
     store.getState().clearMessages()
     setSessionId(sid)
+    setAccInputTokens(0)
+    setAccOutputTokens(0)
+    setAccCachedInputTokens(0)
     send({ type: 'session:load', sessionId: sid })
   }, [send, store])
 
@@ -310,6 +332,44 @@ export function ChatView({ wsUrl }: Props) {
             status={status}
             isProcessing={messages.some((m) => m.activities?.some((a) => a.status === 'running'))}
             turnCount={messages.filter((m) => m.role === 'user').length}
+            usedTokens={lastUsage ? (lastUsage.inputTokens ?? 0) + (lastUsage.outputTokens ?? 0) : (() => {
+              const totalText = messages.map(m => m.text || '').join(' ')
+              return Math.ceil(totalText.length / 4) || undefined
+            })()}
+            contextWindow={
+              currentModel && knownModels
+                ? (() => {
+                    const si = currentModel.indexOf('/')
+                    const mdl = si >= 0 ? currentModel.slice(si + 1) : currentModel
+                    // 跨所有 provider 搜索模型（provider 名可能不匹配 known-models 的 key）
+                    for (const models of Object.values(knownModels)) {
+                      if (models[mdl]?.contextWindow) return models[mdl].contextWindow
+                    }
+                    return undefined
+                  })()
+                : undefined
+            }
+            lastUsage={lastUsage}
+            accInputTokens={accInputTokens > 0 ? accInputTokens : (() => {
+              // 从消息列表估算 token 用量（服务端未推送实际用量时的回退）
+              const totalText = messages.map(m => m.text || '').join(' ')
+              return Math.ceil(totalText.length / 4)
+            })()}
+            accOutputTokens={accOutputTokens}
+            accCachedInputTokens={accCachedInputTokens}
+            currency={globalConfig?.currency ?? 'CNY'}
+            modelPricing={
+              currentModel && knownModels
+                ? (() => {
+                    const si = currentModel.indexOf('/')
+                    const mdl = si >= 0 ? currentModel.slice(si + 1) : currentModel
+                    for (const models of Object.values(knownModels)) {
+                      if (models[mdl]) return models[mdl]
+                    }
+                    return undefined
+                  })()
+                : undefined
+            }
           />
         </div>
 

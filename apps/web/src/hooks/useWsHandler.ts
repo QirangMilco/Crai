@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import type { ChatMessage } from '../types/messages'
 import { useChatStore } from '../store/chat'
-import { debugLog } from '../utils/debug'
+import { debugLog, DEBUG_SCOPES } from '../utils/debug'
 
 interface BrowseData {
   path: string
@@ -27,6 +27,8 @@ interface WsHandlers {
   onRequestInput: (id: string, question: string, options?: string[], meta?: Record<string, unknown>) => void
   onDirBrowse: (data: BrowseData) => void
   setCurrentModel: (m: string) => void
+  onUsage: (usage: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; cost?: number }) => void
+  onUsageAccumulated: (acc: { inputTokens: number; outputTokens: number; cachedInputTokens: number }) => void
 }
 
 export function useWsHandler(h: WsHandlers) {
@@ -71,6 +73,13 @@ export function useWsHandler(h: WsHandlers) {
         }
         if (msg.event === 'model.completed') {
           store.getState().flushBuffer()
+          const usage = msg.payload?.response?.usage
+          if (usage) {
+            debugLog(DEBUG_SCOPES.USAGE, 'model.completed usage', usage)
+            h.onUsage(usage)
+          } else {
+            debugLog(DEBUG_SCOPES.USAGE, 'model.completed no usage', msg.payload?.response)
+          }
           const sid = sessionIdRef.current
           if (sid && !titledSessions.current.has(sid)) {
             titledSessions.current.add(sid)
@@ -135,6 +144,7 @@ export function useWsHandler(h: WsHandlers) {
         if (msg.metadata?.thinkingLevel) h.onThinkingLevel(String(msg.metadata.thinkingLevel))
         if (msg.metadata?.mode) h.onSessionMode(String(msg.metadata.mode))
         if (msg.todos) store.getState().setTodos(msg.todos)
+        if (msg.usageAccumulated) h.onUsageAccumulated(msg.usageAccumulated)
         store.getState().mergeServerData(incoming)
         break
       }

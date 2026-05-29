@@ -165,6 +165,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           messages: [],
           todos: result.session.todos,
           metadata: result.session.metadata,
+          usageAccumulated: result.session.usageAccumulated,
         } satisfies ServerMessage))
         if (!sessionId) {
           // 新 session 的 session:id 已在上面发送，这里不需要重复发
@@ -273,6 +274,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           messages: filteredMessages,
           metadata: session?.metadata,
           todos: session?.todos,
+          usageAccumulated: session?.usageAccumulated,
         } satisfies ServerMessage))
         break
       }

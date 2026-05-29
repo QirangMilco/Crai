@@ -28,6 +28,12 @@ export interface ModelInfo {
    * 适配器收到外部 thinkingLevel 后自行转换为 provider 内部参数。
    */
   supportedThinkingLevels?: string[]
+  /** 输入价格（每 1K tokens，美元）。不设置时信息岛不显示价格。 */
+  inputPrice?: number
+  /** 命中缓存的输入价格（每 1K tokens，美元）。不设置时回退到 inputPrice。 */
+  cachedInputPrice?: number
+  /** 输出价格（每 1K tokens，美元）。不设置时信息岛不显示价格。 */
+  outputPrice?: number
 }
 
 /**
@@ -42,10 +48,10 @@ export type KnownModelsMap = Record<string, Record<string, ModelInfo>>
 // ════════════════════════════════════════════════════════════════
 
 const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
-  'deepseek-v4-flash': { displayName: 'DeepSeek V4 Flash', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
-  'deepseek-v4-pro':   { displayName: 'DeepSeek V4 Pro', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
-  'deepseek-v3':       { displayName: 'DeepSeek V3', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
-  'deepseek-reasoner': { displayName: 'DeepSeek Reasoner', contextWindow: 65536, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'] },
+  'deepseek-v4-flash': { displayName: 'DeepSeek V4 Flash', contextWindow: 1048576, maxOutput: 393216, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'], inputPrice: 0.15, cachedInputPrice: 0.075, outputPrice: 0.60 },
+  'deepseek-v4-pro':   { displayName: 'DeepSeek V4 Pro', contextWindow: 1048576, maxOutput: 393216, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'], inputPrice: 0.60, cachedInputPrice: 0.30, outputPrice: 2.40 },
+  'deepseek-v3':       { displayName: 'DeepSeek V3', contextWindow: 1048576, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'], inputPrice: 0.50, cachedInputPrice: 0.25, outputPrice: 2.00 },
+  'deepseek-reasoner': { displayName: 'DeepSeek Reasoner', contextWindow: 65536, thinking: true, supportedThinkingLevels: ['off', 'high', 'max'], inputPrice: 0.55, cachedInputPrice: 0.275, outputPrice: 2.19 },
   'deepseek-chat':     { displayName: 'DeepSeek Chat', contextWindow: 32768, supportedThinkingLevels: ['off'] },
   'deepseek-coder':    { displayName: 'DeepSeek Coder', contextWindow: 16384, supportedThinkingLevels: ['off'] },
 }
@@ -55,9 +61,9 @@ const DEEPSEEK_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const OPENAI_MODELS: Record<string, ModelInfo> = {
-  'gpt-4o':           { displayName: 'GPT-4o', contextWindow: 131072, maxOutput: 16384 },
+  'gpt-4o':           { displayName: 'GPT-4o', contextWindow: 131072, maxOutput: 16384, inputPrice: 2.50, cachedInputPrice: 1.25, outputPrice: 10.00 },
   'gpt-4o-2024-08-06': { displayName: 'GPT-4o (2024-08-06)', contextWindow: 131072, maxOutput: 16384 },
-  'gpt-4o-mini':       { displayName: 'GPT-4o Mini', contextWindow: 131072, maxOutput: 16384 },
+  'gpt-4o-mini':       { displayName: 'GPT-4o Mini', contextWindow: 131072, maxOutput: 16384, inputPrice: 0.15, cachedInputPrice: 0.075, outputPrice: 0.60 },
   'gpt-4-turbo':       { displayName: 'GPT-4 Turbo', contextWindow: 131072, maxOutput: 4096 },
   'gpt-4':             { displayName: 'GPT-4', contextWindow: 8192,   maxOutput: 4096 },
   'gpt-4-32k':         { displayName: 'GPT-4 32K', contextWindow: 32768,  maxOutput: 4096 },
@@ -76,13 +82,13 @@ const OPENAI_MODELS: Record<string, ModelInfo> = {
 // ════════════════════════════════════════════════════════════════
 
 const ANTHROPIC_MODELS: Record<string, ModelInfo> = {
-  'claude-3-5-sonnet-20241022': { displayName: 'Claude 3.5 Sonnet', contextWindow: 204800, maxOutput: 8192 },
-  'claude-3-5-haiku-20241022':  { displayName: 'Claude 3.5 Haiku', contextWindow: 204800, maxOutput: 8192 },
+  'claude-3-5-sonnet-20241022': { displayName: 'Claude 3.5 Sonnet', contextWindow: 204800, maxOutput: 8192, inputPrice: 3.00, cachedInputPrice: 0.30, outputPrice: 15.00 },
+  'claude-3-5-haiku-20241022':  { displayName: 'Claude 3.5 Haiku', contextWindow: 204800, maxOutput: 8192, inputPrice: 0.80, cachedInputPrice: 0.08, outputPrice: 4.00 },
   'claude-3-opus-20240229':     { displayName: 'Claude 3 Opus', contextWindow: 204800, maxOutput: 4096 },
   'claude-3-sonnet-20240229':   { displayName: 'Claude 3 Sonnet', contextWindow: 204800, maxOutput: 4096 },
   'claude-3-haiku-20240307':    { displayName: 'Claude 3 Haiku', contextWindow: 204800, maxOutput: 4096 },
-  'claude-4-opus':              { displayName: 'Claude 4 Opus', contextWindow: 204800, maxOutput: 8192, thinking: true, supportedThinkingLevels: ['off', 'high', 'xhigh'] },
-  'claude-4-sonnet':            { displayName: 'Claude 4 Sonnet', contextWindow: 204800, maxOutput: 8192, thinking: true, supportedThinkingLevels: ['off', 'high', 'xhigh'] },
+  'claude-4-opus':              { displayName: 'Claude 4 Opus', contextWindow: 204800, maxOutput: 8192, thinking: true, supportedThinkingLevels: ['off', 'high', 'xhigh'], inputPrice: 15.00, cachedInputPrice: 1.50, outputPrice: 75.00 },
+  'claude-4-sonnet':            { displayName: 'Claude 4 Sonnet', contextWindow: 204800, maxOutput: 8192, thinking: true, supportedThinkingLevels: ['off', 'high', 'xhigh'], inputPrice: 3.00, cachedInputPrice: 0.30, outputPrice: 15.00 },
 }
 
 // ════════════════════════════════════════════════════════════════

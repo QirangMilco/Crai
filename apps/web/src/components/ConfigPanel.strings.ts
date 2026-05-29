@@ -62,6 +62,10 @@ export const ui = {
   contextLengthLabel: '输入上下文',
   maxOutputLabel: '输出上限',
   visionLabel: '支持视觉',
+  pricingSectionLabel: '定价 (¥/1M tokens)',
+  inputPriceLabel: '输入 (¥/1M)',
+  cachedPriceLabel: '缓存 (¥/1M)',
+  outputPriceLabel: '输出 (¥/1M)',
   cancel: '取消',
   save: '保存',
   defaultOption: '默认',
@@ -81,6 +85,9 @@ export const ui = {
   compressionLabel: '上下文压缩',
   compressionThreshold: '触发阈值',
   compressionHint: '超过上下文窗口的此比例时自动触发压缩。较低的值会更频繁地移除旧消息以节省 Token。',
+  pricingLabel: '定价',
+  currencyLabel: '货币',
+  currencyHint: '定价信息显示使用的货币单位。不影响实际结算。',
   autoSaveHint: '配置自动保存 · API key 已加密',
 
   // Mock（测试模式）

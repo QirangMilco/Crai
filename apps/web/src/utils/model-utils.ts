@@ -17,6 +17,17 @@ export function getModelContextWindow(provider: string, model: string, knownMode
   return undefined
 }
 
+export function getModelMaxOutput(provider: string, model: string, knownModels?: Record<string, Record<string, { contextWindow?: number; maxOutput?: number }>>): number | undefined {
+  const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.maxOutput
+  if (byProvider) return byProvider
+  if (knownModels) {
+    for (const models of Object.values(knownModels)) {
+      if (models[model]?.maxOutput) return models[model].maxOutput
+    }
+  }
+  return undefined
+}
+
 /** 跨所有 provider 搜索模型显示名。 */
 export function getKnownModelDisplayName(provider: string, model: string, knownModels?: Record<string, Record<string, { displayName?: string; contextWindow?: number; maxOutput?: number }>>): string | undefined {
   const byProvider = knownModels?.[provider.toLowerCase()]?.[model]?.displayName

@@ -79,6 +79,12 @@ export interface Session {
   pinned?: boolean
   /** 是否归档 */
   archived?: boolean
+  /** 本会话累计的 token 用量（跨 turn 累计）。前端用于显示总成本。 */
+  usageAccumulated?: {
+    inputTokens: number
+    outputTokens: number
+    cachedInputTokens: number
+  }
 }
 
 /** TODO 项，三态状态机 */
@@ -299,6 +305,8 @@ export interface GlobalConfig {
   compressionThreshold?: number
   /** 压缩后保留的最近消息 token 数。默认 32000。 */
   keepRecentTokens?: number
+  /** 定价显示货币。'USD'（默认）或 'CNY'。 */
+  currency?: 'USD' | 'CNY'
   /** 用户自定义模型上下文窗口（覆盖已知模型表）。modelName → contextWindow。 */
   customContextWindows?: Record<string, number>
   recentWorkspaces: string[]

@@ -385,6 +385,11 @@ export interface CompressionConfig {
   maxRetries?: number
   /** 自定义摘要系统提示词，覆盖默认的结构化模板 */
   summarySystemPrompt?: string
+  /**
+   * 压缩进度回调。每次压缩阶段变化时调用。
+   * step: 'checking' | 'summarizing' | 'retrying' | 'truncating' | 'done' | 'skipped'
+   */
+  onProgress?: (status: { step: string; message?: string; tokensBefore?: number; tokensAfter?: number }) => void
 }
 
 export interface CompactionGuardOptions extends CompressionConfig {
@@ -429,14 +434,6 @@ export async function guardContext(
     `[context] ${provider}/${model}: ${result.currentTokens}/${result.effectiveWindow} token (${(result.usageRatio * 100).toFixed(0)}%)`
   )
 
-  if (!result.needsCompression) {
-    return { messages, compacted: false, result, method: 'none' }
-  }
-
-  logger?.info?.(
-    `[context] 超过压缩阈值 (${(result.usageRatio * 100).toFixed(0)}% > ${((options?.threshold ?? DEFAULT_COMPRESSION_THRESHOLD) * 100).toFixed(0)}%)，触发压缩`
-  )
-
   // 从 options 读取配置，合并默认值
   const cfg: CompressionConfig = {
     threshold: options?.threshold ?? DEFAULT_COMPRESSION_THRESHOLD,
@@ -445,10 +442,22 @@ export async function guardContext(
     maxRetries: options?.maxRetries ?? 3,
   }
 
+  options?.onProgress?.({ step: 'checking', message: `${(result.usageRatio * 100).toFixed(0)}% used` })
+
+  if (!result.needsCompression) {
+    return { messages, compacted: false, result, method: 'none' }
+  }
+
+  options?.onProgress?.({ step: 'checking', message: `compressing (${(result.usageRatio * 100).toFixed(0)}% > ${(cfg.threshold! * 100).toFixed(0)}%)` })
+
+  logger?.info?.(
+    `[context] 超过压缩阈值 (${(result.usageRatio * 100).toFixed(0)}% > ${((options?.threshold ?? DEFAULT_COMPRESSION_THRESHOLD) * 100).toFixed(0)}%)，触发压缩`
+  )
+
   // Snow-CLI 模式：AI 摘要优先，失败时重试
   if (options?.summarize && cfg.retryEnabled) {
     let lastError: string | null = null
-    for (let attempt = 0; attempt <= cfg.maxRetries; attempt++) {
+    for (let attempt = 0; attempt <= cfg.maxRetries!; attempt++) {
       try {
         const summaryText = await generateSummary(messages, options.summarize)
         if (summaryText && summaryText.length > 0) {
@@ -469,6 +478,7 @@ export async function guardContext(
           cleanOrphanedToolCalls(keepMessages)
           const truncated = [summaryMsg, ...keepMessages]
           const afterTokens = estimateMessagesTokens(truncated)
+          options?.onProgress?.({ step: 'done', message: `AI 摘要完成: ${result.currentTokens} → ${afterTokens} token`, tokensBefore: result.currentTokens, tokensAfter: afterTokens })
           logger?.info?.(
             `[context] AI 压缩完成${attempt > 0 ? ` (第${attempt + 1}次尝试)` : ''}: ${result.currentTokens} → ${afterTokens} token`
           )
@@ -489,7 +499,7 @@ export async function guardContext(
         logger?.warn?.(`[context] AI 摘要失败（${lastError}），${delay}ms 后第${attempt + 2}次重试`)
         await new Promise(resolve => setTimeout(resolve, delay))
       } else {
-        logger?.warn?.(`[context] AI 摘要 ${cfg.maxRetries + 1} 次均失败，回退硬截断: ${lastError}`)
+        logger?.warn?.(`[context] AI 摘要 ${cfg.maxRetries! + 1} 次均失败，回退硬截断: ${lastError}`)
       }
     }
   } else if (options?.summarize) {
@@ -526,6 +536,7 @@ export async function guardContext(
   }
 
   // 回退：硬截断（含 tool 链保护）
+  options?.onProgress?.({ step: 'truncating', message: '硬截断回退' })
   const { truncated, removedCount, tokensBefore, tokensAfter, summary } = hardTruncate(
     messages,
     options?.keepRecentTokens,

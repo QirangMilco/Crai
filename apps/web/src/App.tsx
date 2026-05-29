@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { ChatView } from './components/ChatView'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { applyTokens } from './theme/tokens'
 
 export default function App() {
   useEffect(() => { applyTokens() }, [])
   const [wsUrl, setWsUrl] = useState(() => {
     const params = new URLSearchParams(window.location.search)
-    // URL 参数优先；没有参数时自动推断同机地址
     return params.get('ws') || `ws://${window.location.hostname}:8080`
   })
   const [connected, setConnected] = useState(false)
@@ -45,5 +45,9 @@ export default function App() {
     )
   }
 
-  return <ChatView wsUrl={wsUrl} />
+  return (
+    <ErrorBoundary onError={() => console.warn('ErrorBoundary caught an error, user can retry')}>
+      <ChatView wsUrl={wsUrl} />
+    </ErrorBoundary>
+  )
 }

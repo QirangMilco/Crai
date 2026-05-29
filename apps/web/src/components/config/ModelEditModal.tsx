@@ -13,6 +13,9 @@ interface Props {
   editFormCtx: string
   editFormMaxOut: string
   editFormVision: boolean
+  editFormInputPrice: string
+  editFormCachedPrice: string
+  editFormOutputPrice: string
   onNameChange: (val: string) => void
   onCtxChange: (val: string) => void
   onMaxOutChange: (val: string) => void
@@ -34,6 +37,12 @@ export function ModelEditModal({
   onCtxChange,
   onMaxOutChange,
   onVisionChange,
+  editFormInputPrice,
+  editFormCachedPrice,
+  editFormOutputPrice,
+  onInputPriceChange,
+  onCachedPriceChange,
+  onOutputPriceChange,
   onSave,
   onClose,
   knownModels,
@@ -127,6 +136,45 @@ export function ModelEditModal({
               }}
             />
           </button>
+        </div>
+
+        <div className="border-t pt-3 space-y-2" style={{ borderColor: 'var(--crai-border)' }}>
+          <span className="text-[10px] font-medium opacity-60">{ui.pricingSectionLabel}</span>
+          <div className="flex gap-2">
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] opacity-50">{ui.inputPriceLabel}</label>
+              <input
+                value={editFormInputPrice}
+                onChange={e => onInputPriceChange(e.target.value)}
+                placeholder="—"
+                type="number" step="0.01" min="0"
+                className="w-full px-2 py-1.5 rounded text-[10px] outline-none"
+                style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] opacity-50">{ui.cachedPriceLabel}</label>
+              <input
+                value={editFormCachedPrice}
+                onChange={e => onCachedPriceChange(e.target.value)}
+                placeholder="—"
+                type="number" step="0.01" min="0"
+                className="w-full px-2 py-1.5 rounded text-[10px] outline-none"
+                style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-[10px] opacity-50">{ui.outputPriceLabel}</label>
+              <input
+                value={editFormOutputPrice}
+                onChange={e => onOutputPriceChange(e.target.value)}
+                placeholder="—"
+                type="number" step="0.01" min="0"
+                className="w-full px-2 py-1.5 rounded text-[10px] outline-none"
+                style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-1">

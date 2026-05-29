@@ -43,5 +43,6 @@ export const DEBUG_SCOPES = {
   API: 'api',
   TITLE_GEN: 'title-gen',
   THINKING: 'thinking',
+  USAGE: 'usage',
   ALL: 'all',
 } as const

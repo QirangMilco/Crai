@@ -3,11 +3,15 @@
  * 包含 OS 沙箱开关和上下文压缩阈值滑块。
  */
 
+import { Select } from '../ui'
+
 interface Props {
   sandboxEnabled: boolean
   onSandboxChange: (enabled: boolean) => void
   compressionThreshold: string
   onCompressionChange: (threshold: string) => void
+  currency: string
+  onCurrencyChange: (currency: string) => void
   ui: Record<string, string>
 }
 
@@ -16,6 +20,8 @@ export function GeneralSettingsTab({
   onSandboxChange,
   compressionThreshold,
   onCompressionChange,
+  currency,
+  onCurrencyChange,
   ui,
 }: Props) {
   return (
@@ -76,6 +82,35 @@ export function GeneralSettingsTab({
                 {ui.compressionHint}
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* 货币设置 */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider opacity-60">
+              {ui.pricingLabel}
+            </h3>
+          </div>
+          <div
+            className="p-4 rounded-lg border space-y-3"
+            style={{ borderColor: 'var(--crai-border)', backgroundColor: 'var(--crai-bg-secondary)' }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">{ui.currencyLabel}</span>
+              <Select
+                value={currency}
+                onChange={onCurrencyChange}
+                options={[
+                  { value: 'USD', label: 'USD ($)' },
+                  { value: 'CNY', label: 'CNY (¥)' },
+                ]}
+                style={{ minWidth: 100 }}
+              />
+            </div>
+            <p className="text-[10px] opacity-40 leading-relaxed">
+              {ui.currencyHint}
+            </p>
           </div>
         </div>
       </div>

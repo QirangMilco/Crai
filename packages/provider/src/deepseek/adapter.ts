@@ -63,6 +63,7 @@ interface DeepSeekResponse {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
+    prompt_cache_hit_tokens?: number
     completion_tokens_details?: {
       reasoning_tokens: number
     }
@@ -92,6 +93,7 @@ interface DeepSeekStreamChunk {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
+    prompt_cache_hit_tokens?: number
   }
 }
 
@@ -225,6 +227,7 @@ function fromDeepSeekResponse(dsResp: DeepSeekResponse): ModelResponse {
       ? {
           inputTokens: dsResp.usage.prompt_tokens,
           outputTokens: dsResp.usage.completion_tokens,
+          cachedInputTokens: dsResp.usage.prompt_cache_hit_tokens,
         }
       : undefined,
     stopReason: choice.finish_reason ?? undefined,
@@ -368,7 +371,7 @@ function buildDeepSeekBody(
 // Stream done 事件构建
 // ============================================================
 
-function buildDoneResponse(text: string, finishReason: string | null): ModelStreamEvent & { type: 'done' } {
+function buildDoneResponse(text: string, finishReason: string | null, streamUsage?: { prompt_tokens: number; completion_tokens: number; prompt_cache_hit_tokens?: number }): ModelStreamEvent & { type: 'done' } {
   // 如果文本为空但有思考内容（某些模型把全部回复放 reasoning_content），用思考内容兜底
   const displayText = text || accumulatedReasoningContent
   const parts: MessagePart[] = displayText ? [{ type: PART_TYPES.TEXT, text: displayText }] : []
@@ -395,6 +398,13 @@ function buildDoneResponse(text: string, finishReason: string | null): ModelStre
         },
       },
       stopReason: finishReason ?? undefined,
+      usage: streamUsage
+        ? {
+            inputTokens: streamUsage.prompt_tokens,
+            outputTokens: streamUsage.completion_tokens,
+            cachedInputTokens: streamUsage.prompt_cache_hit_tokens,
+          }
+        : undefined,
     },
   }
 }
@@ -517,6 +527,8 @@ export class DeepSeekAdapter implements ModelAdapter {
     resetAccumulator()
     let fullContent = ''
     let inThinking = false
+    let capturedFinishReason: string | null | undefined
+    let streamUsage: { prompt_tokens: number; completion_tokens: number; prompt_cache_hit_tokens?: number } | undefined
 
     try {
       for await (const data of sseLines(res.body)) {
@@ -528,7 +540,16 @@ export class DeepSeekAdapter implements ModelAdapter {
         }
 
         const choice = chunk.choices?.[0]
-        if (!choice) continue
+        if (!choice || (Array.isArray(chunk.choices) && chunk.choices.length === 0)) {
+          // 没有 choices 的 chunk 可能包含 usage（include_usage: true 时的 final chunk）
+          if (chunk.usage) {
+            this.debugApi('USAGE_CHUNK', JSON.stringify(chunk.usage).substring(0, 200))
+            streamUsage = chunk.usage
+          } else {
+            this.debugApi('EMPTY_CHUNK_NO_USAGE', JSON.stringify(chunk).substring(0, 200))
+          }
+          continue
+        }
 
         const delta = choice.delta
 
@@ -589,16 +610,20 @@ export class DeepSeekAdapter implements ModelAdapter {
           }
         }
 
-        // finish_reason 检测
+        // finish_reason 检测（usage 可能与 finish_reason 在同一 chunk 中）
         if (choice.finish_reason) {
-          yield { type: STREAM_EVENT_TYPES.TEXT_END }
-          yield buildDoneResponse(fullContent, choice.finish_reason)
+          capturedFinishReason = choice.finish_reason
+          if (chunk.usage) {
+            this.debugApi('USAGE_IN_FINISH_CHUNK', JSON.stringify(chunk.usage).substring(0, 200))
+            streamUsage = chunk.usage
+          }
         }
       }
 
-      // 流正常结束但未收到 finish_reason，发 done
+      // 流结束：发 done（此时 streamUsage 可能已被后续 usage chunk 更新）
+      const finalReason = capturedFinishReason ?? null
       yield { type: STREAM_EVENT_TYPES.TEXT_END }
-      yield buildDoneResponse(fullContent, null)
+      yield buildDoneResponse(fullContent, finalReason, streamUsage)
     } catch (err) {
       yield {
         type: STREAM_EVENT_TYPES.ERROR,

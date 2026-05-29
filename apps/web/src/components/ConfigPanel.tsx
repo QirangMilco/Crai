@@ -13,7 +13,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { DEFAULT_COMPRESSION_THRESHOLD, DEFAULT_KEEP_RECENT_TOKENS } from '@crai/core'
 import { ui } from './ConfigPanel.strings'
 import { ProviderList, ProviderEditor, ModelList, ModelEditModal, GlobalModelSettings, GeneralSettingsTab } from './config'
-import { getModelContextWindow, getKnownModelDisplayName, findModelInfoAcrossProviders } from '../utils/model-utils'
+import { getModelContextWindow, getModelMaxOutput, getKnownModelDisplayName, findModelInfoAcrossProviders } from '../utils/model-utils'
 
 interface Props {
   config: {
@@ -56,16 +56,23 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const [editFormCtx, setEditFormCtx] = useState('')
   const [editFormMaxOut, setEditFormMaxOut] = useState('')
   const [editFormVision, setEditFormVision] = useState(false)
+  const [editFormInputPrice, setEditFormInputPrice] = useState('')
+  const [editFormCachedPrice, setEditFormCachedPrice] = useState('')
+  const [editFormOutputPrice, setEditFormOutputPrice] = useState('')
 
   // 打开模型编辑弹窗时填充表单
   useEffect(() => {
     if (editingModel && editing) {
       const mc = localModelConfigs[editingModel] || {}
       const knownCtx = getModelContextWindow(editing, editingModel, knownModels)
+      const knownMaxOut = getModelMaxOutput(editing, editingModel, knownModels)
       setEditFormName(mc.displayName || getKnownModelDisplayName(editing, editingModel, knownModels) || '')
       setEditFormCtx(String(mc.contextWindow ?? knownCtx ?? ''))
-      setEditFormMaxOut(String(mc.maxOutput ?? ''))
+      setEditFormMaxOut(String(mc.maxOutput ?? knownMaxOut ?? ''))
       setEditFormVision(mc.vision ?? false)
+      setEditFormInputPrice(mc.inputPrice != null ? String(mc.inputPrice) : '')
+      setEditFormCachedPrice(mc.cachedInputPrice != null ? String(mc.cachedInputPrice) : '')
+      setEditFormOutputPrice(mc.outputPrice != null ? String(mc.outputPrice) : '')
     }
   }, [editingModel]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -101,6 +108,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const [showAddDropdown, setShowAddDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [sandboxEnabled, setSandboxEnabled] = useState(config?.sandboxEnabled ?? false)
+  const currency = config?.currency ?? 'CNY'
   const [configTab, setConfigTab] = useState('providers')
   const defaultThreshold = config?.compressionThreshold != null ? Math.round(config.compressionThreshold * 100) : Math.round(DEFAULT_COMPRESSION_THRESHOLD * 100)
   const [compressionThreshold, setCompressionThreshold] = useState(String(defaultThreshold))
@@ -252,6 +260,9 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     if (editFormCtx) cfg.contextWindow = parseInt(editFormCtx, 10)
     if (editFormMaxOut) cfg.maxOutput = parseInt(editFormMaxOut, 10)
     cfg.vision = editFormVision
+    if (editFormInputPrice) cfg.inputPrice = parseFloat(editFormInputPrice)
+    if (editFormCachedPrice) cfg.cachedInputPrice = parseFloat(editFormCachedPrice)
+    if (editFormOutputPrice) cfg.outputPrice = parseFloat(editFormOutputPrice)
     updateModelConfig(editingModel, cfg)
     setEditingModel(null)
   }
@@ -289,6 +300,10 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
   const handleSandboxChange = (next: boolean) => {
     setSandboxEnabled(next)
     send({ type: 'config:set', config: { sandboxEnabled: next } })
+  }
+
+  const handleCurrencyChange = (v: string) => {
+    send({ type: 'config:set', config: { currency: v } })
   }
 
   const handleCompressionChange = (v: string) => {
@@ -449,10 +464,16 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                         editFormCtx={editFormCtx}
                         editFormMaxOut={editFormMaxOut}
                         editFormVision={editFormVision}
+                        editFormInputPrice={editFormInputPrice}
+                        editFormCachedPrice={editFormCachedPrice}
+                        editFormOutputPrice={editFormOutputPrice}
                         onNameChange={setEditFormName}
                         onCtxChange={setEditFormCtx}
                         onMaxOutChange={setEditFormMaxOut}
                         onVisionChange={setEditFormVision}
+                        onInputPriceChange={setEditFormInputPrice}
+                        onCachedPriceChange={setEditFormCachedPrice}
+                        onOutputPriceChange={setEditFormOutputPrice}
                         onSave={handleSaveModelEdit}
                         onClose={() => setEditingModel(null)}
                         knownModels={knownModels}
@@ -487,6 +508,8 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
               onSandboxChange={handleSandboxChange}
               compressionThreshold={compressionThreshold}
               onCompressionChange={handleCompressionChange}
+              currency={currency}
+              onCurrencyChange={handleCurrencyChange}
               ui={ui as any}
             />
           )}

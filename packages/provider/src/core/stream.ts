@@ -36,6 +36,21 @@ export async function* sseLines(
         yield data
       }
     }
+    if (buffer.trim()) {
+      const trimmed = buffer.trim()
+      if (trimmed.startsWith(SSE.DATA_PREFIX)) {
+        const data = trimmed.slice(SSE.DATA_PREFIX.length)
+        if (data !== SSE.DONE_SENTINEL) yield data
+      }
+    }
+  // Yield remaining buffer data (last line without trailing newline)
+  if (buffer.trim()) {
+    const trimmed = buffer.trim()
+    if (trimmed.startsWith('data: ')) {
+      const data = trimmed.slice(6)
+      if (data !== '[DONE]') yield data
+    }
+  }
   } finally {
     reader.releaseLock()
   }
