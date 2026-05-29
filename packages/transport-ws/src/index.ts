@@ -381,6 +381,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'session:delete': {
         const rt = resolveRuntime()
         if (!rt) { ws.send(JSON.stringify({ type: 'error', message: 'runtime not ready' } satisfies ServerMessage)); break }
+        debugLog(DEBUG_SCOPES.MIDDLEWARE, `session:delete ${msg.sessionId}`, { sessionId: msg.sessionId }, logger)
         await rt.deleteSession(msg.sessionId)
         logger?.info(`已删除 session ${msg.sessionId}`)
         const updatedSessions = await rt.listSessions()

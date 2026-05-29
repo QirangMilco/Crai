@@ -54,7 +54,6 @@ const GROUP_PRIORITY: Record<string, number> = { '置顶': -1, '今天': 0, '昨
 
 export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, onDelete, onUpdate, width, hovered, loading }: Props) {
   const [search, setSearch] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [renameId, setRenameId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [menuSession, setMenuSession] = useState<string | null>(null)
@@ -138,9 +137,8 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
   }, [menuPos, closeMenu])
 
   const handleDelete = useCallback((id: string) => {
-    if (confirmDelete === id) { onDelete(id); setConfirmDelete(null); closeMenu() }
-    else { setConfirmDelete(id) }
-  }, [confirmDelete, onDelete, closeMenu])
+    onDelete(id); closeMenu()
+  }, [onDelete, closeMenu])
 
   return (
     <div className="flex flex-col h-full select-none" style={{ minWidth: 0 }}>

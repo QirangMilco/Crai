@@ -176,6 +176,7 @@ export function ChatView({ wsUrl }: Props) {
   }, [send, store, currentModel, knownModels])
 
   const handleDeleteSession = useCallback((sid: string) => {
+    debugLog(DEBUG_SCOPES.MIDDLEWARE, `handleDeleteSession: ${sid}`)
     send({ type: 'session:delete', sessionId: sid })
     if (sid === sessionId) { store.getState().clearMessages(); setSessionId(null) }
   }, [send, sessionId, store])

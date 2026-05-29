@@ -11,8 +11,8 @@
     "maxFileSize": 10485760,
     "maxBackups": 3,
     "scopes": {
-      "server": ["usage"],
-      "client": ["timeline", "usage"]
+      "server": ["middleware"],
+      "client": ["timeline", "middleware"]
     }
   }
 }
