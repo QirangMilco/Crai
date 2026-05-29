@@ -371,11 +371,23 @@ export async function generateSummary(
 const COMPRESSION_MAX_RETRIES = 3
 const COMPRESSION_RETRY_BASE_DELAY = 1000
 
-export interface CompactionGuardOptions {
-  /** 压缩阈值（0~1），默认 0.8。 */
+/**
+ * 压缩配置。可从全局配置读取，也可通过代码注入。
+ */
+export interface CompressionConfig {
+  /** 压缩阈值（0~1），默认 0.8。触发压缩的上下文使用率 */
   threshold?: number
-  /** 保留最近多少 token，默认 32000。 */
+  /** 保留最近多少 token，默认 32000。硬截断时保留的最后 token 数 */
   keepRecentTokens?: number
+  /** 启用 AI 摘要重试（Snow-CLI 模式），默认 true */
+  retryEnabled?: boolean
+  /** AI 摘要最大重试次数，默认 3 */
+  maxRetries?: number
+  /** 自定义摘要系统提示词，覆盖默认的结构化模板 */
+  summarySystemPrompt?: string
+}
+
+export interface CompactionGuardOptions extends CompressionConfig {
   /** 日志记录器。 */
   logger?: Logger
   /** 自定义模型上下文窗口覆盖（modelName → token 数）。 */
@@ -386,11 +398,6 @@ export interface CompactionGuardOptions {
    * 函数接收被移除的早期消息，返回摘要文本或 null（失败）。
    */
   summarize?: Summarizer
-  /**
-   * 启用 AI 摘要重试（Snow-CLI 模式）。
-   * 默认 true，设为 false 跳过重试、直接回退硬截断。
-   */
-  retryEnabled?: boolean
 }
 
 export interface GuardContextResult {
@@ -430,10 +437,18 @@ export async function guardContext(
     `[context] 超过压缩阈值 (${(result.usageRatio * 100).toFixed(0)}% > ${((options?.threshold ?? DEFAULT_COMPRESSION_THRESHOLD) * 100).toFixed(0)}%)，触发压缩`
   )
 
+  // 从 options 读取配置，合并默认值
+  const cfg: CompressionConfig = {
+    threshold: options?.threshold ?? DEFAULT_COMPRESSION_THRESHOLD,
+    keepRecentTokens: options?.keepRecentTokens ?? 32000,
+    retryEnabled: options?.retryEnabled ?? true,
+    maxRetries: options?.maxRetries ?? 3,
+  }
+
   // Snow-CLI 模式：AI 摘要优先，失败时重试
-  if (options?.summarize && options?.retryEnabled !== false) {
+  if (options?.summarize && cfg.retryEnabled) {
     let lastError: string | null = null
-    for (let attempt = 0; attempt <= COMPRESSION_MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= cfg.maxRetries; attempt++) {
       try {
         const summaryText = await generateSummary(messages, options.summarize)
         if (summaryText && summaryText.length > 0) {
@@ -474,7 +489,7 @@ export async function guardContext(
         logger?.warn?.(`[context] AI 摘要失败（${lastError}），${delay}ms 后第${attempt + 2}次重试`)
         await new Promise(resolve => setTimeout(resolve, delay))
       } else {
-        logger?.warn?.(`[context] AI 摘要 ${COMPRESSION_MAX_RETRIES + 1} 次均失败，回退硬截断: ${lastError}`)
+        logger?.warn?.(`[context] AI 摘要 ${cfg.maxRetries + 1} 次均失败，回退硬截断: ${lastError}`)
       }
     }
   } else if (options?.summarize) {

@@ -407,8 +407,8 @@ describe('token-limiter', () => {
     assert.equal(result.truncated, true)
     assert.ok(result.parts.length === 1)
     const text = (result.parts[0] as TextPart).text
-    assert.ok(text.length < 5000, `截断后长度 ${text.length} 应小于原始长度`)
-    assert.ok(text.includes('结果过长已截断'), '应包含截断标记')
+    assert.ok(text.length < 2000, `截断后长度 ${text.length} 应小于原始长度`)
+    assert.ok(text.includes('characters truncated'), '应包含截断标记')
   })
 
   it('limitToolResult: 多个 parts 优先保留后面的', () => {

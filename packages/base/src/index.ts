@@ -18,7 +18,7 @@ export {
   findPreserveStartIndex,
   cleanOrphanedToolCalls,
 } from './context-window'
-export type { Summarizer, CompactionGuardOptions, GuardContextResult, ContextCheckResult } from './context-window'
+export type { Summarizer, CompactionGuardOptions, GuardContextResult, ContextCheckResult, CompressionConfig } from './context-window'
 
 export { limitToolResult, truncateToolResult, getToolResultTokenLimit } from './token-limiter'
 
