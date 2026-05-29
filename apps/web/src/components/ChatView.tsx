@@ -16,13 +16,41 @@ import { SessionNavPanel } from './panels/SessionNavPanel'
 import { InfoIsland } from './shell/InfoIsland'
 import { Dialog } from './ui/Dialog'
 import { Dropdown, Icon } from './ui'
-import { MessageSquare, FolderTree, X, Folder, ArrowUp, Settings, Palette, Plus, Send, List } from 'lucide-react'
+import { MessageSquare, FolderTree, X, Folder, ArrowUp, Settings, Palette, Plus, Send, List, Trash2, Eye, EyeOff } from 'lucide-react'
 
-interface Props { wsUrl: string }
+interface ConnectionProfile {
+  id: string
+  label: string
+  url: string
+  token: string
+  lastConnected: number
+}
 
-export function ChatView({ wsUrl }: Props) {
+interface Props { wsUrl: string; onDisconnect?: (url?: string) => void }
+
+function buildWsUrlForSwitch(url: string, token: string): string {
+  try {
+    const u = new URL(url.startsWith('ws') ? url : `ws://${url}`)
+    if (token) u.searchParams.set('token', token)
+    return u.toString()
+  } catch { return url }
+}
+
+export function ChatView({ wsUrl, onDisconnect }: Props) {
   const messages = useChatStore((s) => s.messages)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [showConnections, setShowConnections] = useState(false)
+  const [connProfiles, setConnProfiles] = useState<ConnectionProfile[]>(() => {
+    try {
+      const raw = localStorage.getItem('crai:connections')
+      return raw ? JSON.parse(raw) : []
+    } catch { return [] }
+  })
+  const [connFormMode, setConnFormMode] = useState(false)
+  const [connFormUrl, setConnFormUrl] = useState('')
+  const [connFormLabel, setConnFormLabel] = useState('')
+  const [connFormToken, setConnFormToken] = useState('')
+  const [connShowToken, setConnShowToken] = useState(false)
   const [showInspector, setShowInspector] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
   const [globalConfig, setGlobalConfig] = useState<any>(null)
@@ -386,9 +414,120 @@ export function ChatView({ wsUrl }: Props) {
             className="p-1.5 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
             style={{ color: showInspector ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}>
             <Icon icon={Palette} size="xs" /></button>
+          <button onClick={() => setShowConnections(true)}
+            className="p-1.5 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
+            style={{ color: 'var(--crai-fg-40)' }}
+            title="切换连接">
+            <Icon icon={List} size="xs" /></button>
         </div>
       </header>
 
+      {/* 连接管理器弹窗 */}
+      <Dialog open={showConnections} onClose={() => { setShowConnections(false); setConnFormMode(false) }}
+        style={{ width: 380, maxHeight: '70vh', borderRadius: 12, padding: 20 }}>
+        {connFormMode ? (
+          <>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12, color: 'var(--crai-fg)' }}>
+              添加连接
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input value={connFormLabel} onChange={(e) => setConnFormLabel(e.target.value)}
+                placeholder="标签（可选）"
+                className="px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+              <input value={connFormUrl} onChange={(e) => setConnFormUrl(e.target.value)}
+                placeholder="ws://127.0.0.1:8080"
+                className="px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+              <div style={{ position: 'relative' }}>
+                <input value={connFormToken} onChange={(e) => setConnFormToken(e.target.value)}
+                  type={connShowToken ? 'text' : 'password'}
+                  placeholder="访问密钥（可选）"
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }} />
+                <button onClick={() => setConnShowToken(!connShowToken)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--crai-fg-40)', cursor: 'pointer' }}>
+                  {connShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button onClick={() => {
+                  if (!connFormUrl.trim()) return
+                  const url = connFormUrl.trim()
+                  const label = connFormLabel.trim() || url
+                  const id = `conn_${Date.now()}`
+                  const profile: ConnectionProfile = { id, label, url, token: connFormToken.trim(), lastConnected: Date.now() }
+                  const updated = [...connProfiles, profile]
+                  setConnProfiles(updated)
+                  localStorage.setItem('crai:connections', JSON.stringify(updated))
+                  setConnFormMode(false)
+                  setConnFormUrl('')
+                  setConnFormLabel('')
+                  setConnFormToken('')
+                  // 保存后立即切换
+                  onDisconnect?.(buildWsUrlForSwitch(url, profile.token))
+                  setShowConnections(false)
+                }}
+                  className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: 'var(--crai-accent)' }}>
+                  保存并连接
+                </button>
+                <button onClick={() => setConnFormMode(false)}
+                  className="px-4 py-2 rounded-lg text-sm"
+                  style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
+                  取消
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12, color: 'var(--crai-fg)' }}>
+              切换连接
+            </div>
+            {connProfiles.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--crai-fg-40)', padding: '24px 0', textAlign: 'center' }}>
+                没有已保存的连接
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {connProfiles.map((p) => (
+                  <div key={p.id}
+                    onClick={() => { onDisconnect?.(buildWsUrlForSwitch(p.url, p.token)); setShowConnections(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                      backgroundColor: 'var(--crai-bg-secondary)',
+                    }}
+                    className="transition-colors hover:opacity-80">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--crai-fg-40)' }}>{p.url}</div>
+                    </div>
+                    <button onClick={(e) => {
+                      e.stopPropagation()
+                      const updated = connProfiles.filter((x) => x.id !== p.id)
+                      setConnProfiles(updated)
+                      localStorage.setItem('crai:connections', JSON.stringify(updated))
+                    }}
+                      style={{ color: 'var(--crai-destructive)', fontSize: 14, cursor: 'pointer' }}>
+                      <Icon icon={Trash2} size="sm" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => { setConnFormMode(true); setConnFormUrl(''); setConnFormLabel(''); setConnFormToken('') }}
+              style={{
+                marginTop: 12, padding: '8px 0', borderRadius: 8, fontSize: 13, textAlign: 'center', cursor: 'pointer',
+                color: 'var(--crai-fg-secondary)',
+                border: '1px dashed var(--crai-border)',
+              }}
+              className="transition-colors hover:opacity-80">
+              + 添加连接
+            </button>
+          </>
+        )}
+      </Dialog>
       <ShellLayout send={send}>
         <MessageList messages={messages} />
         {pendingConfirm && (

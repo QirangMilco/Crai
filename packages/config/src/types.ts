@@ -9,6 +9,8 @@ export interface AppVariant {
   workspaceDataDirName: string
   server: {
     defaultPort: number
+    /** 是否禁用访问鉴权（仅本地开发时使用）。默认 false。 */
+    disableAuth?: boolean
   }
   debug: {
     trace: boolean

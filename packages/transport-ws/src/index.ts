@@ -43,6 +43,11 @@ export interface WsTransportOptions {
   handlers?: WsTransportHandlers
   /** 根据工作区路径获取对应的 runtime。没有 API key 时可能为 undefined。 */
   getRuntime?: (rootDir: string) => RuntimeHandle | undefined
+  /**
+   * WebSocket 连接鉴权。返回 true 表示放行，false 表示拒绝。
+   * 如果未设置，则跳过鉴权（兼容本地开发）。
+   */
+  verifyToken?: (token: string) => boolean | Promise<boolean>
   /** 日志记录器，调试输出受 logLevel 过滤。 */
   logger?: Logger
 }
@@ -477,8 +482,26 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
     }
   }
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     if (stopped) { ws.close(1001, 'Server shutting down'); return }
+
+    // Token 鉴权
+    if (options.verifyToken) {
+      const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+      const token = url.searchParams.get('token') || ''
+      if (!token) {
+        ws.close(4001, 'token required')
+        options.logger?.info(`WS 连接被拒绝：缺少 token (${req.socket.remoteAddress})`)
+        return
+      }
+      const ok = options.verifyToken(token)
+      if (ok instanceof Promise ? !ok : !ok) {
+        ws.close(4001, 'invalid token')
+        options.logger?.info(`WS 连接被拒绝：token 无效 (${req.socket.remoteAddress})`)
+        return
+      }
+    }
+
     clients.add(ws)
     options.onConnectionChange?.(clients.size)
 

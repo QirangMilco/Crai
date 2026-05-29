@@ -24,6 +24,7 @@ import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { ensureServerAuth } from './server-auth.js'
 
 const VARIANT = process.env.CRAI_VARIANT ?? 'dev'
 
@@ -269,9 +270,14 @@ async function main() {
   const config = new ConfigManager(variant, log)
   await config.loadGlobal()
 
+  // ── 服务器鉴权 ──
+  const configDir = join(homedir(), variant.configDirName)
+  const auth = ensureServerAuth(configDir, log)
+
   const transport = createWsTransport({
     port: variant.server.defaultPort,
     logger: log,
+    verifyToken: variant.server.disableAuth ? undefined : auth.verify,
     handlers: {
       onConfigGet: () => ({ ...config.getGlobal(), debugScopes: clientScopes, variant: VARIANT }),
       onConfigSet: (cfg) => {
