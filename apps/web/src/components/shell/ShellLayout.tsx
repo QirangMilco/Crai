@@ -212,6 +212,7 @@ export function ShellLayout({ children, send }: Props) {
             {panels.map(({ def }) => (
               <button
                 key={def.id} title={def.label}
+                onMouseEnter={handleTabClick('left', def.id)}
                 onClick={handleTabClick('left', def.id)}
                 className="flex items-center justify-center rounded transition-all shrink-0"
                 style={{
@@ -286,6 +287,7 @@ export function ShellLayout({ children, send }: Props) {
             {panels.map(({ def }) => (
               <button
                 key={def.id} title={def.label}
+                onMouseEnter={handleTabClick('right', def.id)}
                 onClick={handleTabClick('right', def.id)}
                 className="flex items-center justify-center rounded transition-all shrink-0"
                 style={{
