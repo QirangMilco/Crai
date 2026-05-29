@@ -16,9 +16,9 @@ import type {
 } from '@crai/core'
 import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
-import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId } from '@crai/core'
+import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId, getContextWindow } from '@crai/core'
 import type { PermissionMode } from '@crai/core'
-import { guardContext, estimateMessagesTokens } from '@crai/base'
+import { guardContext, estimateMessagesTokens, limitToolResult, cleanOrphanedToolCalls } from '@crai/base'
 import type { Summarizer } from '@crai/base'
 import { debugLog, DEBUG_SCOPES } from './debug'
 import { withIdleTimeout, StreamTimeoutError } from '@crai/base'
@@ -558,6 +558,19 @@ export async function runTurn(
     for (const tc of toolCalls) {
       const r = resultByCallId.get(tc.toolCallId)
       if (r) toolResultMessages.push(tcToMsg(r.tc, r.execResult))
+    }
+
+    // Snow-CLI 模式：限制每个 tool result 的大小
+    // 防止单次工具结果撑爆上下文窗口
+    const toolProvider = modelName?.includes('/') ? modelName.split('/')[0] : ''
+    const toolModelName = modelName?.includes('/') ? modelName.split('/')[1] : modelName
+    const modelWindow = getContextWindow(toolProvider, toolModelName ?? '', undefined)
+    for (const toolMsg of toolResultMessages) {
+      const limited = limitToolResult(toolMsg.parts, modelWindow)
+      if (limited.truncated) {
+        toolMsg.parts = limited.parts
+        deps.logger?.debug?.(`[token-limiter] 工具 ${toolMsg.toolName} 结果过长，已截断`)
+      }
     }
 
     // 每条 tool result 独立追加到上下文

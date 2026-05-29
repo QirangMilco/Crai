@@ -1,22 +1,30 @@
 /**
- * @crai/base — 底层共享工具函数。
- *
- * 放 core（纯 TS 契约）和 runtime（运行内核）都不合适，
- * 但又需要跨包公用的 Node 工具函数。
- * 主要用于消除 tools-fs、security、config 等包之间的重复代码。
+ * @crai/base — 公共导出
  */
 export {
   resolve, join, relative, dirname, basename, extname, sep, normalize,
   resolveAllowedPath, getPathArg, validateToolPaths,
 } from './path'
+
+export {
+  guardContext,
+  hardTruncate,
+  checkContext,
+  estimateTokens,
+  estimateTokensAccurate,
+  estimateMessagesTokens,
+  estimateMessageTokens,
+  generateSummary,
+  findPreserveStartIndex,
+  cleanOrphanedToolCalls,
+} from './context-window'
+export type { Summarizer, CompactionGuardOptions, GuardContextResult, ContextCheckResult } from './context-window'
+
+export { limitToolResult, truncateToolResult, getToolResultTokenLimit } from './token-limiter'
+
 export { ConsoleLogger } from './logger'
 export { sanitizeText, sanitizeParts } from './pii-guard'
 export { createSandbox, wrapCommand } from './sandbox'
 export type { SandboxOptions, SandboxProvider, SandboxWrappedCommand } from './sandbox'
 
-// 上下文窗口管理与压缩
-export { guardContext, hardTruncate, checkContext, estimateTokens, estimateTokensAccurate, estimateMessagesTokens, estimateMessageTokens, generateSummary } from './context-window'
-export type { Summarizer, CompactionGuardOptions, GuardContextResult, ContextCheckResult } from './context-window'
-
-// 流空闲超时守卫
 export { StreamTimeoutError, withIdleTimeout } from './stream-guards'
