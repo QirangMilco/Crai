@@ -37,7 +37,7 @@ function mockRuntime(): RuntimeHandle {
     async createSession(meta?: any, id?: string) {
       sessionCounter++
       const sessionId = id ?? `s-${sessionCounter}`
-      const session = { id: sessionId, createdAt: Date.now(), updatedAt: Date.now(), title: '', metadata: meta ?? {} }
+      const session: any = { id: sessionId, createdAt: Date.now(), updatedAt: Date.now(), title: '', metadata: meta ?? {} }
       sessions.set(sessionId, session)
       return session
     },
@@ -50,7 +50,7 @@ function mockRuntime(): RuntimeHandle {
     async callModel(messages: any, opts?: any) { return 'test response' },
     async loadExtension() {},
     async unloadExtension() {},
-    async listSessions() { return Array.from(sessions.values()).map((s) => ({ id: s.id, title: s.title, createdAt: s.createdAt, updatedAt: s.updatedAt })) },
+    async listSessions() { return Array.from(sessions.values()).map((s) => ({ id: s.id, title: s.title, createdAt: s.createdAt, updatedAt: s.updatedAt, pinned: s.pinned, archived: s.archived })) },
     async dispose() {},
   }
 
@@ -326,6 +326,48 @@ describe('transport-ws', () => {
     assert.equal(msg2.type, 'session:list:data')
     const updated = msg2.sessions?.find((s: any) => s.id === sessionId)
     assert.ok(updated, '更新后的 session 应在列表中')
+
+    ws.close()
+  })
+
+
+  it('session:update 支持 pinned/archived 字段并反映在 session:list:data', async () => {
+    const ws = new WebSocket(serverUrl)
+    await new Promise<void>((r) => ws.on('open', () => r()))
+
+    ws.send(JSON.stringify({ type: 'session:new' }))
+    const raw = await waitForMessage(ws)
+    const { id: sessionId } = JSON.parse(raw)
+    assert.ok(sessionId)
+
+    ws.send(JSON.stringify({ type: 'session:update', sessionId, archived: true, pinned: true }))
+    await new Promise((r) => setTimeout(r, 50))
+    ws.send(JSON.stringify({ type: 'session:list' }))
+    const raw2 = await waitForMessage(ws)
+    const msg = JSON.parse(raw2)
+    assert.equal(msg.type, 'session:list:data')
+    const updated = msg.sessions?.find((s: any) => s.id === sessionId)
+    assert.ok(updated, 'session should be in list')
+    assert.equal(updated.archived, true, 'session should be archived')
+    assert.equal(updated.pinned, true, 'session should be pinned')
+
+    ws.send(JSON.stringify({ type: 'session:update', sessionId, archived: false, pinned: false }))
+    await new Promise((r) => setTimeout(r, 50))
+    ws.send(JSON.stringify({ type: 'session:list' }))
+    const raw3 = await waitForMessage(ws)
+    const msg2 = JSON.parse(raw3)
+    const updated2 = msg2.sessions?.find((s: any) => s.id === sessionId)
+    assert.equal(updated2.archived, false, 'unarchive should set archived to false')
+    assert.equal(updated2.pinned, false, 'unpin should set pinned to false')
+
+    ws.send(JSON.stringify({ type: 'session:update', sessionId, title: 'test' }))
+    await new Promise((r) => setTimeout(r, 50))
+    ws.send(JSON.stringify({ type: 'session:list' }))
+    const raw4 = await waitForMessage(ws)
+    const msg3 = JSON.parse(raw4)
+    const updated3 = msg3.sessions?.find((s: any) => s.id === sessionId)
+    assert.equal(updated3.pinned, false, 'pinned should persist when not sent')
+    assert.equal(updated3.archived, false, 'archived should persist when not sent')
 
     ws.close()
   })

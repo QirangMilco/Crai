@@ -23,7 +23,7 @@
 // Session 操作响应
 { type: 'session:id', id: string }
 { type: 'session:data', sessionId: string, messages: ChatMessage[], todos?: TodoItem[], metadata?: Record<string, unknown>, activities?: ActivityItem[] }
-{ type: 'session:list:data', sessions: Array<{ id, title?, createdAt, updatedAt }> }
+{ type: 'session:list:data', sessions: Array<{ id, title?, createdAt, updatedAt, pinned?, archived? }> }
 { type: 'session:title', sessionId: string, title: string }
 
 // 配置响应
@@ -54,7 +54,7 @@
 { type: 'session:new', system?: string }
 { type: 'session:load', sessionId: string }
 { type: 'session:list' }
-{ type: 'session:update', sessionId: string, title?: string, mode?: string, thinkingLevel?: string }
+{ type: 'session:update', sessionId: string, title?: string, mode?: string, thinkingLevel?: string, pinned?: boolean, archived?: boolean }
 { type: 'session:delete', sessionId: string }
 { type: 'session:generate-title', sessionId: string }
 
