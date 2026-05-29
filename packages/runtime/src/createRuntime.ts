@@ -445,7 +445,12 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       if (storage) return storage.getSession(sessionId)
       return undefined
     },
-    updateSession: async (session) => deps.sessions.update(session),
+    updateSession: async (session) => {
+      deps.sessions.update(session)
+      const storages = deps.registries.storages.list()
+      const storage = storages[0]?.value
+      if (storage) await storage.updateSession(session)
+    },
     listSessions: async () => {
       const storages = deps.registries.storages.list()
       const storage = storages[0]?.value

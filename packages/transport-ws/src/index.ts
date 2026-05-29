@@ -364,9 +364,6 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           if (msg.pinned !== undefined) changed.push(msg.pinned ? '已置顶' : '取消置顶')
           if (msg.archived !== undefined) changed.push(msg.archived ? '已归档' : '取消归档')
           logger?.info(`已更新 session ${msg.sessionId}: ${changed.join(', ')}`)
-          const storages = (rt as any).registries?.storages?.list()
-          const storage = storages?.[0]?.value
-          if (storage) await storage.updateSession(updated)
           await rt.updateSession(updated)
         }
         const sessions = await rt.listSessions()

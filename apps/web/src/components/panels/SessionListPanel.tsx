@@ -4,7 +4,7 @@
  * 时间分组 + 搜索 + 右键/菜单操作（置顶/重命名/归档/删除）
  */
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { X, MoreHorizontal, Pin, PinOff, Archive, Pencil, Trash2 } from 'lucide-react'
+import { X, MoreHorizontal, Pin, PinOff, Archive, ArchiveRestore, Pencil, Trash2 } from 'lucide-react'
 import { Icon } from '../ui'
 
 interface SessionSummary {
@@ -59,6 +59,7 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
   const [renameValue, setRenameValue] = useState('')
   const [menuSession, setMenuSession] = useState<string | null>(null)
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
+  const [archivedView, setArchivedView] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -66,8 +67,21 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
     if (hovered) searchRef.current?.focus()
   }, [hovered])
 
-  // 过滤 + 排序（置顶在最前，其余按时间倒序）
+  // 所有归档会话（搜索时也匹配）
+  const archivedList = useMemo(() => {
+    let list = sessions.filter(s => s.archived)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      list = list.filter((s) => (s.title ?? s.id).toLowerCase().includes(q))
+    }
+    return [...list].sort((a, b) => b.createdAt - a.createdAt)
+  }, [sessions, search])
+
+  const archivedCount = useMemo(() => sessions.filter(s => s.archived).length, [sessions])
+
+  // 根据模式决定显示的会话
   const filtered = useMemo(() => {
+    if (archivedView) return archivedList
     let list = sessions.filter(s => !s.archived)
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -78,7 +92,7 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
       if (!a.pinned && b.pinned) return 1
       return b.createdAt - a.createdAt
     })
-  }, [sessions, search])
+  }, [sessions, search, archivedView, archivedList])
 
   // 分组
   const groups = useMemo(() => {
@@ -96,10 +110,8 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
     Array.from(groups.keys()).sort((a, b) => (GROUP_PRIORITY[a] ?? 99) - (GROUP_PRIORITY[b] ?? 99)),
   [groups])
 
-  // 菜单关闭
   const closeMenu = useCallback(() => { setMenuSession(null); setMenuPos(null); setRenameId(null) }, [])
 
-  // 重命名
   const startRename = useCallback((id: string, title?: string) => {
     setRenameId(id); setRenameValue(title ?? ''); setMenuSession(null); setMenuPos(null)
   }, [])
@@ -109,7 +121,6 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
     setRenameId(null)
   }, [renameValue, onUpdate])
 
-  // 右键菜单
   const handleContextMenu = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault()
     setRenameId(null)
@@ -117,7 +128,6 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
     setMenuPos({ x: e.clientX, y: e.clientY })
   }, [])
 
-  // 点击菜单外部关闭
   useEffect(() => {
     if (!menuPos) return
     const handler = (e: MouseEvent) => {
@@ -150,6 +160,16 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
             </button>
           )}
         </div>
+        {!archivedView && archivedCount > 0 && (
+          <button onClick={() => { setArchivedView(true); setSearch('') }}
+            className="text-[10px] px-2 py-1.5 rounded flex items-center gap-1 shrink-0 whitespace-nowrap transition-colors duration-100"
+            style={{ color: 'var(--crai-fg-tertiary)', border: '1px solid var(--crai-border)' }}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--crai-accent)'}
+            onMouseLeave={(e) => e.currentTarget.style.border = '1px solid var(--crai-border)'}>
+            <Archive size={10} />
+            归档{archivedCount}
+          </button>
+        )}
         <button onClick={onNew}
           className="text-[10px] px-2 py-1.5 rounded font-medium text-white shrink-0"
           style={{ backgroundColor: 'var(--crai-accent)' }}>+ 新建</button>
@@ -162,6 +182,71 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
             <LoaderSpinner />
             <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>加载会话列表…</div>
           </div>
+        ) : archivedView ? (
+          <>
+            <div className="flex items-center gap-1 px-1 py-1 mb-1">
+              <button onClick={() => setArchivedView(false)}
+                className="text-[10px] font-medium"
+                style={{ color: 'var(--crai-accent)' }}>
+                ← 返回
+              </button>
+              <span className="text-[10px]" style={{ color: 'var(--crai-fg-tertiary)' }}>
+                归档会话
+              </span>
+            </div>
+            {archivedList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 space-y-2">
+                <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>
+                  {search ? '无匹配归档' : '暂无归档'}
+                </div>
+              </div>
+            ) : (
+              archivedList.map((s) => {
+                const isRenaming = renameId === s.id
+                return (
+                  <div key={s.id}
+                    onContextMenu={(e) => handleContextMenu(e, s.id)}
+                    className="group flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer transition-colors duration-150"
+                    style={{
+                      backgroundColor: s.id === currentSessionId ? 'var(--crai-bg-tertiary)' : 'transparent',
+                      color: 'var(--crai-fg)',
+                      opacity: 0.65,
+                    }}
+                    onClick={() => { if (!isRenaming) onSelect(s.id) }}>
+                    {isRenaming ? (
+                      <input autoFocus value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => commitRename(s.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') commitRename(s.id); if (e.key === 'Escape') setRenameId(null) }}
+                        className="flex-1 text-xs px-1 py-0.5 rounded outline-none min-w-0"
+                        style={{ backgroundColor: 'var(--crai-bg)', color: 'var(--crai-fg)', border: '1px solid var(--crai-accent)' }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className="flex-1 text-xs truncate">{s.title ?? s.id.slice(0, 12)}</span>
+                    )}
+                    {!isRenaming && (
+                      <span className="shrink-0 text-[10px] tabular-nums opacity-70" style={{ color: 'var(--crai-fg-40)' }}>
+                        {relativeTime(s.createdAt)}
+                      </span>
+                    )}
+                    {!isRenaming && (
+                      <button onClick={(e) => {
+                        e.stopPropagation()
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setMenuSession(menuSession === s.id ? null : s.id)
+                        setMenuPos(menuSession === s.id ? null : { x: rect.right - 140, y: rect.bottom + 2 })
+                      }}
+                        className="p-0.5 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity duration-150 shrink-0"
+                        style={{ color: 'var(--crai-fg-40)' }}>
+                        <Icon icon={MoreHorizontal} size="xs" />
+                      </button>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </>
         ) : groupKeys.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 space-y-2">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"
@@ -171,9 +256,17 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
             <div className="text-xs" style={{ color: 'var(--crai-fg-tertiary)' }}>
               {search ? '无匹配会话' : '暂无会话'}
             </div>
+            {!search && archivedCount > 0 && (
+              <button onClick={() => setArchivedView(true)}
+                className="text-[10px] mt-1 px-2 py-0.5 rounded"
+                style={{ color: 'var(--crai-accent)', border: '1px solid var(--crai-border)' }}>
+                查看 {archivedCount} 个归档会话 ↗
+              </button>
+            )}
           </div>
         ) : (
-          groupKeys.map((label) => (
+          <>
+            {groupKeys.map((label) => (
             <div key={label} className="mb-2">
                 {label === '置顶' ? (
                   <span className="flex items-center gap-1 text-[10px] font-medium px-1 py-1" style={{ color: 'var(--crai-fg-tertiary)' }}>
@@ -196,7 +289,6 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
                       color: 'var(--crai-fg)',
                     }}
                     onClick={() => { if (!isRenaming) onSelect(s.id) }}>
-                    {/* 标题/重命名输入 */}
                     {isRenaming ? (
                       <input autoFocus
                         value={renameValue}
@@ -208,7 +300,7 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : (
-                      <span className="flex-1 text-xs truncate">{s.title ?? s.id.slice(0, 12)}</span>
+                      <span className="flex-1 text-xs truncate opacity-70">{s.title ?? s.id.slice(0, 12)}</span>
                     )}
 
                     {/* 时间 */}
@@ -224,7 +316,7 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
                         e.stopPropagation()
                         const rect = e.currentTarget.getBoundingClientRect()
                         setMenuSession(menuSession === s.id ? null : s.id)
-                        setMenuPos(menuSession === s.id ? null : { x: rect.left - 100, y: rect.bottom + 4 })
+                        setMenuPos(menuSession === s.id ? null : { x: rect.right - 140, y: rect.bottom + 2 })
                       }}
                         className="p-0.5 opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity duration-150 shrink-0"
                         style={{ color: 'var(--crai-fg-40)' }}>
@@ -235,11 +327,11 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
                 )
               })}
             </div>
-          ))
+          ))}
+          </>
         )}
       </div>
 
-      {/* 浮动菜单 */}
       {/* 浮动菜单（按钮/右键统一） */}
       {menuPos && menuSession && (
         <div ref={menuRef}
@@ -266,8 +358,6 @@ export function SessionListPanel({ sessions, currentSessionId, onSelect, onNew, 
   )
 }
 
-// ── 菜单内容 ──
-
 function MenuContent({ sessionId, session, onClose, onUpdate, onDelete, onRename }: {
   sessionId: string
   session?: SessionSummary
@@ -276,17 +366,22 @@ function MenuContent({ sessionId, session, onClose, onUpdate, onDelete, onRename
   onDelete: (id: string) => void
   onRename: (id: string, title?: string) => void
 }) {
+  const isArchived = session?.archived
   return (
     <div>
-      <MenuItem icon={<Icon icon={session?.pinned ? PinOff : Pin} size="xs" />}
-        label={session?.pinned ? '取消置顶' : '置顶'}
-        onClick={() => { onUpdate?.(sessionId, { pinned: !session?.pinned }); onClose() }} />
-      <MenuItem icon={<Icon icon={Pencil} size="xs" />}
-        label="重命名"
-        onClick={() => { onRename(sessionId, session?.title); onClose() }} />
-      <MenuItem icon={<Icon icon={Archive} size="xs" />}
-        label="归档"
-        onClick={() => { onUpdate?.(sessionId, { archived: true }); onClose() }} />
+      {!isArchived && (
+        <>
+          <MenuItem icon={<Icon icon={session?.pinned ? PinOff : Pin} size="xs" />}
+            label={session?.pinned ? '取消置顶' : '置顶'}
+            onClick={() => { onUpdate?.(sessionId, { pinned: !session?.pinned }); onClose() }} />
+          <MenuItem icon={<Icon icon={Pencil} size="xs" />}
+            label="重命名"
+            onClick={() => { onRename(sessionId, session?.title); onClose() }} />
+        </>
+      )}
+      <MenuItem icon={<Icon icon={isArchived ? ArchiveRestore : Archive} size="xs" />}
+        label={isArchived ? '取消归档' : '归档'}
+        onClick={() => { onUpdate?.(sessionId, { archived: !isArchived }); onClose() }} />
       <div className="mx-2 my-1" style={{ height: 1, backgroundColor: 'var(--crai-border)' }} />
       <MenuItem icon={<Icon icon={Trash2} size="xs" />}
         label="删除"
@@ -308,38 +403,6 @@ function MenuItem({ icon, label, onClick, danger }: { icon: React.ReactNode; lab
       {icon}
       {label}
     </button>
-  )
-}
-
-// ── 菜单（浮动在按钮下方） ──
-
-function SessionMenu({ sessionId, session, onClose, onUpdate, onDelete, onRename }: {
-  sessionId: string
-  session?: SessionSummary
-  onClose: () => void
-  onUpdate?: (id: string, updates: { title?: string; pinned?: boolean; archived?: boolean }) => void
-  onDelete: (id: string) => void
-  onRename: (id: string, title?: string) => void
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [onClose])
-
-  return (
-    <div ref={ref}
-      className="absolute bottom-full left-2 mb-1 rounded-lg py-1 z-10"
-      style={{
-        backgroundColor: 'var(--crai-bg)',
-        border: '1px solid var(--crai-border)',
-        boxShadow: 'var(--crai-shadow-elevated)',
-        minWidth: 130,
-      }}
-    >
-      <MenuContent {...{ sessionId, session, onClose, onUpdate, onDelete, onRename }} />
-    </div>
   )
 }
 

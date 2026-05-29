@@ -237,7 +237,7 @@ export interface WorkspaceConfigDataMessage {
 /** session 列表响应。 */
 export interface SessionListDataMessage {
   type: 'session:list:data'
-  sessions: Array<{ id: string; title?: string; createdAt: number; updatedAt: number }>
+  sessions: Array<{ id: string; title?: string; createdAt: number; updatedAt: number; pinned?: boolean; archived?: boolean }>
 }
 
 /** session 历史消息响应。服务端返回时按需附带 blocks。 */
