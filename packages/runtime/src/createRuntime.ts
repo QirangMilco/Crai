@@ -325,7 +325,6 @@ async function handleCreateSession(
   input?: Metadata,
   sessionId?: string,
 ): Promise<Session> {
-  // 优先使用注册的 session pipeline
   const pipeline = deps.registries.sessionPipelines.get(DEFAULT_PIPELINE_NAME)
   if (pipeline) {
     return pipeline.createSession(input, sessionId as any)
@@ -334,6 +333,10 @@ async function handleCreateSession(
   await deps.hooks.run(HOOKS.SESSION_BEFORE_START, { session: { id: '', createdAt: 0, updatedAt: 0 }, input }, { runtime })
   const session = await deps.sessions.create(input, sessionId)
   deps.traceCollector?.note(`createSession — ${session.id}`)
+  // 持久化新 session 到磁盘，使 listSessions 立即可见
+  const storages = deps.registries.storages.list()
+  const storage = storages[0]?.value
+  if (storage) await storage.updateSession(session)
   await deps.events.emit(EVENTS.SESSION_CREATED, { session })
   return session
 }

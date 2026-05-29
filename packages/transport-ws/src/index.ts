@@ -124,6 +124,11 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           const newSession = await rt.createSession()
           currentSessionId = newSession.id
           opts.sessionId = currentSessionId
+          // 设置初始标题为用户第一条消息的截断
+          const initialTitle = msg.text && msg.text.trim() ? msg.text.trim().slice(0, 60) : undefined
+          if (initialTitle) {
+            await rt.updateSession({ ...newSession, title: initialTitle, updatedAt: Date.now() })
+          }
           ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
         } else {
           opts.sessionId = sessionId
@@ -326,9 +331,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             // 持久化标题
             const session = await rt.getSession(msg.sessionId)
             if (session) {
-              const storages = (rt as any).registries?.storages?.list()
-              const storage = storages?.[0]?.value
-              if (storage) await storage.updateSession({ ...session, title: cleanTitle, updatedAt: Date.now() })
+              await rt.updateSession({ ...session, title: cleanTitle, updatedAt: Date.now() })
             }
             logger?.info(`标题生成成功: ${cleanTitle}`)
             debugLog(DEBUG_SCOPES.TITLE_GEN, 'success', { title: cleanTitle }, logger)
