@@ -87,11 +87,6 @@ export const ui = {
   mockLabel: 'Mock（测试）',
 
   // InfoIsland
-  infoProvider: '供应商',
-  infoModel: '模型',
-  infoThinking: '思考深度',
-  infoMode: '模式',
-  infoElapsed: '已用时间',
   infoContext: '上下文',
 } as const
 

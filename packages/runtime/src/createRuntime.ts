@@ -209,8 +209,20 @@ async function handlePrompt(
   let session: Session
   if (promptOptions?.sessionId) {
     const existing = deps.sessions.get(promptOptions.sessionId)
-    // 内存中不存在时用原 ID 重建 session，保证 storage 中的历史可被加载
-    session = existing ?? await runtime.createSession(promptOptions.metadata, promptOptions.sessionId)
+    if (existing) {
+      session = existing
+    } else {
+      // 从 storage 恢复 session（含 todos 等元数据）
+      const storages = deps.registries.storages.list()
+      const storage = storages[0]?.value
+      const stored = storage ? await storage.getSession(promptOptions.sessionId) : undefined
+      if (stored) {
+        session = stored
+        deps.sessions.update(session)
+      } else {
+        session = await runtime.createSession(promptOptions.metadata, promptOptions.sessionId)
+      }
+    }
   } else {
     session = await runtime.createSession(promptOptions?.metadata)
   }
@@ -425,7 +437,14 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
     prompt: (input, opts) => handlePrompt(deps, runtime, input, opts),
     createSession: (input, sessionId) => handleCreateSession(deps, runtime, input, sessionId),
     stopSession: (sessionId, messages) => handleStopSession(deps, runtime, sessionId, messages),
-    getSession: async (sessionId) => deps.sessions.get(sessionId) ?? undefined,
+    getSession: async (sessionId) => {
+      const mem = deps.sessions.get(sessionId)
+      if (mem) return mem
+      const storages = deps.registries.storages.list()
+      const storage = storages[0]?.value
+      if (storage) return storage.getSession(sessionId)
+      return undefined
+    },
     updateSession: async (session) => deps.sessions.update(session),
     listSessions: async () => {
       const storages = deps.registries.storages.list()

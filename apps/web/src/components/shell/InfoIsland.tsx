@@ -1,43 +1,48 @@
 /**
  * InfoIsland — 顶栏中间的 Dynamic Island。
  *
- * 默认显示紧凑的信息胶囊（模型名）。
- * Hover 展开显示更多详情（供应商、模型、思考深度、模式、会话耗时）。
- *
- * 纯展示，通过 React state + hover 事件控制显隐。
+ * 常驻：连接状态点 + 上下文进度条 + 轮次数
+ * Hover 展开：精确数字
  */
-import { useState, useEffect } from 'react'
-import { ui } from '../ConfigPanel.strings'
+import { useState } from 'react'
 
 interface Props {
-  model?: string
-  provider?: string
-  thinkingLevel?: string
-  mode?: string
-  connected?: boolean
+  status?: 'connected' | 'disconnected'
+  isProcessing?: boolean
+  turnCount?: number
+  /** 已使用 token（服务端推送后生效） */
+  usedTokens?: number
+  /** 上下文窗口大小 */
+  contextWindow?: number
 }
 
-export function InfoIsland({
-  model,
-  provider,
-  thinkingLevel,
-  mode,
-  connected,
-}: Props) {
-  const [sessionStart] = useState(Date.now())
-  const [elapsed, setElapsed] = useState('0s')
+function formatToken(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
+
+const STATUS_DOT: Record<string, { color: string; label: string }> = {
+  idle: { color: 'var(--crai-success)', label: '空闲' },
+  processing: { color: 'var(--crai-info)', label: '处理中' },
+  disconnected: { color: 'var(--crai-fg-40)', label: '断开' },
+  error: { color: 'var(--crai-destructive)', label: '错误' },
+}
+
+function deriveStatus(status?: string, isProcessing?: boolean): keyof typeof STATUS_DOT {
+  if (status === 'disconnected') return 'disconnected'
+  if (isProcessing) return 'processing'
+  return 'idle'
+}
+
+export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contextWindow }: Props) {
   const [hovered, setHovered] = useState(false)
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const secs = Math.floor((Date.now() - sessionStart) / 1000)
-      if (secs < 60) setElapsed(`${secs}秒`)
-      else setElapsed(`${Math.floor(secs / 60)}分${secs % 60}秒`)
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [sessionStart])
-
-  if (!model && !provider) return null
+  const dotKey = deriveStatus(status, isProcessing)
+  const dot = STATUS_DOT[dotKey]
+  const percentage = usedTokens !== undefined && contextWindow
+    ? Math.min((usedTokens / contextWindow) * 100, 100)
+    : undefined
+  const isWarning = percentage !== undefined && percentage > 80
 
   return (
     <div
@@ -47,24 +52,50 @@ export function InfoIsland({
     >
       {/* 胶囊 */}
       <div
-        className="flex items-center gap-2 px-2.5 py-0.5 rounded-md cursor-default transition-all duration-150"
+        className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md cursor-default transition-all duration-150"
         style={{
           backgroundColor: hovered ? 'var(--crai-bg-5)' : 'var(--crai-bg-tertiary)',
           border: '1px solid var(--crai-border)',
         }}
       >
-        <span className="text-[11px] font-medium truncate max-w-[100px]" style={{ color: 'var(--crai-fg)' }}>
-          {model || provider}
-        </span>
-        {connected !== undefined && (
-          <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ backgroundColor: connected ? 'var(--crai-success)' : 'var(--crai-destructive)' }}
+        {/* 状态点 */}
+        <span
+          className="w-1.5 h-1.5 rounded-full shrink-0"
+          style={{ backgroundColor: dot.color }}
+        />
+
+        {/* 进度条 */}
+        <div
+          className="rounded-full shrink-0"
+          style={{ width: 48, height: 4, backgroundColor: 'var(--crai-bg-5)', overflow: 'hidden' }}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${Math.max(percentage ?? 15, 2)}%`,
+              backgroundColor: isWarning ? 'var(--crai-info)' : 'var(--crai-accent)',
+            }}
           />
+        </div>
+
+        {/* token */}
+        <span
+          className="text-[11px] tabular-nums font-medium"
+          style={{ color: isWarning ? 'var(--crai-info)' : 'var(--crai-fg-60)' }}
+        >
+          {usedTokens !== undefined ? formatToken(usedTokens) : '?'}
+          {contextWindow ? `/${formatToken(contextWindow)}` : ''}
+        </span>
+
+        {/* 轮次 */}
+        {turnCount !== undefined && turnCount > 0 && (
+          <span className="text-[11px]" style={{ color: 'var(--crai-fg-40)' }}>
+            {turnCount}轮
+          </span>
         )}
       </div>
 
-      {/* 弹出详情 */}
+      {/* 弹出 */}
       {hovered && (
         <div
           className="absolute top-full left-1/2 -translate-x-1/2 pt-2"
@@ -81,36 +112,28 @@ export function InfoIsland({
             }}
           >
             <table>
-              <tbody>
-                {provider && (
-                  <tr>
-                    <td className="pr-6" style={{ color: 'var(--crai-fg-40)' }}>{ui.infoProvider}</td>
-                    <td>{provider}</td>
-                  </tr>
-                )}
-                {model && (
-                  <tr>
-                    <td className="pr-6" style={{ color: 'var(--crai-fg-40)' }}>{ui.infoModel}</td>
-                    <td>{model}</td>
-                  </tr>
-                )}
-                {thinkingLevel && (
-                  <tr>
-                    <td className="pr-6" style={{ color: 'var(--crai-fg-40)' }}>{ui.infoThinking}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{thinkingLevel}</td>
-                  </tr>
-                )}
-                {mode && (
-                  <tr>
-                    <td className="pr-6" style={{ color: 'var(--crai-fg-40)' }}>{ui.infoMode}</td>
-                    <td>{mode}</td>
-                  </tr>
-                )}
+              <tr>
+                <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>状态</td>
+                <td style={{ color: dot.color }}>{dot.label}</td>
+              </tr>
+              {percentage !== undefined && (
                 <tr>
-                  <td className="pr-6" style={{ color: 'var(--crai-fg-40)' }}>{ui.infoElapsed}</td>
-                  <td className="tabular-nums">{elapsed}</td>
+                  <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>上下文</td>
+                  <td className="tabular-nums">{percentage.toFixed(1)}%</td>
                 </tr>
-              </tbody>
+              )}
+              {usedTokens !== undefined && contextWindow !== undefined && (
+                <tr>
+                  <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>Tokens</td>
+                  <td className="tabular-nums">{formatToken(usedTokens)} / {formatToken(contextWindow)}</td>
+                </tr>
+              )}
+              {turnCount !== undefined && (
+                <tr>
+                  <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>轮次</td>
+                  <td>{turnCount}</td>
+                </tr>
+              )}
             </table>
           </div>
         </div>

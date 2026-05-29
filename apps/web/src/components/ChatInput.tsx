@@ -94,7 +94,11 @@ export function ChatInput({
 
           {/* 中：todo 进度 */}
           <div className="flex-1 flex justify-center min-w-0">
-            <TodoBar todos={useChatStore((s) => s.todos)} />
+            <TodoBar todos={useChatStore((s) => s.todos)} onAddTodo={() => {
+              // 聚焦输入框让用户输入创建待办的指令
+              const ta = document.querySelector<HTMLTextAreaElement>('textarea[placeholder]')
+              ta?.focus()
+            }} />
           </div>
 
           {/* 右：模型 + 思考 + 发送 */}

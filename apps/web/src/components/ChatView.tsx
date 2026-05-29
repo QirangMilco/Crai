@@ -301,34 +301,22 @@ export function ChatView({ wsUrl }: Props) {
         {/* 中：Dynamic Island */}
         <div className="flex items-center justify-center" style={{ flex: 1 }}>
           <InfoIsland
-            model={currentModel?.includes('/') ? currentModel.split('/')[1] : currentModel}
-            provider={currentModel?.includes('/') ? currentModel.split('/')[0] : undefined}
-            thinkingLevel={thinkingLevel}
-            mode={sessionMode}
-            connected={status === 'connected'}
+            status={status}
+            isProcessing={messages.some((m) => m.activities?.some((a) => a.status === 'running'))}
+            turnCount={messages.filter((m) => m.role === 'user').length}
           />
         </div>
 
-        {/* 右：状态 + 设置 */}
+        {/* 右：设置 */}
         <div className="flex items-center gap-2 justify-end" style={{ flex: 1 }}>
           <button onClick={() => { send({ type: 'config:get' }); setShowConfig((s) => !s) }}
-            className="px-2 py-1 rounded text-xs font-medium transition-colors duration-150 inline-flex items-center gap-1"
-            style={{ backgroundColor: showConfig ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)', color: showConfig ? '#fff' : 'var(--crai-fg-secondary)' }}>
+            className="p-1.5 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
+            style={{ color: showConfig ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}>
             <Icon icon={Settings} size="xs" /></button>
           <button onClick={() => setShowInspector((s) => !s)}
-            className="px-2 py-1 rounded text-xs font-medium transition-colors duration-150 inline-flex items-center gap-1"
-            style={{ backgroundColor: showInspector ? 'var(--crai-accent)' : 'var(--crai-bg-tertiary)', color: showInspector ? '#fff' : 'var(--crai-fg-secondary)' }}>
+            className="p-1.5 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
+            style={{ color: showInspector ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}>
             <Icon icon={Palette} size="xs" /></button>
-          <span className="flex items-center gap-1.5 text-[11px] shrink-0 pl-1 border-l"
-            style={{ color: 'var(--crai-fg-tertiary)', borderColor: 'var(--crai-border)' }}>
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{
-                backgroundColor: status === 'connected' ? 'var(--crai-success)' : 'var(--crai-destructive)',
-              }}
-            />
-            {status === 'connected' ? '已连接' : '断开'}
-          </span>
         </div>
       </header>
 
