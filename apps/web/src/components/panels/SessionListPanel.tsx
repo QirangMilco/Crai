@@ -366,6 +366,7 @@ function MenuContent({ sessionId, session, onClose, onUpdate, onDelete, onRename
   onDelete: (id: string) => void
   onRename: (id: string, title?: string) => void
 }) {
+  const [deleting, setDeleting] = useState(false)
   const isArchived = session?.archived
   return (
     <div>
@@ -383,10 +384,25 @@ function MenuContent({ sessionId, session, onClose, onUpdate, onDelete, onRename
         label={isArchived ? '取消归档' : '归档'}
         onClick={() => { onUpdate?.(sessionId, { archived: !isArchived }); onClose() }} />
       <div className="mx-2 my-1" style={{ height: 1, backgroundColor: 'var(--crai-border)' }} />
-      <MenuItem icon={<Icon icon={Trash2} size="xs" />}
-        label="删除"
-        onClick={() => { onDelete(sessionId); onClose() }}
-        danger />
+      {deleting ? (
+        <div className="flex gap-1 px-3 py-1.5">
+          <button onClick={() => { onDelete(sessionId); onClose() }}
+            className="flex-1 text-[10px] py-1 rounded font-medium text-white"
+            style={{ backgroundColor: 'var(--crai-destructive)' }}>
+            确认
+          </button>
+          <button onClick={() => setDeleting(false)}
+            className="flex-1 text-[10px] py-1 rounded"
+            style={{ color: 'var(--crai-fg-secondary)', border: '1px solid var(--crai-border)' }}>
+            取消
+          </button>
+        </div>
+      ) : (
+        <MenuItem icon={<Icon icon={Trash2} size="xs" />}
+          label="删除"
+          onClick={() => setDeleting(true)}
+          danger />
+      )}
     </div>
   )
 }

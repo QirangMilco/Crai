@@ -665,6 +665,9 @@ export async function runTurn(
     if (u.outputTokens) acc.outputTokens += u.outputTokens
     if (u.cachedInputTokens) acc.cachedInputTokens += u.cachedInputTokens
     session.usageAccumulated = acc
+    // 保存本轮 usage 到 metadata（用于跨刷新显示）
+    if (!session.metadata) session.metadata = {}
+    ;(session.metadata as Record<string, unknown>).lastRoundUsage = { inputTokens: u.inputTokens, outputTokens: u.outputTokens, cachedInputTokens: u.cachedInputTokens }
     await runtime.updateSession(session)
   } else if (finalResponse?.message?.parts) {
     // API 未返回 usage 时从文本估算
@@ -676,6 +679,8 @@ export async function runTurn(
       acc.inputTokens += inputs
       acc.outputTokens += Math.ceil(inputs / 2)  // 输出通常比输入少
       session.usageAccumulated = acc
+      if (!session.metadata) session.metadata = {}
+      ;(session.metadata as Record<string, unknown>).lastRoundUsage = { inputTokens: inputs, outputTokens: Math.ceil(inputs / 2), cachedInputTokens: 0 }
       await runtime.updateSession(session)
       debugLog(DEBUG_SCOPES.USAGE, 'estimated usage from text', { inputTokens: acc.inputTokens, outputTokens: acc.outputTokens }, deps.logger)
     }

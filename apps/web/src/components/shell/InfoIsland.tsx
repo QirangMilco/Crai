@@ -144,10 +144,10 @@ export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contex
           </span>
         )}
 
-        {/* 成本（仅当有定价数据时显示） */}
-        {cost !== null && (
+        {/* 成本（显示会话累积或本轮成本） */}
+        {(totalCost !== null || cost !== null) && (
           <span className="text-[11px] tabular-nums" style={{ color: 'var(--crai-fg-40)' }}>
-            {formatCost(cost, currency ?? 'USD')}
+            {totalCost !== null ? formatCost(totalCost, currency ?? 'USD') : formatCost(cost, currency ?? 'USD')}
           </span>
         )}
       </div>
@@ -186,64 +186,70 @@ export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contex
                     <td className="tabular-nums">{formatToken(usedTokens)} / {formatToken(contextWindow)}</td>
                   </tr>
                 )}
-                {lastUsage?.inputTokens !== undefined && (
+              </tbody>
+            </table>
+
+            {/* 本轮 */}
+            {lastUsage?.inputTokens !== undefined && (
+              <>
+                <div className="text-[10px] mt-2 mb-1" style={{ color: 'var(--crai-fg-40)', opacity: 0.7 }}>本轮</div>
+                <table><tbody>
                   <tr>
                     <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输入</td>
                     <td className="tabular-nums">{formatToken(lastUsage.inputTokens)} tokens</td>
                   </tr>
-                )}
-                {lastUsage?.outputTokens !== undefined && (
+                  {lastUsage?.cachedInputTokens !== undefined && (
+                    <tr>
+                      <td className="pl-3 pr-5" style={{ color: 'var(--crai-fg-40)' }}>├ 缓存命中</td>
+                      <td className="tabular-nums" style={{ color: (lastUsage.cachedInputTokens ?? 0) > 0 ? 'var(--crai-success)' : 'var(--crai-fg-40)' }}>{formatToken(lastUsage.cachedInputTokens ?? 0)} tokens</td>
+                    </tr>
+                  )}
                   <tr>
                     <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输出</td>
                     <td className="tabular-nums">{formatToken(lastUsage.outputTokens)} tokens</td>
                   </tr>
-                )}
-                {lastUsage?.cachedInputTokens !== undefined && lastUsage.cachedInputTokens > 0 && (
+                  {cost !== null && (
+                    <tr>
+                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>成本</td>
+                      <td className="tabular-nums">{formatCost(cost, currency ?? 'USD')}</td>
+                    </tr>
+                  )}
+                </tbody></table>
+              </>
+            )}
+
+            {/* 会话累计 */}
+            {(accInputTokens ?? 0) > 0 && (
+              <>
+                <div className="text-[10px] mt-2 mb-1" style={{ color: 'var(--crai-fg-40)', opacity: 0.7 }}>会话累计</div>
+                <table><tbody>
                   <tr>
-                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>缓存命中</td>
-                    <td className="tabular-nums" style={{ color: 'var(--crai-success)' }}>{formatToken(lastUsage.cachedInputTokens)} tokens</td>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>总成本</td>
+                    <td className="tabular-nums">{totalCost !== null ? formatCost(totalCost, currency ?? 'USD') : modelPricing ? '-' : '(未设置定价)'}</td>
                   </tr>
-                )}
-                {cost !== null && (
                   <tr>
-                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>本轮成本</td>
-                    <td className="tabular-nums">{formatCost(cost, currency ?? 'USD')}</td>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输入</td>
+                    <td className="tabular-nums">{formatToken(accInputTokens ?? 0)} tokens</td>
                   </tr>
-                )}
-                {totalCost !== null && (
-                  <>
-                    <tr><td colSpan={2} style={{ height: 6 }} /></tr>
+                  {accCachedInputTokens !== undefined && (
                     <tr>
-                      <td className="pr-5 text-[10px]" style={{ color: 'var(--crai-fg-40)', opacity: 0.7 }} colSpan={2}>会话累计</td>
+                      <td className="pl-3 pr-5" style={{ color: 'var(--crai-fg-40)' }}>├ 缓存命中</td>
+                      <td className="tabular-nums" style={{ color: (accCachedInputTokens ?? 0) > 0 ? 'var(--crai-success)' : 'var(--crai-fg-40)' }}>{formatToken(accCachedInputTokens ?? 0)} tokens</td>
                     </tr>
-                    <tr>
-                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>总成本</td>
-                      <td className="tabular-nums">{formatCost(totalCost, currency ?? 'USD')}</td>
-                    </tr>
-                    <tr>
-                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输入</td>
-                      <td className="tabular-nums">{formatToken(accInputTokens ?? 0)} tokens</td>
-                    </tr>
-                    {accCachedInputTokens !== undefined && accCachedInputTokens > 0 && (
-                      <tr>
-                        <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>缓存</td>
-                        <td className="tabular-nums" style={{ color: 'var(--crai-success)' }}>{formatToken(accCachedInputTokens)} tokens</td>
-                      </tr>
-                    )}
-                    <tr>
-                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输出</td>
-                      <td className="tabular-nums">{formatToken(accOutputTokens ?? 0)} tokens</td>
-                    </tr>
-                  </>
-                )}
-                {turnCount !== undefined && (
+                  )}
                   <tr>
-                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>轮次</td>
-                    <td>{turnCount}</td>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输出</td>
+                    <td className="tabular-nums">{formatToken(accOutputTokens ?? 0)} tokens</td>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                  {turnCount !== undefined && (
+                    <tr>
+                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>轮次</td>
+                      <td>{turnCount}</td>
+                    </tr>
+                  )}
+                </tbody></table>
+              </>
+            )}
           </div>
         </div>
       )}

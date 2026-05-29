@@ -7,7 +7,7 @@ import { ConfirmBar } from './ConfirmBar'
 import { InspectorPanel } from './InspectorPanel'
 import { ConfigPanel } from './ConfigPanel'
 import { useChatStore } from '../store/chat'
-import { debugLog } from '../utils/debug'
+import { debugLog, DEBUG_SCOPES } from '../utils/debug'
 import { ShellLayout } from './shell/ShellLayout'
 import { registerPanels } from './shell/PanelRegistry'
 import { SessionListPanel } from './panels/SessionListPanel'
@@ -123,16 +123,15 @@ export function ChatView({ wsUrl }: Props) {
       // 转发给工作区选择浏览器
       workspaceBrowseRef.current?.(data)
     },
-    onUsageAccumulated: (acc) => {
-      setAccInputTokens(acc.inputTokens)
-      setAccOutputTokens(acc.outputTokens)
-      setAccCachedInputTokens(acc.cachedInputTokens)
-    },
     onUsage: (usage) => {
       setLastUsage(usage)
-      if (usage.inputTokens) setAccInputTokens((p) => p + usage.inputTokens!)
-      if (usage.outputTokens) setAccOutputTokens((p) => p + usage.outputTokens!)
-      if (usage.cachedInputTokens) setAccCachedInputTokens((p) => p + usage.cachedInputTokens!)
+    },
+    onUsageAccumulated: (acc) => {
+      debugLog(DEBUG_SCOPES.USAGE, 'onUsageAccumulated', acc)
+      // 取最大值而非覆盖——因为 onUsage 可能在之后加上本轮用量
+      setAccInputTokens((prev) => Math.max(prev, acc.inputTokens))
+      setAccOutputTokens((prev) => Math.max(prev, acc.outputTokens))
+      setAccCachedInputTokens((prev) => Math.max(prev, acc.cachedInputTokens))
     },
   }).handler
   onMessageRef.current = wsHandler
@@ -154,6 +153,7 @@ export function ChatView({ wsUrl }: Props) {
   const handleNewSession = useCallback(() => {
     store.getState().clearMessages()
     setSessionId(null)
+    setLastUsage(null)
     setAccInputTokens(0)
     setAccOutputTokens(0)
     setAccCachedInputTokens(0)
@@ -172,7 +172,7 @@ export function ChatView({ wsUrl }: Props) {
     }
     setThinkingLevel(defaultLevel)
     setSessionMode('ask')
-    send({ type: 'session:new' })
+    // 不发送 session:new —— 会话会在用户首次发送消息时自动创建
   }, [send, store, currentModel, knownModels])
 
   const handleDeleteSession = useCallback((sid: string) => {
@@ -183,6 +183,8 @@ export function ChatView({ wsUrl }: Props) {
   const handleSwitchSession = useCallback((sid: string) => {
     store.getState().clearMessages()
     setSessionId(sid)
+    setLastUsage(null)
+    setLastUsage(null)
     setAccInputTokens(0)
     setAccOutputTokens(0)
     setAccCachedInputTokens(0)

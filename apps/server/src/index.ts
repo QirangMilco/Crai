@@ -333,7 +333,7 @@ async function main() {
         return {
           firstParty: [...FIRST_PARTY_PROVIDERS],
           knownModels: (() => {
-            const result: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[] }>> = {}
+            const result: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[]; inputPrice?: number; cachedInputPrice?: number; outputPrice?: number }>> = {}
             for (const [provider, models] of Object.entries(KNOWN_MODELS)) {
               result[provider] = {}
               for (const [model, info] of Object.entries(models)) {
@@ -342,6 +342,9 @@ async function main() {
               contextWindow: info.contextWindow,
               maxOutput: info.maxOutput,
               supportedThinkingLevels: info.supportedThinkingLevels,
+              inputPrice: info.inputPrice,
+              cachedInputPrice: info.cachedInputPrice,
+              outputPrice: info.outputPrice,
             }
               }
             }

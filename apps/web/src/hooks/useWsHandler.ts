@@ -145,6 +145,7 @@ export function useWsHandler(h: WsHandlers) {
         if (msg.metadata?.mode) h.onSessionMode(String(msg.metadata.mode))
         if (msg.todos) store.getState().setTodos(msg.todos)
         if (msg.usageAccumulated) h.onUsageAccumulated(msg.usageAccumulated)
+        if (msg.lastRoundUsage) h.onUsage(msg.lastRoundUsage)
         store.getState().mergeServerData(incoming)
         break
       }
