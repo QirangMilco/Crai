@@ -188,7 +188,7 @@ const ActivityRow = memo(function ActivityRow({
                 paddingLeft: 10,
                 marginTop: 2,
                 color: 'var(--crai-fg-40)',
-                borderLeft: '1px solid color-mix(in srgb, var(--crai-fg) 12%, transparent)',
+                borderLeft: '2px solid color-mix(in srgb, var(--crai-accent) 18%, transparent)',
                 whiteSpace: 'pre-wrap',
               }}
             >
