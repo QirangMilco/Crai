@@ -96,6 +96,8 @@ interface RuntimeDeps {
   configStore: ExtensionConfigStore
   traceCollector?: ReturnType<typeof createTraceCollector>
   requestUserInput?: (question: string, options?: string[]) => Promise<string>
+  /** 当前 turn 的 AbortController。prompt 开始时设置，结束后清除。 */
+  currentAbortController?: AbortController
 }
 
 // ── 辅助函数 ───────────────────────────────────────
@@ -307,7 +309,14 @@ async function handlePrompt(
   }
   const inputText = typeof input === 'string' ? input : (input as any)?.text
   deps.traceCollector?.note(`prompt — ${JSON.stringify(inputText ?? input)}`)
-  const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel, compressionThreshold, compressionKeepTokens)
+
+  // 创建当前 turn 的 AbortController，供 abortCurrentTurn 中止
+  const abortCtrl = new AbortController()
+  deps.currentAbortController = abortCtrl
+
+  const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel, compressionThreshold, compressionKeepTokens, abortCtrl.signal)
+
+  deps.currentAbortController = undefined
   // 持久化 turn 结束后 session 的变更（如 tool 对 todos 的修改）
   deps.sessions.update(result.session)
 
@@ -438,6 +447,7 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
   const runtime: RuntimeHandle = {
     id: runtimeId,
     prompt: (input, opts) => handlePrompt(deps, runtime, input, opts),
+    abortCurrentTurn: () => deps.currentAbortController?.abort(),
     createSession: (input, sessionId) => handleCreateSession(deps, runtime, input, sessionId),
     stopSession: (sessionId, messages) => handleStopSession(deps, runtime, sessionId, messages),
     getSession: async (sessionId) => {

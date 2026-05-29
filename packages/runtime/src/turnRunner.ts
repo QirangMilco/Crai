@@ -382,6 +382,7 @@ export async function runTurn(
   toolModel?: string,
   compressionThreshold?: number,
   compressionKeepTokens?: number,
+  signal?: AbortSignal,
 ): Promise<TurnRunResult> {
   const turnId = createId('turn')
 
@@ -502,10 +503,14 @@ export async function runTurn(
   }
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    // 决策点 1：每轮开始前检查中止
+    if (signal?.aborted) break
+
     const request: ModelRequest = {
       sessionId: session.id,
       turnId,
       model: modelName ?? '<no-model>',
+      signal,
       context: {
         ...contextWithTools,
         messages: contextWithTools.messages,
@@ -629,6 +634,9 @@ export async function runTurn(
     if (toolResultMessages.length > 0) {
       await deps.hooks.run(HOOKS.TURN_AFTER_TOOL_EXEC, { session, turnId, messages: toolResultMessages }, { runtime })
     }
+    // 决策点 2：工具执行完成后检查中止
+    if (signal?.aborted) break
+
     contextWithTools = {
       ...contextWithTools,
       messages: [...contextWithTools.messages, response.message, ...toolResultMessages],
@@ -641,13 +649,21 @@ export async function runTurn(
   await deps.hooks.run(HOOKS.TURN_AFTER, { session, turnId, messages: allRoundMessages }, { runtime })
   await deps.hooks.run(HOOKS.PERSIST_AFTER, { session }, { runtime })
 
-  await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response: finalResponse! })
-  await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: finalResponse!.message })
+  if (finalResponse) {
+    const wasAborted = !!signal?.aborted
+    if (wasAborted) {
+      finalResponse = { ...finalResponse, stopReason: 'aborted' }
+    }
 
-  debugLog(DEBUG_SCOPES.USAGE, 'model.completed finalResponse', {
-    hasUsage: !!finalResponse?.usage,
-    usage: finalResponse?.usage,
-  }, deps.logger)
+    await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response: finalResponse })
+    await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: finalResponse.message })
+
+    debugLog(DEBUG_SCOPES.USAGE, 'model.completed finalResponse', {
+      hasUsage: !!finalResponse?.usage,
+      usage: finalResponse?.usage,
+      aborted: wasAborted,
+    }, deps.logger)
+  }
 
   // 累计 token 用量到 session（持久化，跨 restart 保留）
   if (finalResponse?.usage) {

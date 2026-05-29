@@ -375,6 +375,8 @@ export interface RuntimeHandle {
   listMessages(sessionId: ID): Promise<Message[]>
   /** 删除 session 及其所有消息。 */
   deleteSession(sessionId: ID): Promise<void>
+  /** 中止当前正在处理的 turn。无正在处理的 turn 时无操作。 */
+  abortCurrentTurn(): void
   /** 动态注册工具。返回清理函数。 */
   registerTool(tool: ToolDefinition & { execute: ToolHandler['execute'] }): Disposable
   loadExtension(ext: Extension): Promise<void>

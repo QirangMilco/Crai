@@ -390,6 +390,7 @@ export class OpenAIAdapter implements ModelAdapter {
         Authorization: `${API.AUTH_SCHEME} ${this.options.apiKey}`,
       },
       body: bodyJson,
+      signal: request.signal,
     })
 
     if (!res.ok) {
@@ -408,7 +409,7 @@ export class OpenAIAdapter implements ModelAdapter {
     let streamUsage: { prompt_tokens: number; completion_tokens: number; prompt_tokens_details?: { cached_tokens?: number } } | undefined
 
     try {
-      for await (const data of sseLines(res.body)) {
+      for await (const data of sseLines(res.body, request.signal)) {
         let chunk: OpenAIStreamChunk
         try {
           chunk = JSON.parse(data)

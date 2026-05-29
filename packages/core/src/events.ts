@@ -83,6 +83,7 @@ export interface ModelRequest {
   model: string
   provider?: string
   context: ModelContext
+  signal?: AbortSignal
   /**
    * 通用设置字段。所有 provider 都能理解的参数放这里。
    * provider 独有参数放 settings.providerSpecific，核心只透传不解释。

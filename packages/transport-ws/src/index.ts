@@ -394,6 +394,14 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         break
       }
 
+      case 'session:cancel-turn': {
+        const rt = resolveRuntime()
+        if (!rt) { ws.send(JSON.stringify({ type: 'error', message: 'runtime not ready' } satisfies ServerMessage)); break }
+        debugLog(DEBUG_SCOPES.MIDDLEWARE, `session:cancel-turn`, {}, logger)
+        rt.abortCurrentTurn()
+        break
+      }
+
       // ── 目录浏览（不需要 runtime） ──
 
       case 'dir:browse': {

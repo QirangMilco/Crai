@@ -541,7 +541,9 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
         )}
         <ChatInput
           onSend={handleSend}
+          onCancel={() => send({ type: 'session:cancel-turn' })}
           disabled={status !== 'connected'}
+          isProcessing={messages.some((m) => m.activities?.some((a) => a.status === 'running'))}
           models={availableModels}
           currentModel={currentModel}
           onModelChange={setCurrentModel}

@@ -511,6 +511,7 @@ export class DeepSeekAdapter implements ModelAdapter {
         Authorization: `${API.AUTH_SCHEME} ${this.options.apiKey}`,
       },
       body: bodyJson,
+      signal: request.signal,
     })
 
     if (!res.ok) {
@@ -531,7 +532,7 @@ export class DeepSeekAdapter implements ModelAdapter {
     let streamUsage: { prompt_tokens: number; completion_tokens: number; prompt_cache_hit_tokens?: number } | undefined
 
     try {
-      for await (const data of sseLines(res.body)) {
+      for await (const data of sseLines(res.body, request.signal)) {
         let chunk: DeepSeekStreamChunk
         try {
           chunk = JSON.parse(data)

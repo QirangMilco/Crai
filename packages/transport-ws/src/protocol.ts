@@ -142,6 +142,11 @@ export interface SessionGenerateTitleMessage {
   sessionId: string
 }
 
+/** 客户端请求中止当前正在处理的 turn。 */
+export interface SessionCancelTurnMessage {
+  type: 'session:cancel-turn'
+}
+
 /** 客户端请求获取已知模型信息和第一方 provider 列表。 */
 export interface ConfigKnownModelsMessage {
   type: 'config:known-models'
@@ -168,6 +173,7 @@ export type ClientMessage =
   | WorkspaceConfigGetMessage
   | WorkspaceConfigSetMessage
   | SessionListMessage
+  | SessionCancelTurnMessage
 
 // ── Server → Client ───────────────────────────────
 

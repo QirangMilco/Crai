@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Send } from 'lucide-react'
+import { Send, Square } from 'lucide-react'
 import { Icon } from './ui'
 import { useChatStore } from '../store/chat'
 import { TodoBar } from './TodoDisplay'
@@ -10,7 +10,9 @@ import { ThinkingSelector } from './input/ThinkingSelector'
 
 interface Props {
   onSend: (text: string, model?: string) => void
+  onCancel?: () => void
   disabled?: boolean
+  isProcessing?: boolean
   className?: string
   models?: Array<{ name: string; provider: string }>
   currentModel?: string
@@ -25,7 +27,9 @@ interface Props {
 
 export function ChatInput({
   onSend,
+  onCancel,
   disabled,
+  isProcessing,
   className = '',
   models,
   currentModel,
@@ -117,28 +121,51 @@ export function ChatInput({
               onThinkingLevelChange={onThinkingLevelChange}
               knownModels={knownModels}
             />
-            <button
-              onClick={handleButtonClick}
-              disabled={disabled}
-              className="crai-send-btn"
-              data-token-group="font-size radius input-bar"
-              style={{
-                backgroundColor: 'var(--crai-accent)',
-                borderRadius: 'var(--crai-btn-radius, 8px)',
-                width: 28,
-                height: 28,
-                color: 'var(--crai-btn-color)',
-                opacity: disabled ? 0.4 : 1,
-                border: 'none',
-                cursor: disabled ? 'default' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="发送 (Enter)"
-            >
-              <Icon icon={Send} size="sm" />
-            </button>
+            {isProcessing ? (
+              <button
+                onClick={onCancel}
+                className="crai-send-btn"
+                data-token-group="font-size radius input-bar"
+                style={{
+                  backgroundColor: 'var(--crai-destructive)',
+                  borderRadius: 'var(--crai-btn-radius, 8px)',
+                  width: 28,
+                  height: 28,
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="中止生成"
+              >
+                <Icon icon={Square} size="sm" />
+              </button>
+            ) : (
+              <button
+                onClick={handleButtonClick}
+                disabled={disabled}
+                className="crai-send-btn"
+                data-token-group="font-size radius input-bar"
+                style={{
+                  backgroundColor: 'var(--crai-accent)',
+                  borderRadius: 'var(--crai-btn-radius, 8px)',
+                  width: 28,
+                  height: 28,
+                  color: 'var(--crai-btn-color)',
+                  opacity: disabled ? 0.4 : 1,
+                  border: 'none',
+                  cursor: disabled ? 'default' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="发送 (Enter)"
+              >
+                <Icon icon={Send} size="sm" />
+              </button>
+            )}
           </div>
         </div>
       </div>
