@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import type { ChatMessage } from '../types/messages'
 import { useChatStore } from '../store/chat'
 import { debugLog, DEBUG_SCOPES } from '../utils/debug'
+import { dispatchAuthResponse } from '../components/config/AccessKeysTab'
 
 interface BrowseData {
   path: string
@@ -71,8 +72,14 @@ export function useWsHandler(h: WsHandlers) {
           const a = msg.payload.activity
           store.getState().completeActivity(a.id, a.status, a.content, a.error)
         }
+        if (msg.event === 'turn.completed' || msg.event === 'turn.failed') {
+          // turn 结束（无论是否正常中止）时清理客户端占位活动
+          store.getState().completeActivity('think-pending', 'completed')
+        }
         if (msg.event === 'model.completed') {
           store.getState().flushBuffer()
+          // 移除客户端占位的 think-pending 活动（处理尚未收到任何 server 事件的中止情况）
+          store.getState().completeActivity('think-pending', 'completed')
           const usage = msg.payload?.response?.usage
           if (usage) {
             debugLog(DEBUG_SCOPES.USAGE, 'model.completed usage', usage)
@@ -160,6 +167,11 @@ export function useWsHandler(h: WsHandlers) {
         break
       case 'config:known-models:data':
         h.onKnownModels(msg.knownModels, msg.firstParty, msg.thinkingLevels, msg.defaultThinkingLevels)
+        break
+      case 'config:auth:list:data':
+      case 'config:auth:generated':
+      case 'config:auth:revoked':
+        dispatchAuthResponse(msg)
         break
     }
   }, [])

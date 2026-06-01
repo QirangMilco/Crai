@@ -21,10 +21,17 @@ export async function* sseLines(
   try {
     while (true) {
       if (signal?.aborted) break
-      const { done, value } = await reader.read()
-      if (done) break
+      let chunk: ReadableStreamReadResult<Uint8Array>
+      try {
+        chunk = await reader.read()
+      } catch {
+        // reader.read() 可能在 fetch abort 时抛出。此时 signal.aborted 已为 true，
+        // 直接退出循环，不抛到上层。
+        break
+      }
+      if (chunk.done) break
 
-      buffer += decoder.decode(value, { stream: true })
+      buffer += decoder.decode(chunk.value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
 
@@ -36,6 +43,7 @@ export async function* sseLines(
         yield data
       }
     }
+    // 流结束或中止后，产出缓冲区剩余数据
     if (buffer.trim()) {
       const trimmed = buffer.trim()
       if (trimmed.startsWith(SSE.DATA_PREFIX)) {
@@ -43,14 +51,6 @@ export async function* sseLines(
         if (data !== SSE.DONE_SENTINEL) yield data
       }
     }
-  // Yield remaining buffer data (last line without trailing newline)
-  if (buffer.trim()) {
-    const trimmed = buffer.trim()
-    if (trimmed.startsWith('data: ')) {
-      const data = trimmed.slice(6)
-      if (data !== '[DONE]') yield data
-    }
-  }
   } finally {
     reader.releaseLock()
   }

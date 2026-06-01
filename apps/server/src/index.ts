@@ -24,7 +24,7 @@ import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { ensureServerAuth } from './server-auth.js'
+import { createServerAuth } from './server-auth.js'
 
 const VARIANT = process.env.CRAI_VARIANT ?? 'dev'
 
@@ -272,7 +272,7 @@ async function main() {
 
   // ── 服务器鉴权 ──
   const configDir = join(homedir(), variant.configDirName)
-  const auth = ensureServerAuth(configDir, log)
+  const auth = createServerAuth(configDir, log)
 
   const transport = createWsTransport({
     port: variant.server.defaultPort,
@@ -376,6 +376,9 @@ async function main() {
       },
       onWorkspaceConfigGet: async (rootDir) => config.loadWorkspace(rootDir || process.cwd()),
       onWorkspaceConfigSet: async (rootDir, cfg) => { await config.saveWorkspace(rootDir || process.cwd(), cfg); gWorkspaces?.sync() },
+      onAuthListKeys: () => auth.listKeys(),
+      onAuthGenerateKey: (description) => auth.generateKey(description),
+      onAuthRevokeKey: (id) => auth.revokeKey(id),
     },
     getRuntime: (rootDir) => {
       if (rootDir) return gWorkspaces?.getRuntime(rootDir)

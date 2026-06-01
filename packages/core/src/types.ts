@@ -128,7 +128,7 @@ export interface ToolCallPart {
  * 参考 CrystalAgents 的 ActivityItem 设计。
  */
 export type ActivityType = 'thinking' | 'tool' | 'status' | 'plan'
-export type ActivityStatus = 'pending' | 'running' | 'completed' | 'error' | 'backgrounded'
+export type ActivityStatus = 'pending' | 'running' | 'completed' | 'error' | 'aborted' | 'backgrounded'
 
 export interface ActivityItem {
   id: ID
@@ -179,6 +179,15 @@ export interface Message extends BaseMessage {
   toolName?: string
   /** 对于 tool 角色消息：是否执行出错。 */
   isError?: boolean
+  /** 本条消息所属的 turn ID，用于按 turn 边界分组。 */
+  turnId?: ID
+  /**
+   * 模型响应的终止原因。仅 assistant 消息有意义：
+   * 'stop' | 'tool_calls' | 'length' | 'aborted' | 'error'
+   * OpenHanako 风格：aborted 消息写入 jsonl 供用户查看历史，
+   * 但在构建模型上下文时整 turn 过滤。
+   */
+  stopReason?: string
 }
 
 /** Artifact 是生成物、附件或持久化资产的统一引用。 */

@@ -102,7 +102,19 @@ export class FileStorageAdapter implements StorageAdapter {
   }
 
   async listMessages(sessionId: ID): Promise<Message[]> {
-    return readJsonl<Message>(messagesPath(this.baseDir, sessionId))
+    const raw = await readJsonl<Message>(messagesPath(this.baseDir, sessionId))
+    // 去重：同一 ID 的消息保留最后一条（后续写入可能补充了 stopReason 等字段）
+    const seen = new Map<string, Message>()
+    for (const m of raw) {
+      if (seen.has(m.id)) {
+        // 合并：用新版本的字段覆盖旧版本
+        const existing = seen.get(m.id)!
+        seen.set(m.id, { ...existing, ...m })
+      } else {
+        seen.set(m.id, m)
+      }
+    }
+    return Array.from(seen.values())
   }
 
   async listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp; pinned?: boolean; archived?: boolean }>> {

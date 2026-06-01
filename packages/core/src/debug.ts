@@ -44,5 +44,6 @@ export const DEBUG_SCOPES = {
   TITLE_GEN: 'title-gen',
   THINKING: 'thinking',
   USAGE: 'usage',
+  ABORT: 'abort',
   ALL: 'all',
 } as const

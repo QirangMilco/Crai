@@ -40,7 +40,14 @@ export function useWebSocket({
     wsRef.current = ws
 
     ws.onopen = () => setStatus('connected')
-    ws.onclose = () => setStatus('disconnected')
+    ws.onclose = (e) => {
+      setStatus('disconnected')
+      // 访问密钥被吊销时给出明确提示
+      if (e.code === 4001 && e.reason === 'key revoked') {
+        alert('访问密钥已被删除，请重新连接并输入有效的访问密钥')
+        window.location.href = '/'
+      }
+    }
     ws.onerror = () => {}
 
     ws.onmessage = (event) => {

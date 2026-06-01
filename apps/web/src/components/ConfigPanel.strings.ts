@@ -8,6 +8,21 @@ export const ui = {
   // 侧栏标签
   tabProviders: '供应商',
   tabGeneral: '通用',
+  tabAuth: '访问密钥',
+  authKeyDescription: '描述',
+  authKeyStatus: '状态',
+  authKeyCreated: '创建时间',
+  authKeyLastUsed: '上次使用',
+  authKeyActive: '活跃',
+  authKeyRevoked: '已吊销',
+  authGenerate: '生成新密钥',
+  authRevoke: '删除',
+  authNoKeys: '暂无访问密钥',
+  authKeyLabel: '密钥',
+  authNewKeyGenerated: '新密钥已生成，请立即复制：',
+  authCopySuccess: '已复制',
+  authCopy: '复制',
+  authKeyNamePrompt: '输入密钥名称…',
 
   // 供应商列表
   presetLabel: '预设',

@@ -39,6 +39,7 @@ function buildWsUrlForSwitch(url: string, token: string): string {
 export function ChatView({ wsUrl, onDisconnect }: Props) {
   const messages = useChatStore((s) => s.messages)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [pendingNewSession, setPendingNewSession] = useState(false)
   const [showConnections, setShowConnections] = useState(false)
   const [connProfiles, setConnProfiles] = useState<ConnectionProfile[]>(() => {
     try {
@@ -175,8 +176,10 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     const slashIdx = modelArg?.indexOf('/')
     const provider = slashIdx && slashIdx! > 0 ? modelArg!.slice(0, slashIdx) : undefined
     const model = slashIdx && slashIdx! > 0 ? modelArg!.slice(slashIdx! + 1) : (modelArg || undefined)
-    send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model, provider, thinkingLevel, mode: sessionMode })
-  }, [sessionId, send, sessions, store, thinkingLevel, sessionMode])
+    const needsNew = pendingNewSession
+    if (needsNew) setPendingNewSession(false)
+    send({ type: 'prompt', sessionId: sessionId ?? undefined, text, model, provider, thinkingLevel, mode: sessionMode, forceNewSession: needsNew || undefined })
+  }, [sessionId, send, sessions, store, thinkingLevel, sessionMode, pendingNewSession])
 
   const handleNewSession = useCallback(() => {
     store.getState().clearMessages()
@@ -200,7 +203,8 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     }
     setThinkingLevel(defaultLevel)
     setSessionMode('ask')
-    // 不发送 session:new —— 会话会在用户首次发送消息时自动创建
+    // 标记下次 prompt 需要创建新会话
+    setPendingNewSession(true)
   }, [send, store, currentModel, knownModels])
 
   const handleDeleteSession = useCallback((sid: string) => {

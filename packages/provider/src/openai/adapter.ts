@@ -377,6 +377,7 @@ export class OpenAIAdapter implements ModelAdapter {
   }
 
   async *stream(request: ModelRequest): AsyncIterable<ModelStreamEvent> {
+    try {
     const body = buildOpenAIBody(request, true)
     const bodyJson = JSON.stringify(body)
 
@@ -444,6 +445,24 @@ export class OpenAIAdapter implements ModelAdapter {
       yield {
         type: STREAM_EVENT_TYPES.ERROR,
         error: { code: ERROR_CODES.API_ERROR, message: `SSE 流解析出错: ${(err as Error).message}` },
+      }
+    }
+    } catch (err) {
+      // 用户主动中止：直接结束，不报错
+      if (request.signal?.aborted) {
+        yield { type: STREAM_EVENT_TYPES.TEXT_END }
+        yield {
+          type: STREAM_EVENT_TYPES.DONE,
+          response: {
+            message: { id: '', role: 'assistant', parts: [], createdAt: Date.now() },
+            stopReason: 'aborted',
+          },
+        }
+      } else {
+        yield {
+          type: STREAM_EVENT_TYPES.ERROR,
+          error: { code: ERROR_CODES.API_ERROR, message: `SSE 流解析出错: ${(err as Error).message}` },
+        }
       }
     }
   }

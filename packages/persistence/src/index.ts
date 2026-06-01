@@ -24,15 +24,20 @@ export function createPersistenceExtension(): Extension {
 
         await storage.updateSession(session)
         for (const msg of messages) {
-          if (persistedIds.has(msg.id)) continue
-          persistedIds.add(msg.id)
           const { parts, hits } = sanitizeParts(msg.parts ?? [])
           if (hits.length > 0) {
             ;(ctx as any).logger?.info?.(
               `[pii-guard] 已脱敏 ${hits.length} 类敏感信息: ${hits.join(', ')}`
             )
           }
-          await storage.appendMessage(session.id, { ...msg, parts })
+          // 允许更新：如果消息已存在（如 stopReason 被后处理修改），追加新版本
+          if (persistedIds.has(msg.id)) {
+            // 只追加有额外数据的版本（stopReason 从 undefined 变为 'aborted'）
+            await storage.appendMessage(session.id, { ...msg, parts })
+          } else {
+            persistedIds.add(msg.id)
+            await storage.appendMessage(session.id, { ...msg, parts })
+          }
         }
       }
 

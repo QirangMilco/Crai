@@ -29,6 +29,12 @@ export interface WsTransportHandlers {
     knownModels: Record<string, Record<string, { contextWindow: number; maxOutput?: number }>>
     thinkingLevels: Record<string, string[]>
   }>
+  /** 获取访问密钥列表。返回不含原始 token 的密钥信息。 */
+  onAuthListKeys?: () => Array<{ id: string; description: string; createdAt: string; lastUsedAt: string | null; status: string }>
+  /** 生成新的访问密钥。返回原始 token（仅此一次可见）和密钥信息。 */
+  onAuthGenerateKey?: (description: string) => { rawToken: string; info: { id: string; description: string; createdAt: string; lastUsedAt: string | null; status: string } }
+  /** 吊销一个访问密钥。 */
+  onAuthRevokeKey?: (id: string) => void
   onWorkspaceList?: () => Array<{ rootDir: string; config: WorkspaceConfig }> | Promise<Array<{ rootDir: string; config: WorkspaceConfig }>>
   onWorkspaceSwitch?: (rootDir: string) => Promise<{ model: string; provider: string }>
   onWorkspaceConfigGet?: (rootDir: string) => WorkspaceConfig | Promise<WorkspaceConfig>
@@ -44,10 +50,10 @@ export interface WsTransportOptions {
   /** 根据工作区路径获取对应的 runtime。没有 API key 时可能为 undefined。 */
   getRuntime?: (rootDir: string) => RuntimeHandle | undefined
   /**
-   * WebSocket 连接鉴权。返回 true 表示放行，false 表示拒绝。
+   * WebSocket 连接鉴权。返回匹配的密钥 ID 或 null（拒绝）。
    * 如果未设置，则跳过鉴权（兼容本地开发）。
    */
-  verifyToken?: (token: string) => boolean | Promise<boolean>
+  verifyToken?: (token: string) => string | null
   /** 日志记录器，调试输出受 logLevel 过滤。 */
   logger?: Logger
 }
@@ -61,6 +67,8 @@ export interface WsTransport {
   requestUserInput: (question: string, options?: string[], meta?: Record<string, unknown>) => Promise<string>
   /** 发布来自任意 workspace 的事件到所有客户端。事件消息中会带 workspaceId。 */
   publishEvent: (workspaceId: string, event: string, payload: unknown) => void
+  /** 吊销密钥：关闭所有使用该密钥的连接。 */
+  revokeKey?: (keyId: string) => void
 }
 
 // ── Factory ────────────────────────────────────────
@@ -71,6 +79,8 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
   const wss = new WebSocketServer({ server: httpServer })
   const clients = new Set<WebSocket>()
   const pendingInputs = new Map<string, { resolve: (value: string) => void }>()
+  /** 当前正在处理的 prompt 及其 AbortController，按 runtime id 索引。 */
+  const currentPromptAbort = new Map<string, AbortController>()
 
   let currentSessionId: string | undefined
   let currentWorkspace: string | undefined
@@ -101,6 +111,9 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'config:fetch:models':
       case 'config:test':
       case 'config:known-models':
+      case 'config:auth:list':
+      case 'config:auth:generate':
+      case 'config:auth:revoke':
       case 'workspace:list':
       case 'workspace:switch':
       case 'workspace:config:get':
@@ -121,22 +134,38 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'prompt': {
         const rt = resolveRuntime()!
         const opts: any = {}
+        // 创建当前 prompt 的 AbortController，使 session:cancel-turn 能立即中止
+        const abortCtrl = new AbortController()
+        const targetId = msg.sessionId || currentSessionId || 'pending'
+        currentPromptAbort.set(rt.id, abortCtrl)
+        opts.signal = abortCtrl.signal
+
         // 先确保 session 存在，再开始流式任务。
         // 这样 session:id 能在 streaming 事件到达客户端之前送达，
         // 避免 model.completed 到达时 sessionIdRef 仍为 null。
-        const sessionId = msg.sessionId || currentSessionId
-        if (!sessionId) {
+        let sessionId: string | undefined
+        if (msg.forceNewSession) {
+          // 客户端要求创建新会话
           const newSession = await rt.createSession()
           currentSessionId = newSession.id
-          opts.sessionId = currentSessionId
-          // 设置初始标题为用户第一条消息的截断
-          const initialTitle = msg.text && msg.text.trim() ? msg.text.trim().slice(0, 60) : undefined
-          if (initialTitle) {
-            await rt.updateSession({ ...newSession, title: initialTitle, updatedAt: Date.now() })
-          }
-          ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
-        } else {
+          sessionId = currentSessionId
           opts.sessionId = sessionId
+          ws.send(JSON.stringify({ type: 'session:id', id: sessionId } satisfies ServerMessage))
+        } else {
+          sessionId = msg.sessionId || currentSessionId
+          if (!sessionId) {
+            const newSession = await rt.createSession()
+            currentSessionId = newSession.id
+            opts.sessionId = currentSessionId
+            // 设置初始标题为用户第一条消息的截断
+            const initialTitle = msg.text && msg.text.trim() ? msg.text.trim().slice(0, 60) : undefined
+            if (initialTitle) {
+              await rt.updateSession({ ...newSession, title: initialTitle, updatedAt: Date.now() })
+            }
+            ws.send(JSON.stringify({ type: 'session:id', id: currentSessionId } satisfies ServerMessage))
+          } else {
+            opts.sessionId = sessionId
+          }
         }
         // 在 prompt 中携带思考深度和模式
         if (msg.thinkingLevel !== undefined) opts.thinkingLevel = msg.thinkingLevel
@@ -163,6 +192,8 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           }
         } catch { /* 静默 */ }
         const result = await rt.prompt({ type: 'text', text: msg.text }, opts)
+        // prompt 完成，清除 AbortController
+        currentPromptAbort.delete(rt.id)
         // 发送更新后的会话数据（含 TODO 列表）
         ws.send(JSON.stringify({
           type: 'session:data',
@@ -247,7 +278,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             role: m.role,
             text,
             createdAt: m.createdAt,
-            activities: m.role === 'assistant' ? buildActivitiesFromParts(m.parts) : undefined,
+            activities: m.role === 'assistant' ? buildActivitiesFromParts(m.parts, (m as any).stopReason) : undefined,
             // tool-role 消息标记，前端用于把结果合并到对应 activity
             toolCallId: m.role === 'tool' ? (m as any).toolCallId : undefined,
             toolName: m.role === 'tool' ? (m as any).toolName : undefined,
@@ -398,6 +429,15 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         const rt = resolveRuntime()
         if (!rt) { ws.send(JSON.stringify({ type: 'error', message: 'runtime not ready' } satisfies ServerMessage)); break }
         debugLog(DEBUG_SCOPES.MIDDLEWARE, `session:cancel-turn`, {}, logger)
+        // 优先使用 transport 层的 AbortController（在 prompt 消息到达时已创建）
+        const ctrl = currentPromptAbort.get(rt.id)
+        debugLog(DEBUG_SCOPES.ABORT, `cancel-turn: found ctrl=${!!ctrl}, rtId=${rt.id}`, { hasCtrl: !!ctrl }, logger)
+        if (ctrl) {
+          ctrl.abort()
+          debugLog(DEBUG_SCOPES.ABORT, 'cancel-turn: ctrl.abort() called', {}, logger)
+          currentPromptAbort.delete(rt.id)
+        }
+        // 同时通知 runtime 层
         rt.abortCurrentTurn()
         break
       }
@@ -422,18 +462,30 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'config:set': {
         if (!handlers?.onConfigSet) { ws.send(JSON.stringify({ type: 'error', message: 'config not writable' } satisfies ServerMessage)); break }
         await handlers.onConfigSet(msg.config)
+        // 返回更新后的配置
+        const updatedCfg = await handlers.onConfigGet?.()
+        if (updatedCfg) ws.send(JSON.stringify({ type: 'config:data', config: updatedCfg } satisfies ServerMessage))
         break
       }
 
       case 'config:set:provider': {
         if (!handlers?.onConfigSetProvider) { ws.send(JSON.stringify({ type: 'error', message: 'config not writable' } satisfies ServerMessage)); break }
-        await handlers.onConfigSetProvider(msg.name, msg.config)
+        try {
+          await handlers.onConfigSetProvider(msg.name, msg.config)
+        } catch (err) {
+          logger?.error?.(`设置 provider 失败: ${(err as Error).message}`)
+        }
+        // 总是返回最新配置（即使保存失败也要同步内存状态）
+        const refreshedCfg = await handlers.onConfigGet?.()
+        if (refreshedCfg) ws.send(JSON.stringify({ type: 'config:data', config: refreshedCfg } satisfies ServerMessage))
         break
       }
 
       case 'config:remove:provider': {
         if (!handlers?.onConfigRemoveProvider) { ws.send(JSON.stringify({ type: 'error', message: 'config not writable' } satisfies ServerMessage)); break }
         await handlers.onConfigRemoveProvider(msg.name)
+        const refreshedCfg2 = await handlers.onConfigGet?.()
+        if (refreshedCfg2) ws.send(JSON.stringify({ type: 'config:data', config: refreshedCfg2 } satisfies ServerMessage))
         break
       }
 
@@ -455,6 +507,31 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         if (!handlers?.onConfigKnownModels) { ws.send(JSON.stringify({ type: 'error', message: 'known models not available' } satisfies ServerMessage)); break }
         const data = await handlers.onConfigKnownModels()
         ws.send(JSON.stringify({ type: 'config:known-models:data', ...data } satisfies ServerMessage))
+        break
+      }
+
+      case 'config:auth:list': {
+        if (!handlers?.onAuthListKeys) { ws.send(JSON.stringify({ type: 'error', message: 'auth not available' } satisfies ServerMessage)); break }
+        const keys = handlers.onAuthListKeys()
+        ws.send(JSON.stringify({ type: 'config:auth:list:data', keys } satisfies ServerMessage))
+        break
+      }
+
+      case 'config:auth:generate': {
+        if (!handlers?.onAuthGenerateKey) { ws.send(JSON.stringify({ type: 'error', message: 'auth not available' } satisfies ServerMessage)); break }
+        const result = handlers.onAuthGenerateKey(msg.description)
+        ws.send(JSON.stringify({ type: 'config:auth:generated', ...result } satisfies ServerMessage))
+        break
+      }
+
+      case 'config:auth:revoke': {
+        if (!handlers?.onAuthRevokeKey) { ws.send(JSON.stringify({ type: 'error', message: 'auth not available' } satisfies ServerMessage)); break }
+        handlers.onAuthRevokeKey(msg.id)
+        // 吊销后主动断开使用该密钥的连接
+        for (const [ws, keyId] of connKeyIds) {
+          if (keyId === msg.id) ws.close(4001, 'key revoked')
+        }
+        ws.send(JSON.stringify({ type: 'config:auth:revoked', id: msg.id } satisfies ServerMessage))
         break
       }
 
@@ -490,10 +567,12 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
     }
   }
 
+  // Token 鉴权 + 追踪连接使用的密钥
+  const connKeyIds = new Map<WebSocket, string>()
+
   wss.on('connection', (ws, req) => {
     if (stopped) { ws.close(1001, 'Server shutting down'); return }
 
-    // Token 鉴权
     if (options.verifyToken) {
       const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
       const token = url.searchParams.get('token') || ''
@@ -502,12 +581,13 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         options.logger?.info(`WS 连接被拒绝：缺少 token (${req.socket.remoteAddress})`)
         return
       }
-      const ok = options.verifyToken(token)
-      if (ok instanceof Promise ? !ok : !ok) {
+      const keyId = options.verifyToken(token)
+      if (!keyId) {
         ws.close(4001, 'invalid token')
         options.logger?.info(`WS 连接被拒绝：token 无效 (${req.socket.remoteAddress})`)
         return
       }
+      connKeyIds.set(ws, keyId)
     }
 
     clients.add(ws)
@@ -531,6 +611,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
 
     ws.on('close', () => {
       clients.delete(ws)
+      connKeyIds.delete(ws)
       options.onConnectionChange?.(clients.size)
     })
 
@@ -593,6 +674,15 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         debugLog(DEBUG_SCOPES.API, `ws broadcast: ${event}`, { workspaceId, hasPayload: !!payload }, logger)
       }
       broadcast({ type: 'event', event, payload: { workspaceId, ...(typeof payload === 'object' && payload !== null ? payload : {}) } })
+    },
+
+    revokeKey: (keyId: string) => {
+      // 关闭所有使用该密钥的 WebSocket 连接
+      for (const [ws, id] of connKeyIds) {
+        if (id === keyId) {
+          ws.close(4001, 'key revoked')
+        }
+      }
     },
   }
 

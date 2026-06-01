@@ -33,9 +33,14 @@ function flushNow(set: any) {
     const idx = findLastAssistantIndex(s.messages)
     if (idx === undefined) return s
     const msg = s.messages[idx]
-    // 直接追加到 msg.text
     const copy = [...s.messages]
-    copy[idx] = { ...copy[idx], text: msg.text + _sb.text }
+    // 流式文本开始到达时，移除占位的 think-pending 活动
+    const activities = msg.activities ? [...msg.activities] : undefined
+    if (activities) {
+      const pi = activities.findIndex((a: any) => a.id === 'think-pending')
+      if (pi >= 0) activities.splice(pi, 1)
+    }
+    copy[idx] = { ...copy[idx], text: msg.text + _sb.text, activities }
     return { messages: copy }
   })
 
@@ -86,7 +91,7 @@ export interface ChatStore {
   updateActivity: (activityId: string, delta: string) => void
 
   /** 完成一个活动（thinking/tool 结束）。 */
-  completeActivity: (activityId: string, status: 'completed' | 'error', content?: string, error?: string) => void
+  completeActivity: (activityId: string, status: 'completed' | 'error' | 'aborted', content?: string, error?: string) => void
 
   /** 合并服务端 session:data。 */
   mergeServerData: (incoming: ChatMessage[]) => void
@@ -116,7 +121,7 @@ export const useChatStore = create<ChatStore>((set) => ({
       messages: [
         ...s.messages,
         { id: `user-${ts}`, role: 'user', text, createdAt: ts },
-        { id: `asst-${ts}`, role: 'assistant', text: '', createdAt: ts },
+        { id: `asst-${ts}`, role: 'assistant', text: '', createdAt: ts, activities: [{ id: 'think-pending', type: 'thinking', status: 'running' }] },
       ],
     }))
   },
@@ -136,6 +141,11 @@ export const useChatStore = create<ChatStore>((set) => ({
       if (idx === undefined) return s
       const msg = s.messages[idx]
       const activities = [...(msg.activities || [])]
+      // 移除占位活动（客户端即时反馈），替换为真实活动
+      const pendingIdx = activities.findIndex((a) => a.id === 'think-pending')
+      if (pendingIdx >= 0 && pendingIdx < activities.length) {
+        activities.splice(pendingIdx, 1)
+      }
       const existingIdx = activities.findIndex((a) => a.id === activity.id)
       if (existingIdx >= 0) {
         activities[existingIdx] = { ...activities[existingIdx], ...activity, timestamp: Date.now() }

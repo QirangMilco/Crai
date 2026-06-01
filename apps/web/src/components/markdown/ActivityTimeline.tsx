@@ -16,6 +16,7 @@ const STATUS_COLORS: Record<string, string> = {
   running: 'var(--crai-accent)',
   completed: 'var(--crai-tool-success)',
   error: 'var(--crai-tool-error)',
+  aborted: 'var(--crai-tool-error)',
   pending: 'var(--crai-fg-tertiary)',
   backgrounded: 'var(--crai-fg-tertiary)',
 }

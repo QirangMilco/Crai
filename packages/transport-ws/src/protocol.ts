@@ -19,6 +19,8 @@ export interface PromptMessage {
   thinkingLevel?: string
   /** 会话模式，用于新 session 初始化或在 prompt 时覆盖。 */
   mode?: string
+  /** 强制创建新会话，即使 currentSessionId 有值也不复用。 */
+  forceNewSession?: boolean
 }
 
 /** 客户端请求创建新 session。 */
@@ -152,6 +154,23 @@ export interface ConfigKnownModelsMessage {
   type: 'config:known-models'
 }
 
+/** 客户端请求获取访问密钥列表。 */
+export interface ConfigAuthListMessage {
+  type: 'config:auth:list'
+}
+
+/** 客户端请求生成新的访问密钥。 */
+export interface ConfigAuthGenerateMessage {
+  type: 'config:auth:generate'
+  description: string
+}
+
+/** 客户端请求吊销一个访问密钥。 */
+export interface ConfigAuthRevokeMessage {
+  type: 'config:auth:revoke'
+  id: string
+}
+
 export type ClientMessage =
   | PromptMessage
   | SessionNewMessage
@@ -174,6 +193,9 @@ export type ClientMessage =
   | WorkspaceConfigSetMessage
   | SessionListMessage
   | SessionCancelTurnMessage
+  | ConfigAuthListMessage
+  | ConfigAuthGenerateMessage
+  | ConfigAuthRevokeMessage
 
 // ── Server → Client ───────────────────────────────
 
@@ -276,6 +298,9 @@ export type ServerMessage =
   | SessionTitleMessage
   | ConfigKnownModelsDataMessage
   | ConfigTestResultMessage
+  | ConfigAuthListDataMessage
+  | ConfigAuthGeneratedMessage
+  | ConfigAuthRevokedMessage
 
 /** 目录浏览响应。 */
 export interface DirBrowseDataMessage {
@@ -316,4 +341,23 @@ export interface ConfigKnownModelsDataMessage {
   thinkingLevels?: Record<string, string[]>
   /** 各 provider 的默认思考深度。provider → level。 */
   defaultThinkingLevels?: Record<string, string>
+}
+
+/** 访问密钥列表响应。 */
+export interface ConfigAuthListDataMessage {
+  type: 'config:auth:list:data'
+  keys: Array<{ id: string; description: string; createdAt: string; lastUsedAt: string | null; status: string }>
+}
+
+/** 访问密钥生成响应。 */
+export interface ConfigAuthGeneratedMessage {
+  type: 'config:auth:generated'
+  rawToken: string
+  info: { id: string; description: string; createdAt: string; lastUsedAt: string | null; status: string }
+}
+
+/** 访问密钥吊销响应。 */
+export interface ConfigAuthRevokedMessage {
+  type: 'config:auth:revoked'
+  id: string
 }

@@ -14,6 +14,7 @@ import { DEFAULT_COMPRESSION_THRESHOLD, DEFAULT_KEEP_RECENT_TOKENS } from '@crai
 import { ui } from './ConfigPanel.strings'
 import { ProviderList, ProviderEditor, ModelList, ModelEditModal, GlobalModelSettings, GeneralSettingsTab } from './config'
 import { getModelContextWindow, getModelMaxOutput, getKnownModelDisplayName, findModelInfoAcrossProviders } from '../utils/model-utils'
+import { AccessKeysTab } from './config/AccessKeysTab'
 
 interface Props {
   config: {
@@ -223,7 +224,6 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
     const providerKey = customName.toLowerCase()
     const known = knownModels?.[providerKey]
     if (known) setFetchedModels(Object.keys(known))
-    send({ type: 'config:get' })
   }
 
   // 模型操作（在 ProviderEditor 之外调用 saveProviderConfig）
@@ -335,7 +335,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
       <div className="flex flex-1 overflow-hidden">
         {/* 侧栏 Tab */}
         <div className="w-32 shrink-0 border-r py-2 overflow-y-auto" style={{ borderColor: 'var(--crai-border)' }}>
-          {['providers', 'general'].map((tab) => (
+          {['providers', 'general', 'auth'].map((tab) => (
             <button
               key={tab}
               onClick={() => setConfigTab(tab)}
@@ -346,7 +346,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                 fontWeight: configTab === tab ? 500 : 400,
               }}
             >
-              {{ providers: ui.tabProviders, general: ui.tabGeneral }[tab]}
+              {{ providers: ui.tabProviders, general: ui.tabGeneral, auth: ui.tabAuth }[tab]}
             </button>
           ))}
         </div>
@@ -512,6 +512,12 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
               onCurrencyChange={handleCurrencyChange}
               ui={ui as any}
             />
+          )}
+
+          {configTab === 'auth' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <AccessKeysTab send={send} ui={ui as any} />
+            </div>
           )}
         </div>
       </div>

@@ -103,7 +103,8 @@ button, [role="button"], select, input[type="text"], input[type="search"] {
 
 /* ── 发送按钮 hover ── */
 .crai-send-btn:hover:not(:disabled) {
-  background-color: var(--crai-btn-hover-bg) !important;
+  background-color: var(--crai-btn-hover-bg);
+  opacity: 0.9;
 }
 
 /* ── 可交互卡片 hover ── */

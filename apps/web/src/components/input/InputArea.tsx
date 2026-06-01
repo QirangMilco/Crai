@@ -104,7 +104,7 @@ export const InputArea = forwardRef<InputAreaHandle, InputAreaProps>(
     }
 
     // 暴露 submit 方法给父组件
-    useImperativeHandle(ref, () => ({ submit: handleSubmit }), [text, disabled, sessionId])
+    useImperativeHandle(ref, () => ({ submit: handleSubmit }), [text, disabled, sessionId, onSend])
 
     return (
       <textarea

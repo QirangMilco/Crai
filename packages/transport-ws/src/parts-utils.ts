@@ -3,16 +3,17 @@
  * text parts 在 tool-call 之前 → activity.intent
  * text parts 在 tool-call 之后 → 消息正文（由 extractResponseText 处理）
  */
-export function buildActivitiesFromParts(parts: any[]): any[] {
+export function buildActivitiesFromParts(parts: any[], stopReason?: string): any[] {
   const activities: any[] = []
   let pendingIntent = ''
+  const defaultStatus = stopReason === 'aborted' ? 'aborted' : 'completed'
 
   for (const p of parts) {
     if (p.type === 'thinking') {
       activities.push({
         id: `think-${activities.length}`,
         type: 'thinking',
-        status: 'completed',
+        status: defaultStatus,
         content: p.thinking,
         elapsedSeconds: p.elapsedSeconds,
         timestamp: Date.now(),
@@ -23,7 +24,7 @@ export function buildActivitiesFromParts(parts: any[]): any[] {
       activities.push({
         id: `tool-${p.toolCallId}`,
         type: 'tool',
-        status: 'completed',
+        status: defaultStatus,
         toolName: p.name,
         toolCallId: p.toolCallId,
         toolInput: p.arguments,

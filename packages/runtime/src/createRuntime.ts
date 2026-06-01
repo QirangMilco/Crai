@@ -239,7 +239,35 @@ async function handlePrompt(
       const storages = deps.registries.storages.list()
       const storage = storages[0]?.value ?? deps.storage
       const messages = storage ? await storage.listMessages(session.id) : []
-      return buildRuntimeContext({ session, messages, tools: [] })
+
+      // 调试：查看加载的消息
+      if (deps.logger?.debug) {
+        deps.logger.debug(`[abort] buildContext: ${session.id} loaded ${messages.length} msgs`)
+        for (const m of messages) {
+          deps.logger.debug(`[abort]   msg: id=${m.id?.substring(0,20)} role=${m.role} turnId=${m.turnId} stopReason=${(m as any).stopReason}`)
+        }
+      }
+
+      // OpenHanako 模式：按 turn 边界过滤中止轮次
+      const abortedTurnIds = new Set<string>()
+      for (const m of messages) {
+        if (m.role === 'assistant' && (m as any).stopReason === 'aborted' && m.turnId) {
+          abortedTurnIds.add(m.turnId)
+          if (deps.logger?.debug) deps.logger.debug(`[abort]   → aborted turnId=${m.turnId}`)
+        }
+      }
+      const filtered = messages.filter((m: any) => {
+        if (m.turnId && abortedTurnIds.has(m.turnId)) {
+          if (deps.logger?.debug) deps.logger.debug(`[abort]   → filtered out: id=${m.id?.substring(0,20)} role=${m.role} turnId=${m.turnId}`)
+          return false
+        }
+        // 向后兼容：无 turnId 的消息保留，仅过滤掉 aborted assistant
+        if (m.role === 'assistant' && (m as any).stopReason === 'aborted') return false
+        return true
+      })
+      if (deps.logger?.debug) deps.logger.debug(`[abort] buildContext: filtered ${filtered.length}/${messages.length} msgs`)
+
+      return buildRuntimeContext({ session, messages: filtered, tools: [] })
     },
     requestModel: async (request) => {
       const adapter = deps.registries.models.get(request.model)
@@ -311,10 +339,14 @@ async function handlePrompt(
   deps.traceCollector?.note(`prompt — ${JSON.stringify(inputText ?? input)}`)
 
   // 创建当前 turn 的 AbortController，供 abortCurrentTurn 中止
-  const abortCtrl = new AbortController()
-  deps.currentAbortController = abortCtrl
+  // 如果已由调用方传入 signal（如 transport 层创建的），则直接复用
+  const turnSignal = promptOptions?.signal ?? (() => {
+    const ctrl = new AbortController()
+    deps.currentAbortController = ctrl
+    return ctrl.signal
+  })()
 
-  const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel, compressionThreshold, compressionKeepTokens, abortCtrl.signal)
+  const result = await runTurn(input, session, runtime, turnDeps, modelName, toolModel, compressionThreshold, compressionKeepTokens, turnSignal)
 
   deps.currentAbortController = undefined
   // 持久化 turn 结束后 session 的变更（如 tool 对 todos 的修改）

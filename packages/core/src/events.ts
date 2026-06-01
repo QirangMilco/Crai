@@ -153,6 +153,8 @@ export interface ToolExecutionRequest {
   session: Session
   toolCall: ToolCallPart
   messages: Message[]
+  /** 中止信号。工具可在执行中检查此信号以支持用户中止。 */
+  signal?: AbortSignal
 }
 
 export interface ToolExecutionResult {

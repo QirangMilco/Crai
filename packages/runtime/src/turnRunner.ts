@@ -239,38 +239,86 @@ async function consumeStream(
         break
       case 'done': {
         const response = event.response
-        // 将 thinking 内容附加到 response message 的 parts 中（用于持久化）
-        // 仅在消息已有 text 内容且 thinking 与 text 不同时附加，
-        // 避免出现只有 thinking 的空消息（下游 API 报错）或内容冗余
-        if (thinkingAccum) {
-          const hasText = response.message.parts.some((p: any) => p.type === 'text')
-          const textIsThinking = response.message.parts.some((p: any) => p.type === 'text' && p.text === thinkingAccum)
-          if (hasText && !textIsThinking) {
-            response.message.parts.push({
+
+        // 如果 thinking 已开始但尚未收到 thinking-done（如用户中止），补发 activity done
+        if (thinkingActivityId) {
+          debugLog(DEBUG_SCOPES.ABORT, 'consumeStream: done completing incomplete thinking', { thinkingLen: thinkingAccum.length }, logger)
+          await emitEvent(EVENTS.ACTIVITY_DONE, {
+            session, turnId,
+            activity: {
+              id: thinkingActivityId,
               type: 'thinking',
-              thinking: thinkingAccum,
+              status: 'completed',
+              content: thinkingAccum,
               elapsedSeconds: Math.floor((Date.now() - thinkingStartTime) / 1000),
-            })
-          }
+              timestamp: Date.now(),
+            },
+          })
+          thinkingActivityId = undefined
         }
-        // 流结束后，向已发射的 tool activity 补充完整参数
+
+        // 将 thinking 内容附加到 response message 的 parts 中（用于持久化）
+        if (thinkingAccum) {
+          // 即使是中止，只要积累了 thinking 就保留；
+          // 不要求 hasText（避免只有 thinking 的空消息检查留给下游）
+          response.message.parts.push({
+            type: 'thinking',
+            thinking: thinkingAccum,
+            elapsedSeconds: Math.floor((Date.now() - thinkingStartTime) / 1000),
+          })
+        }
+
+        // 工具已通过 tool-call-delta 启动；对于未通过 delta 启动的 tool-call（某些 adapter 在 done 中一次性返回），补发 start
         for (const p of response.message.parts) {
           if (p.type === 'tool-call') {
             const tc = p as ToolCallPart
-            await emitEvent(EVENTS.ACTIVITY_START, {
-              session, turnId,
-              activity: {
-                id: `tool-${tc.toolCallId}`,
-                type: 'tool',
-                status: 'running',
-                toolName: tc.name,
-                toolCallId: tc.toolCallId,
-                toolInput: tc.arguments as Record<string, unknown>,
-                timestamp: Date.now(),
-              },
-            })
+            if (!startedTools.has(tc.toolCallId)) {
+              await emitEvent(EVENTS.ACTIVITY_START, {
+                session, turnId,
+                activity: {
+                  id: `tool-${tc.toolCallId}`,
+                  type: 'tool',
+                  status: 'running',
+                  toolName: tc.name,
+                  toolCallId: tc.toolCallId,
+                  toolInput: tc.arguments as Record<string, unknown>,
+                  timestamp: Date.now(),
+                },
+              })
+              startedTools.add(tc.toolCallId)
+            }
           }
         }
+
+        // 处理已通过 tool-call-delta 启动但未出现在 done 响应中的工具
+        // （适配器在 abort 时可能 yield 空部分的 done）。这些工具不会被 turn 循环处理，
+        // 需要在此补发 ACTIVITY_DONE 避免前端活动保持 running。
+        if (startedTools.size > 0) {
+          const partsToolIds = new Set(response.message.parts.filter((p: any) => p.type === 'tool-call').map((p: any) => p.toolCallId))
+          const orphanTools = [...startedTools].filter(t => !partsToolIds.has(t))
+          if (orphanTools.length > 0) debugLog(DEBUG_SCOPES.ABORT, 'consumeStream: done completing orphan tools', { orphanTools }, logger)
+        }
+        if (startedTools.size > 0) {
+          const partsToolIds = new Set(
+            response.message.parts
+              .filter((p: any) => p.type === 'tool-call')
+              .map((p: any) => p.toolCallId),
+          )
+          for (const toolId of startedTools) {
+            if (!partsToolIds.has(toolId)) {
+              await emitEvent(EVENTS.ACTIVITY_DONE, {
+                session, turnId,
+                activity: {
+                  id: `tool-${toolId}`,
+                  type: 'tool',
+                  status: 'aborted',
+                  timestamp: Date.now(),
+                },
+              })
+            }
+          }
+        }
+
         return response
       }
       case 'error':
@@ -303,11 +351,13 @@ async function executeOneTool(
   session: Session,
   deps: TurnRunnerDeps,
   turnId: string,
+  signal?: AbortSignal,
 ): Promise<ToolExecutionResult> {
   const execRequest: ToolExecutionRequest = {
     session,
     toolCall,
     messages: [],
+    signal,
   }
 
   const execCtx: AdapterContext = deps.adapterContext ?? {
@@ -394,7 +444,8 @@ export async function runTurn(
   const context = await deps.buildContext(session)
 
   // 将输入转换为消息并追加到上下文
-  const inputAsMsg: Message = inputToMessage(input, session.id)
+  const inputAsMsg: Message = { ...inputToMessage(input, session.id), turnId }
+  debugLog(DEBUG_SCOPES.ABORT, 'turnRunner: inputAsMsg', { id: inputAsMsg.id, turnId, role: inputAsMsg.role }, deps.logger)
   const allMessages = [...context.messages, inputAsMsg]
   const toolList = deps.resolveTools ? await deps.resolveTools() : []
   let contextWithTools: ModelContext = {
@@ -459,7 +510,7 @@ export async function runTurn(
       await deps.emitEvent(EVENTS.ACTIVITY_DONE, { session, turnId, activity: { id: `tool-${tc.toolCallId}`, type: 'tool', status: 'error', toolName: tc.name, toolCallId: tc.toolCallId, error: `工具 "${tc.name}" 无 handler`, timestamp: Date.now() } })
       return { tc, execResult: makeErrResult(tc, `工具 "${tc.name}" 无 handler`) }
     }
-    const execResult = await executeOneTool(handler, tc, session, deps, turnId)
+    const execResult = await executeOneTool(handler, tc, session, deps, turnId, signal)
     debugLog(DEBUG_SCOPES.TOOLS, `工具结果: ${tc.name}`, {
       toolCallId: execResult.toolCallId, name: execResult.name, isError: execResult.isError,
     }, deps.logger)
@@ -504,7 +555,10 @@ export async function runTurn(
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     // 决策点 1：每轮开始前检查中止
-    if (signal?.aborted) break
+    if (signal?.aborted) {
+      debugLog(DEBUG_SCOPES.ABORT, `turnRunner: check 1 abort (round=${round})`, { round, finalResponseId: finalResponse?.message?.id, finalResponseParts: finalResponse?.message?.parts?.length }, deps.logger)
+      break
+    }
 
     const request: ModelRequest = {
       sessionId: session.id,
@@ -558,9 +612,16 @@ export async function runTurn(
         cause,
       }
       await deps.emitEvent(EVENTS.TURN_FAILED, { session, turnId, error })
+      await deps.emitEvent(EVENTS.TURN_COMPLETED, { session, turnId })
       throw error
     }
 
+    // 为本轮消息标记 turnId
+    response.message = { ...response.message, turnId }
+    // 如果模型已返回中止状态或信号已触发，在首次持久化前写入 stopReason
+    if (response.stopReason === 'aborted' || signal?.aborted) {
+      response.message = { ...response.message, stopReason: 'aborted' }
+    }
     allRoundMessages.push(response.message)
     finalResponse = response
     // 每轮结束立即持久化（防止后续轮次失败时本轮消息丢失）
@@ -577,6 +638,27 @@ export async function runTurn(
     // 本轮新增的消息（仅当前 round，不含之前 round 的）
     if (toolCalls.length === 0) {
       // 模型返回纯文本，退出循环
+      break
+    }
+
+    // 决策点 3：工具执行前检查中止。中止时不执行工具，直接跳出。
+    if (signal?.aborted) {
+      debugLog(DEBUG_SCOPES.ABORT, 'turnRunner: check 3 abort (tool execution skipped)', { toolCount: toolCalls.length }, deps.logger)
+      // 补发工具活动的 ACTIVITY_DONE（前端需要它们变为 completed 才能恢复发送按钮）
+      for (const tc of toolCalls) {
+        await deps.emitEvent(EVENTS.ACTIVITY_DONE, {
+          session, turnId,
+          activity: {
+            id: `tool-${tc.toolCallId}`,
+            type: 'tool',
+            status: 'aborted',
+            toolName: tc.name,
+            toolCallId: tc.toolCallId,
+            toolInput: tc.arguments as Record<string, unknown>,
+            timestamp: Date.now(),
+          },
+        })
+      }
       break
     }
 
@@ -597,6 +679,25 @@ export async function runTurn(
     const groupPromises = Array.from(groups.values()).map(async (group) => {
       const results: Array<{ tc: ToolCallPart; execResult: ToolExecutionResult }> = []
       for (const tc of group) {
+        if (signal?.aborted) {
+          // 跳过未执行的工具，补发 ACTIVITY_DONE
+          debugLog(DEBUG_SCOPES.ABORT, 'turnRunner: group abort, skipping tools', { skipped: group.slice(results.length).length, resultsSoFar: results.length }, deps.logger)
+          for (const skipTc of group.slice(results.length)) {
+            await deps.emitEvent(EVENTS.ACTIVITY_DONE, {
+              session, turnId,
+              activity: {
+                id: `tool-${skipTc.toolCallId}`,
+                type: 'tool',
+                status: 'aborted',
+                toolName: skipTc.name,
+                toolCallId: skipTc.toolCallId,
+                toolInput: skipTc.arguments as Record<string, unknown>,
+                timestamp: Date.now(),
+              },
+            })
+          }
+          break
+        }
         results.push(await runOneTool(tc, defMap))
       }
       return results
@@ -635,7 +736,10 @@ export async function runTurn(
       await deps.hooks.run(HOOKS.TURN_AFTER_TOOL_EXEC, { session, turnId, messages: toolResultMessages }, { runtime })
     }
     // 决策点 2：工具执行完成后检查中止
-    if (signal?.aborted) break
+    if (signal?.aborted) {
+      debugLog(DEBUG_SCOPES.ABORT, `turnRunner: check 2 abort (round=${round})`, { round, allRoundMessagesLen: allRoundMessages.length }, deps.logger)
+      break
+    }
 
     contextWithTools = {
       ...contextWithTools,
@@ -645,23 +749,39 @@ export async function runTurn(
 
   // ── 最终持久化与返回 ──
 
+  debugLog(DEBUG_SCOPES.ABORT, 'turnRunner: after-loop', { aborted: !!signal?.aborted, hasFinalResponse: !!finalResponse, allRoundCount: allRoundMessages.length, msgIds: allRoundMessages.map((m: any) => ({ id: m.id, role: m.role, turnId: m.turnId, stopReason: m.stopReason })) }, deps.logger)
+
+  // 标记中止的 finalResponse（OpenHanako 模式：写入完整记录，读取时过滤）
+  if (signal?.aborted && finalResponse) {
+    finalResponse = { ...finalResponse, stopReason: 'aborted' }
+    // 将 stopReason 同步到 message 级别，持久化后供读取时过滤和 UI 展示
+    finalResponse.message = { ...finalResponse.message, stopReason: 'aborted', turnId }
+    // 同步更新 allRoundMessages 中的对应消息（持久化用的是 allRoundMessages）
+    const abortedMsgId = finalResponse.message.id
+    if (abortedMsgId) {
+      allRoundMessages = allRoundMessages.map((m) =>
+        m.id === abortedMsgId ? { ...m, stopReason: 'aborted' } : m
+      )
+    }
+  }
+
+  // 给所有本轮消息标记 turnId（包含正常完成和中止的）
+  allRoundMessages = allRoundMessages.map((m) => {
+    if (!m.turnId) return { ...m, turnId }
+    return m
+  })
+
   await deps.hooks.run(HOOKS.PERSIST_BEFORE, { session }, { runtime })
   await deps.hooks.run(HOOKS.TURN_AFTER, { session, turnId, messages: allRoundMessages }, { runtime })
   await deps.hooks.run(HOOKS.PERSIST_AFTER, { session }, { runtime })
 
   if (finalResponse) {
-    const wasAborted = !!signal?.aborted
-    if (wasAborted) {
-      finalResponse = { ...finalResponse, stopReason: 'aborted' }
-    }
-
     await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response: finalResponse })
     await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: finalResponse.message })
 
     debugLog(DEBUG_SCOPES.USAGE, 'model.completed finalResponse', {
       hasUsage: !!finalResponse?.usage,
       usage: finalResponse?.usage,
-      aborted: wasAborted,
     }, deps.logger)
   }
 
