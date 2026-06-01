@@ -88,6 +88,8 @@ export class MockDeepSeekAdapter implements ModelAdapter {
         yield* this.mockStream(request, sig)
       } else if (userText === '复杂多轮测试') {
         yield* this.mockFirstRound(sig)
+      } else if (userText.trim() === '工具测试' || userText.trim() === 'tool test') {
+        yield* this.mockToolTest(request, sig)
       } else {
         // 简单回复
         yield* emitChars(`（Mock 回复）你说了: ${userText}`, 20, STREAM_EVENT_TYPES.TEXT_DELTA, sig)
@@ -146,6 +148,74 @@ export class MockDeepSeekAdapter implements ModelAdapter {
     }
     yield* emitChars(text, 20, STREAM_EVENT_TYPES.TEXT_DELTA, signal)
     if (signal?.aborted) return
+    yield {
+      type: STREAM_EVENT_TYPES.DONE as any,
+      response: {
+        message: {
+          id: createId('mock'),
+          role: 'assistant' as const,
+          createdAt: Date.now(),
+          parts: [
+            { type: 'text' as const, text },
+            ...tools.map((t) => ({
+              type: 'tool-call' as const,
+              toolCallId: t.id,
+              name: t.name,
+              arguments: t.args,
+            })),
+          ],
+        },
+        stopReason: 'tool_calls',
+      },
+    }
+  }
+
+  /** 工具测试：触发所有工具类型，测试分组显示。 */
+  private async *mockToolTest(request: ModelRequest, signal?: AbortSignal): AsyncIterable<ModelStreamEvent> {
+    // 思考阶段
+    if ((request.settings as any)?.thinkingLevel !== 'off') {
+      const thinking = '收到工具测试请求。需要调用多种工具完成不同任务。'
+      yield* emitChars(thinking, 30, STREAM_EVENT_TYPES.THINKING_DELTA, signal)
+      if (signal?.aborted) return
+      yield { type: STREAM_EVENT_TYPES.THINKING_DONE as any }
+    }
+
+    const text = '开始执行测试任务：'
+    yield* emitChars(text, 20, STREAM_EVENT_TYPES.TEXT_DELTA, signal)
+    if (signal?.aborted) return
+
+    // 全种类工具调用（不同 resourceId 分组）
+    const toolList = [
+      // fs_read → res:fs-read:/README.md（与 fs_grep /same/path 同组串行）
+      { name: 'fs_read', args: { path: 'README.md' } },
+      // fs_grep → res:fs-read:/README.md（与 fs_read 同组串行）
+      { name: 'fs_grep', args: { path: 'README.md', pattern: 'test' } },
+      // fs_list → res:fs-read:（独立路径，另一个串行组）
+      { name: 'fs_list', args: {} },
+      // bash → res:terminal（独立组串行）
+      { name: 'bash', args: { command: 'ls -la' } },
+      // web_fetch + web_search → res:web:xxx（每个独立并行）
+      { name: 'web_fetch', args: { url: 'https://example.com' } },
+      { name: 'web_search', args: { query: 'test' } },
+      // 每个 tool-call 作为独立 delta 流式发出
+    ]
+
+    const tools: Array<{ id: string; name: string; args: Record<string, unknown> }> = []
+    for (const tool of toolList) {
+      const id = createId('tc')
+      tools.push({ id, name: tool.name, args: tool.args })
+      if (signal?.aborted) return
+      yield {
+        type: STREAM_EVENT_TYPES.TOOL_CALL_DELTA as any,
+        toolCallId: id,
+        name: tool.name,
+        argsDelta: JSON.stringify(tool.args),
+        index: 0,
+      }
+      await delay(100, signal)
+    }
+    if (signal?.aborted) return
+
     yield {
       type: STREAM_EVENT_TYPES.DONE as any,
       response: {

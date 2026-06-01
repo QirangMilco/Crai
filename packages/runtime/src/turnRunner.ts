@@ -230,6 +230,9 @@ async function consumeStream(
               status: 'running',
               toolName: event.name,
               toolCallId: event.toolCallId,
+              toolInput: (() => {
+                try { return JSON.parse(event.argsDelta) } catch { return undefined }
+              })(),
               intent: textBeforeTool.trim() || undefined,
               timestamp: Date.now(),
             },
@@ -268,7 +271,8 @@ async function consumeStream(
           })
         }
 
-        // 工具已通过 tool-call-delta 启动；对于未通过 delta 启动的 tool-call（某些 adapter 在 done 中一次性返回），补发 start
+        // 工具已通过 tool-call-delta 启动（toolInput 已在首 delta 中设置）；
+        // 对于未通过 delta 启动的 tool-call（某些 adapter 在 done 中一次性返回），补发 start
         for (const p of response.message.parts) {
           if (p.type === 'tool-call') {
             const tc = p as ToolCallPart
