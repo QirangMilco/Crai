@@ -235,10 +235,27 @@ async function handlePrompt(
     emitEvent: deps.events.emit,
     logger: deps.logger,
     middlewares: deps.middlewares,
+    getStorage: () => {
+      const storages = deps.registries.storages.list()
+      return storages[0]?.value ?? deps.storage
+    },
     buildContext: async () => {
       const storages = deps.registries.storages.list()
       const storage = storages[0]?.value ?? deps.storage
       const messages = storage ? await storage.listMessages(session.id) : []
+
+      // 压缩标记检测：如果存在 ctx-compaction 消息，将其后的消息作为上下文
+      let filtered = messages
+      const lastCtxIdx = (() => {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if ((messages[i] as any).id === 'ctx-compaction') return i
+        }
+        return -1
+      })()
+      if (lastCtxIdx >= 0) {
+        filtered = messages.slice(lastCtxIdx)
+        if (deps.logger?.debug) deps.logger.debug(`[context] 检测到压缩标记，截断至 ${filtered.length} 条消息 (原 ${messages.length} 条)`)
+      }
 
       // 调试：查看加载的消息
       if (deps.logger?.debug) {
@@ -250,24 +267,23 @@ async function handlePrompt(
 
       // OpenHanako 模式：按 turn 边界过滤中止轮次
       const abortedTurnIds = new Set<string>()
-      for (const m of messages) {
+      for (const m of filtered) {
         if (m.role === 'assistant' && (m as any).stopReason === 'aborted' && m.turnId) {
           abortedTurnIds.add(m.turnId)
           if (deps.logger?.debug) deps.logger.debug(`[abort]   → aborted turnId=${m.turnId}`)
         }
       }
-      const filtered = messages.filter((m: any) => {
+      const abortedFiltered = filtered.filter((m: any) => {
         if (m.turnId && abortedTurnIds.has(m.turnId)) {
           if (deps.logger?.debug) deps.logger.debug(`[abort]   → filtered out: id=${m.id?.substring(0,20)} role=${m.role} turnId=${m.turnId}`)
           return false
         }
-        // 向后兼容：无 turnId 的消息保留，仅过滤掉 aborted assistant
         if (m.role === 'assistant' && (m as any).stopReason === 'aborted') return false
         return true
       })
-      if (deps.logger?.debug) deps.logger.debug(`[abort] buildContext: filtered ${filtered.length}/${messages.length} msgs`)
+      if (deps.logger?.debug) deps.logger.debug(`[abort] buildContext: filtered ${abortedFiltered.length}/${filtered.length} msgs (${messages.length} total)`)
 
-      return buildRuntimeContext({ session, messages: filtered, tools: [] })
+      return buildRuntimeContext({ session, messages: abortedFiltered, tools: [] })
     },
     requestModel: async (request) => {
       const adapter = deps.registries.models.get(request.model)

@@ -198,22 +198,18 @@ export function InfoIsland({ status, isProcessing, turnCount, usedTokens, contex
                     <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输入</td>
                     <td className="tabular-nums">{formatToken(lastUsage.inputTokens)} tokens</td>
                   </tr>
-                  {lastUsage?.cachedInputTokens !== undefined && (
-                    <tr>
-                      <td className="pl-3 pr-5" style={{ color: 'var(--crai-fg-40)' }}>├ 缓存命中</td>
-                      <td className="tabular-nums" style={{ color: (lastUsage.cachedInputTokens ?? 0) > 0 ? 'var(--crai-success)' : 'var(--crai-fg-40)' }}>{formatToken(lastUsage.cachedInputTokens ?? 0)} tokens</td>
-                    </tr>
-                  )}
+                  <tr>
+                    <td className="pl-3 pr-5" style={{ color: 'var(--crai-fg-40)' }}>├ 缓存命中</td>
+                    <td className="tabular-nums" style={{ color: 'var(--crai-fg-40)' }}>{lastUsage?.cachedInputTokens != null ? formatToken(lastUsage.cachedInputTokens) + ' tokens' : '—'}</td>
+                  </tr>
                   <tr>
                     <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>输出</td>
                     <td className="tabular-nums">{formatToken(lastUsage.outputTokens)} tokens</td>
                   </tr>
-                  {cost !== null && (
-                    <tr>
-                      <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>成本</td>
-                      <td className="tabular-nums">{formatCost(cost, currency ?? 'USD')}</td>
-                    </tr>
-                  )}
+                  <tr>
+                    <td className="pr-5" style={{ color: 'var(--crai-fg-40)' }}>成本</td>
+                    <td className="tabular-nums">{cost != null ? formatCost(cost, currency ?? 'USD') : '—'}</td>
+                  </tr>
                 </tbody></table>
               </>
             )}

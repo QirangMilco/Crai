@@ -28,8 +28,11 @@ interface WsHandlers {
   onRequestInput: (id: string, question: string, options?: string[], meta?: Record<string, unknown>) => void
   onDirBrowse: (data: BrowseData) => void
   setCurrentModel: (m: string) => void
+  /** 来自 session:data 的 lastRoundUsage。可能为旧数据或受竞态影响的偏小值。 */
   onUsage: (usage: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; cost?: number }) => void
   onUsageAccumulated: (acc: { inputTokens: number; outputTokens: number; cachedInputTokens: number }) => void
+  /** 设置上下文 token 数，由 session:data 检测压缩标记、compression:status 或 usage:update 事件调用。 */
+  onContextTokenCount?: (tokens: number) => void
 }
 
 export function useWsHandler(h: WsHandlers) {
@@ -93,6 +96,13 @@ export function useWsHandler(h: WsHandlers) {
             h.send({ type: 'session:generate-title', sessionId: sid })
           }
         }
+        if (msg.event === 'usage:update') {
+          const inputTokens = msg.payload?.inputTokens
+          if (typeof inputTokens === 'number') {
+            debugLog(DEBUG_SCOPES.USAGE, 'usage:update inputTokens', inputTokens)
+            h.onContextTokenCount?.(inputTokens)
+          }
+        }
         break
       }
       case 'session:id':
@@ -154,6 +164,20 @@ export function useWsHandler(h: WsHandlers) {
         if (msg.usageAccumulated) h.onUsageAccumulated(msg.usageAccumulated)
         if (msg.lastRoundUsage) h.onUsage(msg.lastRoundUsage)
         store.getState().mergeServerData(incoming)
+
+        // 检测压缩标记，计算标记后的上下文 token 数
+        if (h.onContextTokenCount) {
+          const msgs = incoming
+          let ctxStart = 0
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            if ((msgs[i] as any).id === 'ctx-compaction') { ctxStart = i; break }
+          }
+          if (ctxStart > 0) {
+            // 只计算压缩标记之后的消息
+            const ctxText = msgs.slice(ctxStart).map((m: any) => m.text || '').join(' ')
+            h.onContextTokenCount(Math.ceil(ctxText.length / 4))
+          }
+        }
         break
       }
       case 'error':

@@ -410,6 +410,10 @@ export interface GuardContextResult {
   compacted: boolean
   result?: ContextCheckResult
   method?: 'ai' | 'hard-truncate' | 'none' | 'ai-retry'
+  /** 压缩前 token 数。仅 compacted=true 时有效。 */
+  tokensBefore?: number
+  /** 压缩后 token 数。仅 compacted=true 时有效。 */
+  tokensAfter?: number
 }
 
 /**
@@ -487,6 +491,8 @@ export async function guardContext(
             compacted: true,
             result: { ...result, needsCompression: true },
             method: attempt > 0 ? 'ai-retry' : 'ai',
+            tokensBefore: result.currentTokens,
+            tokensAfter: afterTokens,
           }
         }
         lastError = '摘要内容为空'

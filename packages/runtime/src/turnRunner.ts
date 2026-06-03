@@ -14,11 +14,11 @@ import type {
   ToolExecutionResult,
   ToolHandler,
 } from '@crai/core'
-import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext } from '@crai/core'
+import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext, StorageAdapter } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId, getContextWindow } from '@crai/core'
 import type { PermissionMode } from '@crai/core'
-import { guardContext, estimateMessagesTokens, limitToolResult, cleanOrphanedToolCalls } from '@crai/base'
+import { guardContext, estimateMessagesTokens, estimateMessageTokens, limitToolResult, cleanOrphanedToolCalls } from '@crai/base'
 import type { Summarizer } from '@crai/base'
 import { debugLog, DEBUG_SCOPES } from './debug'
 import { withIdleTimeout, StreamTimeoutError } from '@crai/base'
@@ -143,6 +143,8 @@ export interface TurnRunnerDeps {
   adapterContext?: AdapterContext
   /** 日志记录器，调试输出受 logLevel 过滤。 */
   logger?: Logger
+  /** 获取当前存储适配器，用于持久化压缩标记等。 */
+  getStorage?: () => StorageAdapter | undefined
 }
 
 /** 将 RuntimeInput 转换为 Message。 */
@@ -554,9 +556,41 @@ export async function runTurn(
     },
   })
   if (guarded.compacted) {
+    debugLog(DEBUG_SCOPES.CONTEXT, '上下文压缩', {
+      beforeCount: contextWithTools.messages.length,
+      afterCount: guarded.messages.length,
+      beforeRoles: contextWithTools.messages.map((m: any) => ({
+        role: m.role,
+        preview: m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text?.substring(0, 60)).filter(Boolean).join(' ') || '',
+        id: (m.id as string)?.substring(0, 16),
+      })),
+      afterRoles: guarded.messages.map((m: any) => ({
+        role: m.role,
+        preview: m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text?.substring(0, 60)).filter(Boolean).join(' ') || '',
+        id: (m.id as string)?.substring(0, 16),
+      })),
+      method: guarded.method,
+    }, deps.logger)
+    // 持久化压缩标记：将摘要消息追加到 JSONL，后续 buildContext 检测到此标记
+    // 时直接从该位置截断，不再重新计算 token 和 AI 摘要。
+    try {
+      const storage = deps.getStorage?.()
+      if (storage) {
+        const summaryMsg = guarded.messages.find((m: any) => m.id === 'ctx-compaction')
+        if (summaryMsg) {
+          // 标记已持久化的最早消息 ID，供 buildContext 截断用
+          const firstKeptId = guarded.messages.find((m: any) => m.id !== 'ctx-compaction')?.id
+          await storage.appendMessage(session.id, { ...summaryMsg, metadata: { ...summaryMsg.metadata, compressedAt: Date.now(), firstKeptId, tokensBefore: guarded.tokensBefore, tokensAfter: guarded.tokensAfter } })
+          deps.logger?.info?.('[context] 压缩标记已持久化')
+        }
+      }
+    } catch {}
     contextWithTools = { ...contextWithTools, messages: guarded.messages }
+  } else {
+    debugLog(DEBUG_SCOPES.CONTEXT, '上下文无需压缩', {
+      count: contextWithTools.messages.length,
+    }, deps.logger)
   }
-
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     // 决策点 1：每轮开始前检查中止
     if (signal?.aborted) {
@@ -780,8 +814,22 @@ export async function runTurn(
   await deps.hooks.run(HOOKS.PERSIST_AFTER, { session }, { runtime })
 
   if (finalResponse) {
+    // 若适配器未返回 usage（如 mock），用服务端估算值填充
+    if (!finalResponse.usage) {
+      finalResponse.usage = {
+        inputTokens: estimateMessagesTokens(contextWithTools.messages),
+        outputTokens: estimateMessageTokens(finalResponse.message),
+      }
+    }
+
     await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response: finalResponse })
     await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: finalResponse.message })
+
+    // 服务端为授权源，主动通知客户端当前上下文 token 数（对齐 CrystalAgents 的 usage_update 模式）。
+    // 包含本轮模型回复在内，确保压缩后或未压缩场景的计数值均正确。
+    const totalContext = [...contextWithTools.messages, finalResponse.message]
+    const finalTokens = estimateMessagesTokens(totalContext)
+    await deps.emitEvent('usage:update', { session, inputTokens: finalTokens })
 
     debugLog(DEBUG_SCOPES.USAGE, 'model.completed finalResponse', {
       hasUsage: !!finalResponse?.usage,
@@ -792,14 +840,6 @@ export async function runTurn(
   // 累计 token 用量到 session（持久化，跨 restart 保留）
   if (finalResponse?.usage) {
     const u = finalResponse.usage
-    // 确保 usage 有实际值（防止 API 返回空对象）
-    if (!u.inputTokens && !u.outputTokens) {
-      debugLog(DEBUG_SCOPES.USAGE, 'usage object empty, estimating from text', {}, deps.logger)
-      const textParts = finalResponse.message.parts.filter(p => p.type === 'text')
-      const totalText = textParts.map((p: any) => p.text || '').join(' ')
-      u.inputTokens = Math.ceil(totalText.length / 4)
-      u.outputTokens = Math.ceil(totalText.length / 4)
-    }
     const acc = session.usageAccumulated ?? { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }
     if (u.inputTokens) acc.inputTokens += u.inputTokens
     if (u.outputTokens) acc.outputTokens += u.outputTokens
@@ -809,21 +849,9 @@ export async function runTurn(
     if (!session.metadata) session.metadata = {}
     ;(session.metadata as Record<string, unknown>).lastRoundUsage = { inputTokens: u.inputTokens, outputTokens: u.outputTokens, cachedInputTokens: u.cachedInputTokens }
     await runtime.updateSession(session)
-  } else if (finalResponse?.message?.parts) {
-    // API 未返回 usage 时从文本估算
-    const textParts = finalResponse.message.parts.filter((p: any) => p.type === 'text')
-    const totalText = textParts.map((p: any) => p.text || '').join(' ')
-    if (totalText) {
-      const inputs = Math.ceil(totalText.length / 4)
-      const acc = session.usageAccumulated ?? { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }
-      acc.inputTokens += inputs
-      acc.outputTokens += Math.ceil(inputs / 2)  // 输出通常比输入少
-      session.usageAccumulated = acc
-      if (!session.metadata) session.metadata = {}
-      ;(session.metadata as Record<string, unknown>).lastRoundUsage = { inputTokens: inputs, outputTokens: Math.ceil(inputs / 2), cachedInputTokens: 0 }
-      await runtime.updateSession(session)
-      debugLog(DEBUG_SCOPES.USAGE, 'estimated usage from text', { inputTokens: acc.inputTokens, outputTokens: acc.outputTokens }, deps.logger)
-    }
+    debugLog(DEBUG_SCOPES.USAGE, 'usage from response', { inputTokens: acc.inputTokens, outputTokens: acc.outputTokens }, deps.logger)
+  } else {
+    debugLog(DEBUG_SCOPES.USAGE, 'usage unavailable (API did not return usage)', { hasFinalResponse: !!finalResponse }, deps.logger)
   }
 
   await deps.emitEvent(EVENTS.TURN_COMPLETED, { session, turnId })

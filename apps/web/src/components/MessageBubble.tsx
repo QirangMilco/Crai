@@ -5,7 +5,7 @@
  * AI 消息：无气泡背景，直接展示在消息流中（类 CrystalAgents 风格）。
  * 错误消息：警告样式。
  */
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import type { ChatMessage } from '../types/messages'
 import { MarkdownRenderer } from './markdown/MarkdownRenderer'
 import { ActivityTimeline } from './markdown/ActivityTimeline'
@@ -44,18 +44,7 @@ function Bubble({ msg }: Props) {
           <div className="whitespace-pre-wrap break-words">{msg.text}</div>
         </div>
       ) : isError ? (
-        <div
-          style={{
-            backgroundColor: 'var(--crai-tool-error)',
-            color: '#fff',
-            borderRadius: 'var(--crai-msg-assistant-radius)',
-            fontSize: 13,
-            padding: '8px 14px',
-            width: '100%',
-          }}
-        >
-          {msg.text}
-        </div>
+        <CompactMessage msg={msg} />
       ) : (
         <div
           style={{
@@ -103,6 +92,56 @@ function ThreeDotIndicator() {
       <span style={dot} />
       <span style={{ ...dot, animationDelay: '0.2s' }} />
       <span style={{ ...dot, animationDelay: '0.4s' }} />
+    </div>
+  )
+}
+
+import { ChevronDown, ChevronRight, Archive } from 'lucide-react'
+import { Icon } from './ui/Icon'
+
+/** 压缩摘要消息：可折叠，显示压缩前后 token 数。 */
+function CompactMessage({ msg }: { msg: ChatMessage }) {
+  const [collapsed, setCollapsed] = useState(true)
+  // 从 metadata 读取压缩前后的 token 数
+  const tokensBefore = (msg as any).metadata?.tokensBefore
+  const tokensAfter = (msg as any).metadata?.tokensAfter
+  const infoParts: string[] = []
+  if (tokensBefore != null && tokensAfter != null) {
+    infoParts.push(`${tokensBefore} → ${tokensAfter} tokens`)
+  }
+  const infoText = infoParts.length > 0 ? ' · ' + infoParts.join(' · ') : ''
+  
+  return (
+    <div
+      style={{
+        backgroundColor: 'var(--crai-bg-tertiary)',
+        color: 'var(--crai-fg)',
+        borderRadius: 'var(--crai-msg-assistant-radius)',
+        fontSize: 12,
+        width: '100%',
+        borderLeft: '3px solid var(--crai-accent)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 标题栏：始终可见 */}
+      <div
+        onClick={() => setCollapsed((v) => !v)}
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none transition-colors hover:opacity-80"
+        style={{ backgroundColor: 'var(--crai-bg-3)' }}
+      >
+        <Icon icon={collapsed ? ChevronRight : ChevronDown} size="xs" />
+        <Icon icon={Archive} size="xs" style={{ color: 'var(--crai-accent)' }} />
+        <span className="font-medium">上下文已压缩</span>
+        {infoText && (
+          <span style={{ color: 'var(--crai-fg-40)', fontSize: 11 }}>{infoText}</span>
+        )}
+      </div>
+      {/* 摘要正文：折叠收起 */}
+      {!collapsed && (
+        <div className="px-3 py-2 text-xs leading-relaxed" style={{ color: 'var(--crai-fg-60)' }}>
+          {msg.text}
+        </div>
+      )}
     </div>
   )
 }

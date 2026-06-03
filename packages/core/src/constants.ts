@@ -37,6 +37,10 @@ export const EVENTS = {
   ACTIVITY_START: 'activity.start',
   ACTIVITY_DELTA: 'activity.delta',
   ACTIVITY_DONE: 'activity.done',
+
+  // ── 上下文管理事件 ──
+  COMPRESSION_STATUS: 'compression:status',
+  USAGE_UPDATE: 'usage:update',
 } as const
 
 export const HOOKS = {

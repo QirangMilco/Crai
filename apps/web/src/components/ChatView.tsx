@@ -66,6 +66,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
   const [sessionMode, setSessionMode] = useState<string>('ask')
   const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[]; inputPrice?: number; cachedInputPrice?: number; outputPrice?: number }>> | null>(null)
   const [lastUsage, setLastUsage] = useState<{ inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; cost?: number } | null>(null)
+  const [contextTokenCount, setContextTokenCount] = useState<number | null>(null)
   // 累计用量：跨所有 turn 的汇总（每次切换 session 时重置）
   const [accInputTokens, setAccInputTokens] = useState(0)
   const [accOutputTokens, setAccOutputTokens] = useState(0)
@@ -153,6 +154,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
       workspaceBrowseRef.current?.(data)
     },
     onUsage: (usage) => {
+      debugLog(DEBUG_SCOPES.USAGE, 'onUsage', usage)
       setLastUsage(usage)
     },
     onUsageAccumulated: (acc) => {
@@ -161,6 +163,10 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
       setAccInputTokens((prev) => Math.max(prev, acc.inputTokens))
       setAccOutputTokens((prev) => Math.max(prev, acc.outputTokens))
       setAccCachedInputTokens((prev) => Math.max(prev, acc.cachedInputTokens))
+    },
+    onContextTokenCount: (tokens) => {
+      debugLog(DEBUG_SCOPES.USAGE, 'onContextTokenCount', tokens)
+      setContextTokenCount(tokens)
     },
   }).handler
   onMessageRef.current = wsHandler
@@ -185,6 +191,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     store.getState().clearMessages()
     setSessionId(null)
     setLastUsage(null)
+    setContextTokenCount(null)
     setAccInputTokens(0)
     setAccOutputTokens(0)
     setAccCachedInputTokens(0)
@@ -217,7 +224,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     store.getState().clearMessages()
     setSessionId(sid)
     setLastUsage(null)
-    setLastUsage(null)
+    setContextTokenCount(null)
     setAccInputTokens(0)
     setAccOutputTokens(0)
     setAccCachedInputTokens(0)
@@ -367,10 +374,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
             status={status}
             isProcessing={messages.some((m) => m.activities?.some((a) => a.status === 'running'))}
             turnCount={messages.filter((m) => m.role === 'user').length}
-            usedTokens={lastUsage ? (lastUsage.inputTokens ?? 0) + (lastUsage.outputTokens ?? 0) : (() => {
-              const totalText = messages.map(m => m.text || '').join(' ')
-              return Math.ceil(totalText.length / 4) || undefined
-            })()}
+            usedTokens={contextTokenCount ?? undefined}
             contextWindow={
               currentModel && knownModels
                 ? (() => {
