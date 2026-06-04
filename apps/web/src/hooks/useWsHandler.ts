@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import type { ChatMessage } from '../types/messages'
 import { useChatStore } from '../store/chat'
 import { debugLog, DEBUG_SCOPES } from '../utils/debug'
+import { extractTextFromParts } from '../utils/message-utils'
 import { dispatchAuthResponse } from '../components/config/AccessKeysTab'
 
 interface BrowseData {
@@ -35,15 +36,6 @@ interface WsHandlers {
   onContextTokenCount?: (tokens: number) => void
   /** 压缩进度更新：step=summarizing 时压缩进行中，step=done/tokensBefore,tokensAfter 时完成。 */
   onCompressionStatus?: (status: { step: string; tokensBefore?: number; tokensAfter?: number; message?: string }) => void
-}
-
-/** 从消息的 parts 数组中提取纯文本。 */
-function extractPartsText(parts: any[] | undefined): string {
-  if (!parts) return ''
-  return parts
-    .filter((p: any) => p.type === 'text')
-    .map((p: any) => p.text)
-    .join('')
 }
 
 export function useWsHandler(h: WsHandlers) {
@@ -107,13 +99,13 @@ export function useWsHandler(h: WsHandlers) {
             h.send({ type: 'session:generate-title', sessionId: sid })
           }
         }
-        if (msg.event === 'compression:status') {
+        if (msg.event === 'compression.status') {
           const status = msg.payload?.status
           if (status) {
             h.onCompressionStatus?.(status)
           }
         }
-        if (msg.event === 'usage:update') {
+        if (msg.event === 'usage.update') {
           const inputTokens = msg.payload?.inputTokens
           if (typeof inputTokens === 'number') {
             debugLog(DEBUG_SCOPES.USAGE, 'usage:update inputTokens', inputTokens)
@@ -123,8 +115,8 @@ export function useWsHandler(h: WsHandlers) {
         // 实时追加消息（如压缩摘要）
         if (msg.event === 'message.appended') {
           const appendedMsg = msg.payload?.message
-          if (!appendedMsg) break
-          const text = extractPartsText(appendedMsg.parts)
+          if (!appendedMsg) return
+          const text = extractTextFromParts(appendedMsg.parts)
           const chatMsg = {
             id: appendedMsg.id as string,
             role: appendedMsg.role as 'user' | 'assistant' | 'system',

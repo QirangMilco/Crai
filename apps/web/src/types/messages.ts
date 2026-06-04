@@ -64,4 +64,6 @@ export interface ChatMessage {
   createdAt: number
   /** 活动列表（与文本分离渲染）。 */
   activities?: ActivityItem[]
+  /** 服务端消息元数据（如压缩标记的 tokensBefore/tokensAfter）。 */
+  metadata?: Record<string, unknown>
 }

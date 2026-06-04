@@ -216,7 +216,7 @@ export const useChatStore = create<ChatStore>((set) => ({
         if (existingIdx < 0) continue
 
         const serverMsg = merged[existingIdx]
-        const mergedMsg: any = { ...serverMsg }
+        const mergedMsg = { ...serverMsg }
 
         // 本地有流式文本且服务端没有 → 保留本地
         if (local.text && !serverMsg.text) {
@@ -225,7 +225,7 @@ export const useChatStore = create<ChatStore>((set) => ({
         // 服务端 activities + 本地流式 activities 合并
         const serverActivities = serverMsg.activities || []
         if (local.activities && local.activities.length > 0) {
-          const serverById = new Map(serverActivities.map((a: any) => [a.id, a]))
+          const serverById = new Map(serverActivities.map((a) => [a.id, a]))
           for (const la of local.activities) {
             if (la.status === 'running' || la.status === 'pending') {
               serverById.set(la.id, la)

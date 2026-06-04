@@ -549,7 +549,7 @@ export async function runTurn(
     logger: deps.logger,
     summarize: runtime ? createSummarizerFromRuntime(runtime, toolModel) : undefined,
     onProgress: (status) => {
-      deps.emitEvent('compression:status', { session, turnId, status })
+      deps.emitEvent('compression.status', { session, turnId, status })
       if (status.step === 'done' || status.step === 'truncating') {
         deps.logger?.info?.(`[context] 压缩完成: ${status.message}`)
       }
@@ -832,7 +832,7 @@ export async function runTurn(
     // 包含本轮模型回复在内，确保压缩后或未压缩场景的计数值均正确。
     const totalContext = [...contextWithTools.messages, finalResponse.message]
     const finalTokens = estimateMessagesTokens(totalContext)
-    await deps.emitEvent('usage:update', { session, inputTokens: finalTokens })
+    await deps.emitEvent('usage.update', { session, inputTokens: finalTokens })
 
     debugLog(DEBUG_SCOPES.USAGE, 'model.completed finalResponse', {
       hasUsage: !!finalResponse?.usage,

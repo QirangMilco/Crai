@@ -116,8 +116,8 @@ import { Icon } from './ui/Icon'
 function CompactMessage({ msg }: { msg: ChatMessage }) {
   const [collapsed, setCollapsed] = useState(true)
   // 从 metadata 读取压缩前后的 token 数
-  const tokensBefore = (msg as any).metadata?.tokensBefore
-  const tokensAfter = (msg as any).metadata?.tokensAfter
+  const tokensBefore = msg.metadata?.tokensBefore
+  const tokensAfter = msg.metadata?.tokensAfter
   const infoParts: string[] = []
   if (tokensBefore != null && tokensAfter != null) {
     infoParts.push(`${tokensBefore} → ${tokensAfter} tokens`)

@@ -31,8 +31,8 @@ export interface EventMap {
   'model.delta': { session: Session; turnId: ID; delta: string }
   'model.message': { session: Session; message: Message }
   'model.completed': { session: Session; response: ModelResponse }
-  'compression:status': { session: Session; turnId: ID; status: { step: string; message?: string; tokensBefore?: number; tokensAfter?: number } }
-  'usage:update': { session: Session; inputTokens: number }
+  'compression.status': { session: Session; turnId: ID; status: { step: string; message?: string; tokensBefore?: number; tokensAfter?: number } }
+  'usage.update': { session: Session; inputTokens: number }
 
   'tool.requested': { session: Session; toolCall: ToolCallPart }
   'tool.completed': { session: Session; result: ToolExecutionResult }
