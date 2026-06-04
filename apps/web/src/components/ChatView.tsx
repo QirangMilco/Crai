@@ -67,6 +67,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
   const [knownModels, setKnownModels] = useState<Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number; supportedThinkingLevels?: string[]; inputPrice?: number; cachedInputPrice?: number; outputPrice?: number }>> | null>(null)
   const [lastUsage, setLastUsage] = useState<{ inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; cost?: number } | null>(null)
   const [contextTokenCount, setContextTokenCount] = useState<number | null>(null)
+  const [compressionStatus, setCompressionStatus] = useState<{ step: string; tokensBefore?: number; tokensAfter?: number } | null>(null)
   // 累计用量：跨所有 turn 的汇总（每次切换 session 时重置）
   const [accInputTokens, setAccInputTokens] = useState(0)
   const [accOutputTokens, setAccOutputTokens] = useState(0)
@@ -168,6 +169,14 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
       debugLog(DEBUG_SCOPES.USAGE, 'onContextTokenCount', tokens)
       setContextTokenCount(tokens)
     },
+    onCompressionStatus: (status) => {
+      debugLog(DEBUG_SCOPES.USAGE, 'onCompressionStatus', status)
+      if (status.step === 'checking' || status.step === 'summarizing' || status.step === 'retrying') {
+        setCompressionStatus(status)
+      } else if (status.step === 'done' || status.step === 'truncating') {
+        setCompressionStatus(null)
+      }
+    },
   }).handler
   onMessageRef.current = wsHandler
 
@@ -192,6 +201,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     setSessionId(null)
     setLastUsage(null)
     setContextTokenCount(null)
+    setCompressionStatus(null)
     setAccInputTokens(0)
     setAccOutputTokens(0)
     setAccCachedInputTokens(0)
@@ -225,6 +235,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     setSessionId(sid)
     setLastUsage(null)
     setContextTokenCount(null)
+    setCompressionStatus(null)
     setAccInputTokens(0)
     setAccOutputTokens(0)
     setAccCachedInputTokens(0)
@@ -369,7 +380,12 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
         </div>
 
         {/* 中：Dynamic Island */}
-        <div className="flex items-center justify-center" style={{ flex: 1 }}>
+        <div className="flex items-center justify-center gap-2" style={{ flex: 1 }}>
+          {compressionStatus && (
+            <div className="text-xs animate-pulse" style={{ color: 'var(--crai-accent)' }}>
+              压缩中...
+            </div>
+          )}
           <InfoIsland
             status={status}
             isProcessing={messages.some((m) => m.activities?.some((a) => a.status === 'running'))}

@@ -278,6 +278,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
             role: m.role,
             text,
             createdAt: m.createdAt,
+            metadata: (m as any).metadata,
             activities: m.role === 'assistant' ? buildActivitiesFromParts(m.parts, (m as any).stopReason) : undefined,
             // tool-role 消息标记，前端用于把结果合并到对应 activity
             toolCallId: m.role === 'tool' ? (m as any).toolCallId : undefined,

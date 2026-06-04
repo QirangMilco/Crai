@@ -469,7 +469,7 @@ export async function guardContext(
             id: 'ctx-compaction',
             role: 'system' as const,
             createdAt: Date.now(),
-            parts: [{ type: 'text' as const, text: `[上一轮对话摘要] ${summaryText}` }],
+            parts: [{ type: 'text' as const, text: summaryText }],
           }
           // 保留最近的 2 轮 + 摘要
           const keepMessages: Message[] = []
@@ -517,7 +517,7 @@ export async function guardContext(
           id: 'ctx-compaction',
           role: 'system' as const,
           createdAt: Date.now(),
-          parts: [{ type: 'text' as const, text: `[上一轮对话摘要] ${summaryText}` }],
+          parts: [{ type: 'text' as const, text: summaryText }],
         }
         const keepMessages: Message[] = []
         let roundsKept = 0

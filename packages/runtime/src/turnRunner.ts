@@ -59,9 +59,9 @@ function createSummarizerFromRuntime(rt: RuntimeHandle, toolModel?: string): Sum
         {
           model: tmModel,
           provider: tmProvider,
-          system: `你是一位技术文档工程师。根据以下对话历史，生成一份结构化的交接文档。
+          system: `根据以下对话历史，提取关键上下文信息用于后续对话。直接以项目/任务概览开头，不要添加文档标题。
 
-## 项目/任务概述
+## 项目/任务概览
 - 正在处理的项目或任务
 - 目标和预期成果
 - 当前完成状态
@@ -102,7 +102,7 @@ function createSummarizerFromRuntime(rt: RuntimeHandle, toolModel?: string): Sum
 6. 代码片段用 Markdown 代码块并标注语言
 7. 信息分层次组织，方便快速浏览
 
-直接输出交接文档，不要前缀。`, 
+直接输出摘要内容，不要额外说明或文档标题。`, 
           temperature: 0.3,
           maxTokens: 200,
           utility: true,
@@ -580,8 +580,11 @@ export async function runTurn(
         if (summaryMsg) {
           // 标记已持久化的最早消息 ID，供 buildContext 截断用
           const firstKeptId = guarded.messages.find((m: any) => m.id !== 'ctx-compaction')?.id
-          await storage.appendMessage(session.id, { ...summaryMsg, metadata: { ...summaryMsg.metadata, compressedAt: Date.now(), firstKeptId, tokensBefore: guarded.tokensBefore, tokensAfter: guarded.tokensAfter } })
+          const msgWithMeta = { ...summaryMsg, metadata: { ...summaryMsg.metadata, compressedAt: Date.now(), firstKeptId, tokensBefore: guarded.tokensBefore, tokensAfter: guarded.tokensAfter } }
+          await storage.appendMessage(session.id, msgWithMeta)
           deps.logger?.info?.('[context] 压缩标记已持久化')
+          // 通知客户端实时显示压缩摘要气泡
+          await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: msgWithMeta })
         }
       }
     } catch {}

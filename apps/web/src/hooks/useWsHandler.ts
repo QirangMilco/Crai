@@ -33,6 +33,17 @@ interface WsHandlers {
   onUsageAccumulated: (acc: { inputTokens: number; outputTokens: number; cachedInputTokens: number }) => void
   /** 设置上下文 token 数，由 session:data 检测压缩标记、compression:status 或 usage:update 事件调用。 */
   onContextTokenCount?: (tokens: number) => void
+  /** 压缩进度更新：step=summarizing 时压缩进行中，step=done/tokensBefore,tokensAfter 时完成。 */
+  onCompressionStatus?: (status: { step: string; tokensBefore?: number; tokensAfter?: number; message?: string }) => void
+}
+
+/** 从消息的 parts 数组中提取纯文本。 */
+function extractPartsText(parts: any[] | undefined): string {
+  if (!parts) return ''
+  return parts
+    .filter((p: any) => p.type === 'text')
+    .map((p: any) => p.text)
+    .join('')
 }
 
 export function useWsHandler(h: WsHandlers) {
@@ -96,12 +107,32 @@ export function useWsHandler(h: WsHandlers) {
             h.send({ type: 'session:generate-title', sessionId: sid })
           }
         }
+        if (msg.event === 'compression:status') {
+          const status = msg.payload?.status
+          if (status) {
+            h.onCompressionStatus?.(status)
+          }
+        }
         if (msg.event === 'usage:update') {
           const inputTokens = msg.payload?.inputTokens
           if (typeof inputTokens === 'number') {
             debugLog(DEBUG_SCOPES.USAGE, 'usage:update inputTokens', inputTokens)
             h.onContextTokenCount?.(inputTokens)
           }
+        }
+        // 实时追加消息（如压缩摘要）
+        if (msg.event === 'message.appended') {
+          const appendedMsg = msg.payload?.message
+          if (!appendedMsg) break
+          const text = extractPartsText(appendedMsg.parts)
+          const chatMsg = {
+            id: appendedMsg.id as string,
+            role: appendedMsg.role as 'user' | 'assistant' | 'system',
+            text: text || '',
+            createdAt: appendedMsg.createdAt ?? Date.now(),
+            metadata: appendedMsg.metadata,
+          }
+          store.getState().mergeServerData([chatMsg])
         }
         break
       }
@@ -157,6 +188,7 @@ export function useWsHandler(h: WsHandlers) {
           id: m.id, role: m.role as 'user' | 'assistant',
           text: m.text ?? '', createdAt: m.createdAt ?? Date.now(),
           activities: m.activities as any[] | undefined,
+          metadata: m.metadata,
         }))
         if (msg.metadata?.thinkingLevel) h.onThinkingLevel(String(msg.metadata.thinkingLevel))
         if (msg.metadata?.mode) h.onSessionMode(String(msg.metadata.mode))

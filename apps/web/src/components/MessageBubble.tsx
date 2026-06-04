@@ -43,8 +43,21 @@ function Bubble({ msg }: Props) {
         >
           <div className="whitespace-pre-wrap break-words">{msg.text}</div>
         </div>
-      ) : isError ? (
+      ) : isError && msg.id === 'ctx-compaction' ? (
         <CompactMessage msg={msg} />
+      ) : isError ? (
+        <div
+          style={{
+            backgroundColor: 'var(--crai-bg-tertiary)',
+            color: 'var(--crai-fg)',
+            borderRadius: 'var(--crai-msg-assistant-radius)',
+            fontSize: 12,
+            padding: '8px 16px',
+            borderLeft: '3px solid var(--crai-error)',
+          }}
+        >
+          {msg.text}
+        </div>
       ) : (
         <div
           style={{
@@ -136,10 +149,10 @@ function CompactMessage({ msg }: { msg: ChatMessage }) {
           <span style={{ color: 'var(--crai-fg-40)', fontSize: 11 }}>{infoText}</span>
         )}
       </div>
-      {/* 摘要正文：折叠收起 */}
+      {/* 摘要正文：折叠收起，支持 Markdown */}
       {!collapsed && (
-        <div className="px-3 py-2 text-xs leading-relaxed" style={{ color: 'var(--crai-fg-60)' }}>
-          {msg.text}
+        <div className="prose prose-xs max-w-none px-3 py-2 leading-relaxed" style={{ color: 'var(--crai-fg-60)' }}>
+          <MarkdownRenderer content={msg.text} />
         </div>
       )}
     </div>

@@ -272,7 +272,7 @@ export interface SessionListDataMessage {
 export interface SessionDataMessage {
   type: 'session:data'
   sessionId: string
-  messages: Array<{ id: string; role: string; text: string; createdAt: number; blocks?: any[] }>
+  messages: Array<{ id: string; role: string; text: string; createdAt: number; blocks?: any[]; metadata?: Record<string, unknown> }>
   /** session 元数据，含 thinkingLevel、mode 等。 */
   metadata?: Record<string, unknown>
   /** 会话 TODO 列表。 */
