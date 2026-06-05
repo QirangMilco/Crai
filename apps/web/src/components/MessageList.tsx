@@ -16,9 +16,10 @@ export function MessageList({ messages, className = '', rollbackPoints }: Props)
   const listRef = useRef<HTMLDivElement>(null)
   const setActiveTurnIndex = useChatStore((s) => s.setActiveTurnIndex)
   const isStreaming = messages.some((m) => m.role !== 'user' && m.activities?.some((a) => a.status === 'running'))
+  const processing = useChatStore((s) => s.processing)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: isStreaming ? 'instant' : 'smooth' })
+    bottomRef.current?.scrollIntoView({ behavior: isStreaming || processing ? 'instant' : 'smooth' })
   })
 
   // 会话导航跳转

@@ -15,6 +15,7 @@ interface Props {
 }
 
 function Bubble({ msg, fileCount, messageIndex }: Props & { fileCount?: number; messageIndex?: number }) {
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const isUser = msg.role === 'user'
   const isError = msg.role === 'system'
 
@@ -49,11 +50,11 @@ function Bubble({ msg, fileCount, messageIndex }: Props & { fileCount?: number; 
             )}
           </div>
           <div className="flex items-center gap-1 mt-1" style={{ opacity: 0.5 }}>
-            <button onClick={() => navigator.clipboard.writeText(msg.text)}
+            <button onClick={() => { navigator.clipboard.writeText(msg.text); setCopiedId('user-copy'); setTimeout(() => setCopiedId(null), 1500) }}
               className="hover:opacity-100 transition-opacity"
               style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-              title="复制消息">
-              <Icon icon={Copy} size="xs" />
+              title={copiedId === 'user-copy' ? '已复制' : '复制消息'}>
+              <Icon icon={copiedId === 'user-copy' ? Check : Copy} size="xs" />
             </button>
             <button onClick={() => window.dispatchEvent(new CustomEvent('crai:rollback', { detail: { messageIndex } }))}
               className="hover:opacity-100 transition-opacity"
@@ -84,33 +85,33 @@ function Bubble({ msg, fileCount, messageIndex }: Props & { fileCount?: number; 
           {msg.text}
         </div>
       ) : (
-        <div className="flex flex-col items-start" style={{ maxWidth: 'var(--crai-msg-max-width)' }}>
+        <div className="flex flex-col items-stretch w-full" style={{ paddingLeft: 'var(--crai-msg-padding-x, 16px)', paddingRight: 'var(--crai-msg-padding-x, 16px)' }}>
+          {msg.activities && msg.activities.length > 0 && (
+            <ActivityTimeline activities={msg.activities} />
+          )}
           <div
             style={{
               fontSize: 'var(--crai-msg-ai-font-size)',
               lineHeight: 'var(--crai-msg-ai-line-height)',
-              paddingLeft: 'var(--crai-msg-padding-x, 16px)',
-              paddingRight: 'var(--crai-msg-padding-x, 16px)',
+              maxWidth: 'var(--crai-msg-max-width)',
+              width: '100%',
             }}
           >
-            {msg.activities && msg.activities.length > 0 && (
-              <ActivityTimeline activities={msg.activities} />
-            )}
             {msg.text ? (
               <div className="prose prose-sm max-w-none" style={{ fontFamily: 'var(--crai-font-serif)' }}>
                 <MarkdownRenderer content={msg.text} />
               </div>
-            ) : msg.activities?.some((a) => a.status === 'running') ? (
+            ) : msg.activities && msg.activities.length > 0 ? (
               <ThreeDotIndicator />
             ) : null}
           </div>
           {msg.text && !msg.activities?.some((a) => a.status === 'running') && (
             <div className="flex items-center gap-1 mt-1" style={{ opacity: 0.5 }}>
-              <button onClick={() => navigator.clipboard.writeText(msg.text)}
+              <button onClick={() => { navigator.clipboard.writeText(msg.text); setCopiedId('ai-copy'); setTimeout(() => setCopiedId(null), 1500) }}
                 className="hover:opacity-100 transition-opacity"
                 style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-                title="复制消息">
-                <Icon icon={Copy} size="xs" />
+                title={copiedId === 'ai-copy' ? '已复制' : '复制消息'}>
+                <Icon icon={copiedId === 'ai-copy' ? Check : Copy} size="xs" />
               </button>
             </div>
           )}
@@ -145,7 +146,7 @@ function ThreeDotIndicator() {
   )
 }
 
-import { ChevronDown, ChevronRight, Archive, Copy, Undo2, GitBranch } from 'lucide-react'
+import { ChevronDown, ChevronRight, Archive, Copy, Undo2, GitBranch, Check } from 'lucide-react'
 import { Icon } from './ui/Icon'
 
 /** 压缩摘要消息：可折叠，显示压缩前后 token 数。 */

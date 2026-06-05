@@ -72,9 +72,10 @@ export interface ChatStore {
   todos: Array<{ id: string; content: string; activeForm?: string; status: 'pending' | 'in_progress' | 'completed' }>
   /** 导航面板当前高亮的消息索引 */
   activeTurnIndex: number
-
-  /** 设置当前高亮索引 */
-  setActiveTurnIndex: (idx: number) => void
+  /** 服务端知会的处理中状态（由 turn.started / turn.completed 控制）。用于中止按钮显示。 */
+  processing: boolean
+  /** 设置处理中状态。 */
+  setProcessing: (v: boolean) => void
 
   /** 创建用户消息 + 空助理消息占位符。 */
   appendPlaceholders: (text: string, ts: number, sessionId?: string | null) => void
@@ -111,10 +112,12 @@ export interface ChatStore {
 
 export const useChatStore = create<ChatStore>((set) => ({
   messages: [],
+  processing: false,
   todos: [],
   activeTurnIndex: -1,
 
   setActiveTurnIndex: (idx) => set({ activeTurnIndex: idx }),
+  setProcessing: (v) => set({ processing: v }),
 
   appendPlaceholders: (text: string, ts: number, _sessionId?: string | null) => {
     set((s) => ({
@@ -203,9 +206,18 @@ export const useChatStore = create<ChatStore>((set) => ({
       const hasServerAssistant = incoming.some((m) => m.role === 'assistant')
       const hasServerUser = incoming.some((m) => m.role === 'user')
 
+      // 捕获被过滤的本地占位消息中的 activities，用于回填到服务端消息
+      let orphanActivities: ChatMessage['activities'] = []
+      let orphanText = ''
+
       const kept = s.messages.filter((m) => {
         if (incomingIds.has(m.id)) return false
-        if (hasServerAssistant && m.role === 'assistant' && /^asst-/.test(m.id)) return false
+        if (hasServerAssistant && m.role === 'assistant' && /^asst-/.test(m.id)) {
+          // 在过滤前保存其 activities 和文本
+          if (m.activities?.length) orphanActivities = m.activities
+          if (m.text) orphanText = m.text
+          return false
+        }
         if (hasServerUser && m.role === 'user' && /^user-/.test(m.id)) return false
         return true
       })
@@ -227,11 +239,18 @@ export const useChatStore = create<ChatStore>((set) => ({
         if (local.activities && local.activities.length > 0) {
           const serverById = new Map(serverActivities.map((a) => [a.id, a]))
           for (const la of local.activities) {
-            if (la.status === 'running' || la.status === 'pending') {
-              serverById.set(la.id, la)
-            }
+            // 保留所有本地 activity 状态（服务端 message.appended 不携带 activities）
+            serverById.set(la.id, la)
           }
           mergedMsg.activities = Array.from(serverById.values())
+          debugLog('merge', 'activities merged', {
+            msgId: serverMsg.id,
+            serverActCount: serverActivities.length,
+            localActCount: local.activities?.length,
+            mergedActCount: mergedMsg.activities?.length,
+            localActIds: (local.activities || []).map(a => a.id),
+            localActStatuses: (local.activities || []).map(a => a.status),
+          })
         } else {
           mergedMsg.activities = serverActivities
         }
@@ -246,6 +265,20 @@ export const useChatStore = create<ChatStore>((set) => ({
           merged.push(local)
         }
       }
+
+      // 将本地占位消息的 activities 回填到无 activities 的服务端 assistant 消息
+      if (orphanActivities.length > 0) {
+        const lastAsst = merged.findLast((m) => m.role === 'assistant')
+        if (lastAsst && (!lastAsst.activities || lastAsst.activities.length === 0)) {
+          const idx = merged.indexOf(lastAsst)
+          merged[idx] = { ...lastAsst, activities: orphanActivities }
+          debugLog('merge', 'orphan activities transferred', {
+            msgId: lastAsst.id,
+            actCount: orphanActivities.length,
+          })
+        }
+      }
+
       merged.sort((a, b) => a.createdAt - b.createdAt)
       return { messages: merged }
     })
@@ -261,7 +294,7 @@ export const useChatStore = create<ChatStore>((set) => ({
       _sb.flushTimer = null
     }
     _sb.text = ''
-    set({ messages: [], todos: [] })
+    set({ messages: [], todos: [], processing: false })
   },
 
   setTodos: (todos) => set({ todos }),

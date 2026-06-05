@@ -529,6 +529,7 @@ export class DeepSeekAdapter implements ModelAdapter {
     resetAccumulator()
     let fullContent = ''
     let inThinking = false
+    const thinkingDisabled = !shouldEnableThinking(request)
     let capturedFinishReason: string | null | undefined
     let streamUsage: { prompt_tokens: number; completion_tokens: number; prompt_cache_hit_tokens?: number } | undefined
 
@@ -561,15 +562,19 @@ export class DeepSeekAdapter implements ModelAdapter {
           if (!inThinking) {
             inThinking = true
           }
-          this.debugApi('THINKING_DELTA yield', { reasoning: delta.reasoning_content.substring(0, 60) })
-          yield { type: STREAM_EVENT_TYPES.THINKING_DELTA, delta: delta.reasoning_content }
+          if (!thinkingDisabled) {
+            this.debugApi('THINKING_DELTA yield', { reasoning: delta.reasoning_content.substring(0, 60) })
+            yield { type: STREAM_EVENT_TYPES.THINKING_DELTA, delta: delta.reasoning_content }
+          }
         }
 
         // 第一次收到内容 delta 时，思考阶段结束
         if (delta?.content && inThinking) {
           inThinking = false
-          this.debugApi('THINKING_DONE yield', {})
-          yield { type: STREAM_EVENT_TYPES.THINKING_DONE }
+          if (!thinkingDisabled) {
+            this.debugApi('THINKING_DONE yield', {})
+            yield { type: STREAM_EVENT_TYPES.THINKING_DONE }
+          }
         }
 
         // 普通文本 delta

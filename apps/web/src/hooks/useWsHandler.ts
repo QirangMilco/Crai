@@ -85,6 +85,10 @@ export function useWsHandler(h: WsHandlers) {
         if (msg.event === 'turn.completed' || msg.event === 'turn.failed') {
           // turn 结束（无论是否正常中止）时清理客户端占位活动
           store.getState().completeActivity('think-pending', 'completed')
+          store.getState().setProcessing(false)
+        }
+        if (msg.event === 'turn.started') {
+          store.getState().setProcessing(true)
         }
         if (msg.event === 'model.completed') {
           store.getState().flushBuffer()
@@ -120,6 +124,14 @@ export function useWsHandler(h: WsHandlers) {
         if (msg.event === 'message.appended') {
           const appendedMsg = msg.payload?.message
           if (!appendedMsg) return
+          debugLog(DEBUG_SCOPES.MERGE, 'message.appended', { id: appendedMsg.id, role: appendedMsg.role, partsCount: appendedMsg.parts?.length })
+          // assistant 回复已通过流式渲染，跳过重复插入
+          if (appendedMsg.role === 'assistant') {
+            const existingMsgs = store.getState().messages
+            const existing = existingMsgs.find((m: any) => m.id === appendedMsg.id)
+            debugLog(DEBUG_SCOPES.MERGE, 'assistant message check', { id: appendedMsg.id, exists: !!existing, existingActs: existing?.activities?.length })
+            if (existing) break
+          }
           const text = extractTextFromParts(appendedMsg.parts)
           const chatMsg = {
             id: appendedMsg.id as string,

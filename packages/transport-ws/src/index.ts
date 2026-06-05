@@ -370,16 +370,24 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
               ...(aiMsg ? [{ role: 'assistant', content: aiMsg.slice(0, 500) }] : []),
             ],
             {
-              system: '用一句简短的话概括这个对话的主题。直接输出标题，不要前缀，不要引号，不要标点结尾。15字以内。',
+              system: 'Based on the conversation below, generate a concise title (max 30 chars) in the SAME LANGUAGE as the user. Output JSON only: {"title": "..."}',
               model: toolModel,
               provider: toolProvider,
               temperature: 0.3,
-              maxTokens: 50,
+              maxTokens: 100,
               utility: true,
             },
           )
           debugLog(DEBUG_SCOPES.TITLE_GEN, 'raw_response', { raw: title }, logger)
-          const cleanTitle = title.replace(/^[""''“”「」]+|[""''“”」」]+$/g, '').trim()
+          // 尝试从 JSON 中提取标题，失败时回退到文本清理
+          let cleanTitle = ''
+          try {
+            const parsed = JSON.parse(title)
+            if (parsed.title) cleanTitle = String(parsed.title).trim()
+          } catch {}
+          if (!cleanTitle) {
+            cleanTitle = title.replace(/^[""'']+|[""'']+$/g, '').trim()
+          }
           if (cleanTitle) {
             // 持久化标题
             const session = await rt.getSession(msg.sessionId)

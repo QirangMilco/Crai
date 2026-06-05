@@ -191,3 +191,14 @@ button, [role="button"], select, input[type="text"], input[type="search"] {
 code, pre {
   font-family: var(--crai-font-mono, 'SF Mono', Monaco, 'Cascadia Code', monospace);
 }
+
+/* 代码块内边距 */
+pre.shiki {
+  padding: 0.75rem;
+}
+
+/* ── 思考脉冲动画 ── */
+@keyframes crai-think-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
