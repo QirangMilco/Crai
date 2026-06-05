@@ -12,8 +12,8 @@
     "maxFileSize": 10485760,
     "maxBackups": 3,
     "scopes": {
-      "server": ["merge", "middleware", "title-gen"],
-      "client": ["timeline", "merge", "middleware", "tools", "title-gen"]
+      "server": ["merge", "middleware"],
+      "client": ["timeline", "merge", "middleware"]
     }
   }
 }

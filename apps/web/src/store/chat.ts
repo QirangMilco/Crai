@@ -1,20 +1,17 @@
 /**
  * @crai/web — 聊天消息 Zustand store
  *
- * 设计：
- * - messages 是唯一响应式状态，通过 useStore 选择性订阅
- * - 流式文本先写入模块级 buffer，每 100ms 批量 flush 到 msg.text
- * - Activity 事件（thinking/tool）直接 set store，不经过 buffer
- * - WS handler 通过 getState() 直接调用 store action，不经过 React
- *
- * CrystalAgents 路线：text 和 activities 分离存储，blocks 仅用于旧 session 回放。
+ * 核心原则：消息自创建到完成始终是同一个 messages[] 条目，不切换组件树。
+ * - appendPlaceholders 创建 asst-xxx 占位消息（含 think-pending 活动）
+ * - 流式 buffer 写入占位消息的 text
+ * - Activity 事件写入占位消息的 activities
+ * - message.appended 到达时：原地更新占位消息的数据（text + activities），不添加新条目
+ * - 无独立 turn 状态、无 TurnCard、无组件切换
  */
 
 import { create } from 'zustand'
 import type { ChatMessage } from '../types/messages'
 import { debugLog } from '../utils/debug'
-
-// ── Stream Buffer（模块级，不触发 React 订阅） ──────────
 
 const FLUSH_INTERVAL = 100
 
@@ -26,15 +23,12 @@ const _sb = {
 
 function flushNow(set: any) {
   if (!_sb.text) return
-
   _sb.flushedAt = Date.now()
-
   set((s: ChatStore) => {
     const idx = findLastAssistantIndex(s.messages)
     if (idx === undefined) return s
     const msg = s.messages[idx]
     const copy = [...s.messages]
-    // 流式文本开始到达时，移除占位的 think-pending 活动
     const activities = msg.activities ? [...msg.activities] : undefined
     if (activities) {
       const pi = activities.findIndex((a: any) => a.id === 'think-pending')
@@ -43,7 +37,6 @@ function flushNow(set: any) {
     copy[idx] = { ...copy[idx], text: msg.text + _sb.text, activities }
     return { messages: copy }
   })
-
   _sb.text = ''
 }
 
@@ -59,54 +52,26 @@ function scheduleFlush(set: any) {
   }
 }
 
-// ── 辅助函数 ────────────────────────────────────────
-
 function findLastAssistantIndex(msgs: ChatMessage[]): number | undefined {
   return msgs.map((m, i) => ({ m, i })).filter((x) => x.m.role === 'assistant').pop()?.i
 }
 
-// ── Store ────────────────────────────────────────────
-
 export interface ChatStore {
   messages: ChatMessage[]
   todos: Array<{ id: string; content: string; activeForm?: string; status: 'pending' | 'in_progress' | 'completed' }>
-  /** 导航面板当前高亮的消息索引 */
   activeTurnIndex: number
-  /** 服务端知会的处理中状态（由 turn.started / turn.completed 控制）。用于中止按钮显示。 */
   processing: boolean
-  /** 设置处理中状态。 */
   setProcessing: (v: boolean) => void
-
-  /** 创建用户消息 + 空助理消息占位符。 */
+  setActiveTurnIndex: (idx: number) => void
   appendPlaceholders: (text: string, ts: number, sessionId?: string | null) => void
-
-  /** 文本增量。累积到 buffer，100ms 节流 flush 到 msg.text。 */
   streamText: (delta: string) => void
-
-  // ── Activity 操作（CrystalAgents 路线） ──
-
-  /** 添加/更新一个活动（thinking/tool 开始或补充参数）。 */
   addActivity: (activity: { id: string; type: 'thinking' | 'tool'; status: 'running'; toolName?: string; toolCallId?: string; intent?: string; toolInput?: Record<string, unknown> }) => void
-
-  /** 更新活动内容（thinking delta）。 */
   updateActivity: (activityId: string, delta: string) => void
-
-  /** 完成一个活动（thinking/tool 结束）。 */
   completeActivity: (activityId: string, status: 'completed' | 'error' | 'aborted', content?: string, error?: string) => void
-
-  /** 合并服务端 session:data。 */
   mergeServerData: (incoming: ChatMessage[]) => void
-
-  /** 设置 TODO 列表。 */
   setTodos: (todos: ChatStore['todos']) => void
-
-  /** 节流清空 buffer。通常在 model.completed 或 turn_end 时调用。 */
   flushBuffer: () => void
-
-  /** 清空所有消息。 */
   clearMessages: () => void
-
-  /** 追加一条系统消息（用于显示错误信息）。 */
   appendSystemMessage: (text: string) => void
 }
 
@@ -119,7 +84,7 @@ export const useChatStore = create<ChatStore>((set) => ({
   setActiveTurnIndex: (idx) => set({ activeTurnIndex: idx }),
   setProcessing: (v) => set({ processing: v }),
 
-  appendPlaceholders: (text: string, ts: number, _sessionId?: string | null) => {
+  appendPlaceholders: (text: string, ts: number) => {
     set((s) => ({
       messages: [
         ...s.messages,
@@ -134,17 +99,13 @@ export const useChatStore = create<ChatStore>((set) => ({
     scheduleFlush(set)
   },
 
-  // ── Activity 操作 ──
-
-  /** 添加一个活动（thinking/tool 开始），同时捕获 msg.text 中的 intent 文本并清空。 */
-  addActivity: (activity: { id: string; type: 'thinking' | 'tool'; status: 'running'; toolName?: string; toolCallId?: string; intent?: string; toolInput?: Record<string, unknown> }) => {
+  addActivity: (activity) => {
     flushNow(set)
     set((s) => {
       const idx = findLastAssistantIndex(s.messages)
       if (idx === undefined) return s
       const msg = s.messages[idx]
       const activities = [...(msg.activities || [])]
-      // 移除占位活动（客户端即时反馈），替换为真实活动
       const pendingIdx = activities.findIndex((a) => a.id === 'think-pending')
       if (pendingIdx >= 0 && pendingIdx < activities.length) {
         activities.splice(pendingIdx, 1)
@@ -157,7 +118,6 @@ export const useChatStore = create<ChatStore>((set) => ({
         return { messages: copy }
       }
       activities.push({ ...activity, timestamp: Date.now() } as any)
-      // 服务端已告知 intent（textBeforeTool），移除 msg.text 中对应的 intent 文本
       const newText = activity.intent ? '' : msg.text
       const copy = [...s.messages]
       copy[idx] = { ...copy[idx], activities, text: newText }
@@ -165,7 +125,7 @@ export const useChatStore = create<ChatStore>((set) => ({
     })
   },
 
-  updateActivity: (activityId: string, delta: string) => {
+  updateActivity: (activityId, delta) => {
     set((s) => {
       const idx = findLastAssistantIndex(s.messages)
       if (idx === undefined) return s
@@ -203,58 +163,25 @@ export const useChatStore = create<ChatStore>((set) => ({
     flushNow(set)
     set((s) => {
       const incomingIds = new Set(incoming.map((m) => m.id))
-      const hasServerAssistant = incoming.some((m) => m.role === 'assistant')
-      const hasServerUser = incoming.some((m) => m.role === 'user')
-
-      // 捕获被过滤的本地占位消息中的 activities，用于回填到服务端消息
-      let orphanActivities: ChatMessage['activities'] = []
-      let orphanText = ''
-
-      const kept = s.messages.filter((m) => {
-        if (incomingIds.has(m.id)) return false
-        if (hasServerAssistant && m.role === 'assistant' && /^asst-/.test(m.id)) {
-          // 在过滤前保存其 activities 和文本
-          if (m.activities?.length) orphanActivities = m.activities
-          if (m.text) orphanText = m.text
-          return false
-        }
-        if (hasServerUser && m.role === 'user' && /^user-/.test(m.id)) return false
-        return true
-      })
-
+      const kept = s.messages.filter((m) => !incomingIds.has(m.id))
       const merged = [...incoming]
+
       for (const local of s.messages) {
         const existingIdx = merged.findIndex((m) => m.id === local.id)
         if (existingIdx < 0) continue
-
         const serverMsg = merged[existingIdx]
         const mergedMsg = { ...serverMsg }
-
-        // 本地有流式文本且服务端没有 → 保留本地
         if (local.text && !serverMsg.text) {
           mergedMsg.text = local.text
         }
-        // 服务端 activities + 本地流式 activities 合并
         const serverActivities = serverMsg.activities || []
         if (local.activities && local.activities.length > 0) {
           const serverById = new Map(serverActivities.map((a) => [a.id, a]))
-          for (const la of local.activities) {
-            // 保留所有本地 activity 状态（服务端 message.appended 不携带 activities）
-            serverById.set(la.id, la)
-          }
+          for (const la of local.activities) serverById.set(la.id, la)
           mergedMsg.activities = Array.from(serverById.values())
-          debugLog('merge', 'activities merged', {
-            msgId: serverMsg.id,
-            serverActCount: serverActivities.length,
-            localActCount: local.activities?.length,
-            mergedActCount: mergedMsg.activities?.length,
-            localActIds: (local.activities || []).map(a => a.id),
-            localActStatuses: (local.activities || []).map(a => a.status),
-          })
         } else {
           mergedMsg.activities = serverActivities
         }
-
         merged[existingIdx] = mergedMsg
       }
       for (const local of kept) {
@@ -266,16 +193,21 @@ export const useChatStore = create<ChatStore>((set) => ({
         }
       }
 
-      // 将本地占位消息的 activities 回填到无 activities 的服务端 assistant 消息
-      if (orphanActivities.length > 0) {
-        const lastAsst = merged.findLast((m) => m.role === 'assistant')
-        if (lastAsst && (!lastAsst.activities || lastAsst.activities.length === 0)) {
-          const idx = merged.indexOf(lastAsst)
-          merged[idx] = { ...lastAsst, activities: orphanActivities }
-          debugLog('merge', 'orphan activities transferred', {
-            msgId: lastAsst.id,
-            actCount: orphanActivities.length,
-          })
+      // 原地更新占位消息：保留 asst-xxx key，用服务端数据替换，保持 React 稳定
+      const serverAsst = incoming.find(m => m.role === 'assistant')
+      if (serverAsst) {
+        for (let i = merged.length - 1; i >= 0; i--) {
+          if (merged[i].role === 'assistant' && /^asst-/.test(merged[i].id)) {
+            merged[i] = {
+              ...merged[i],
+              text: serverAsst.text || merged[i].text,
+              metadata: serverAsst.metadata || merged[i].metadata,
+              // 保留现场 activities 引用不变（已完成状态，避免 ActivityRow key 变化触发 remount）
+            }
+            const si = merged.findIndex(m => m.id === serverAsst.id)
+            if (si >= 0) merged.splice(si, 1)
+            break
+          }
         }
       }
 

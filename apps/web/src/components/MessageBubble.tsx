@@ -9,6 +9,7 @@ import { memo, useState } from 'react'
 import type { ChatMessage } from '../types/messages'
 import { MarkdownRenderer } from './markdown/MarkdownRenderer'
 import { ActivityTimeline } from './markdown/ActivityTimeline'
+import { ThreeDotIndicator } from './markdown/ThreeDotIndicator'
 
 interface Props {
   msg: ChatMessage
@@ -126,25 +127,6 @@ export const MessageBubble = memo(Bubble as React.FC<Props & { fileCount?: numbe
     && prev.msg.text === next.msg.text
     && prev.msg.activities === next.msg.activities
 })
-
-function ThreeDotIndicator() {
-  const dot: React.CSSProperties = {
-    display: 'inline-block',
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    backgroundColor: 'var(--crai-accent)',
-    opacity: 0.4,
-    animation: 'crai-think-pulse 1.4s ease-in-out infinite',
-  }
-  return (
-    <div className="flex gap-1 items-center py-2">
-      <span style={dot} />
-      <span style={{ ...dot, animationDelay: '0.2s' }} />
-      <span style={{ ...dot, animationDelay: '0.4s' }} />
-    </div>
-  )
-}
 
 import { ChevronDown, ChevronRight, Archive, Copy, Undo2, GitBranch, Check } from 'lucide-react'
 import { Icon } from './ui/Icon'

@@ -2,7 +2,7 @@ import { useCallback, useRef } from 'react'
 import type { ChatMessage } from '../types/messages'
 import { useChatStore } from '../store/chat'
 import { debugLog, DEBUG_SCOPES } from '../utils/debug'
-import { extractTextFromParts } from '../utils/message-utils'
+import { extractTextFromParts, buildActivitiesFromParts } from '../utils/message-utils'
 import { dispatchAuthResponse } from '../components/config/AccessKeysTab'
 
 interface BrowseData {
@@ -125,20 +125,17 @@ export function useWsHandler(h: WsHandlers) {
           const appendedMsg = msg.payload?.message
           if (!appendedMsg) return
           debugLog(DEBUG_SCOPES.MERGE, 'message.appended', { id: appendedMsg.id, role: appendedMsg.role, partsCount: appendedMsg.parts?.length })
-          // assistant 回复已通过流式渲染，跳过重复插入
-          if (appendedMsg.role === 'assistant') {
-            const existingMsgs = store.getState().messages
-            const existing = existingMsgs.find((m: any) => m.id === appendedMsg.id)
-            debugLog(DEBUG_SCOPES.MERGE, 'assistant message check', { id: appendedMsg.id, exists: !!existing, existingActs: existing?.activities?.length })
-            if (existing) break
-          }
           const text = extractTextFromParts(appendedMsg.parts)
+          // 从 parts 重建 activities（与服务端 buildActivitiesFromParts 一致），
+          // 避免依赖占位消息传递 activities
+          const activities = buildActivitiesFromParts(appendedMsg.parts || [], appendedMsg.stopReason)
           const chatMsg = {
             id: appendedMsg.id as string,
             role: appendedMsg.role as 'user' | 'assistant' | 'system',
             text: text || '',
             createdAt: appendedMsg.createdAt ?? Date.now(),
             metadata: appendedMsg.metadata,
+            activities: activities.length > 0 ? activities : undefined,
           }
           store.getState().mergeServerData([chatMsg])
         }

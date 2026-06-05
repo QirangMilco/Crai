@@ -38,7 +38,6 @@ function buildWsUrlForSwitch(url: string, token: string): string {
 
 export function ChatView({ wsUrl, onDisconnect }: Props) {
   const messages = useChatStore((s) => s.messages)
-  const processing = useChatStore((s) => s.processing)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [pendingNewSession, setPendingNewSession] = useState(false)
   const [showConnections, setShowConnections] = useState(false)
@@ -392,7 +391,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
           )}
           <InfoIsland
             status={status}
-            isProcessing={processing || messages.some((m) => m.activities?.some((a) => a.status === 'running'))}
+            isProcessing={messages.some((m) => m.activities?.some((a) => a.status === 'running'))}
             turnCount={messages.filter((m) => m.role === 'user').length}
             usedTokens={contextTokenCount ?? undefined}
             contextWindow={
@@ -622,7 +621,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
           </div>
         </div>
       )}
-        <MessageList messages={messages} rollbackPoints={rollbackPoints} />
+        <MessageList messages={messages} rollbackPoints={rollbackPoints}  />
         {pendingConfirm && (
           <ConfirmBar
             id={pendingConfirm.id}
@@ -636,7 +635,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
           onSend={handleSend}
           onCancel={() => send({ type: 'session:cancel-turn' })}
           disabled={status !== 'connected'}
-          isProcessing={processing || messages.some((m) => m.activities?.some((a) => a.status === 'running'))}
+          isProcessing={messages.some((m) => m.activities?.some((a) => a.status === 'running'))}
           models={availableModels}
           currentModel={currentModel}
           onModelChange={setCurrentModel}
