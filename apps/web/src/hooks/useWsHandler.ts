@@ -36,6 +36,10 @@ interface WsHandlers {
   onContextTokenCount?: (tokens: number) => void
   /** 压缩进度更新：step=summarizing 时压缩进行中，step=done/tokensBefore,tokensAfter 时完成。 */
   onCompressionStatus?: (status: { step: string; tokensBefore?: number; tokensAfter?: number; message?: string }) => void
+  /** 检查点操作结果。 */
+  onCheckpointRollback?: (sessionId: string, messageCount: number | null, filesRestored?: number) => void
+  onCheckpointFork?: (newSessionId: string) => void
+  onCheckpointRollbackPoints?: (points: Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number }>) => void
 }
 
 export function useWsHandler(h: WsHandlers) {
@@ -188,6 +192,7 @@ export function useWsHandler(h: WsHandlers) {
         if (msg.usageAccumulated) h.onUsageAccumulated(msg.usageAccumulated)
         if (msg.lastRoundUsage) h.onUsage(msg.lastRoundUsage)
         store.getState().mergeServerData(incoming)
+        h.send({ type: 'checkpoint:rollback:points', sessionId: msg.sessionId })
 
         // 检测压缩标记，计算标记后的上下文 token 数
         if (h.onContextTokenCount) {
@@ -220,6 +225,19 @@ export function useWsHandler(h: WsHandlers) {
       case 'config:auth:generated':
       case 'config:auth:revoked':
         dispatchAuthResponse(msg)
+        break
+      case 'checkpoint:rollback:done':
+        h.onCheckpointRollback?.(msg.sessionId, msg.messageCount, msg.filesRestored)
+        if (typeof msg.messageCount === 'number') {
+          // 重新加载会话（消息已截断）
+          h.send({ type: 'session:load', sessionId: msg.sessionId })
+        }
+        break
+      case 'checkpoint:fork:done':
+        h.onCheckpointFork?.(msg.newSessionId)
+        break
+      case 'checkpoint:rollback:points:data':
+        h.onCheckpointRollbackPoints?.(msg.points)
         break
     }
   }, [])

@@ -68,6 +68,9 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
   const [lastUsage, setLastUsage] = useState<{ inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; cost?: number } | null>(null)
   const [contextTokenCount, setContextTokenCount] = useState<number | null>(null)
   const [compressionStatus, setCompressionStatus] = useState<{ step: string; tokensBefore?: number; tokensAfter?: number } | null>(null)
+  const [rollbackPoints, setRollbackPoints] = useState<Map<number, { turnId: string; fileCount: number }>>(new Map())
+  const [showRollbackModal, setShowRollbackModal] = useState<{ messageIndex: number; fileCount: number } | null>(null)
+  const [rollbackMode, setRollbackMode] = useState<'both' | 'files' | 'conversation'>('both')
   // 累计用量：跨所有 turn 的汇总（每次切换 session 时重置）
   const [accInputTokens, setAccInputTokens] = useState(0)
   const [accOutputTokens, setAccOutputTokens] = useState(0)
@@ -553,7 +556,72 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
         )}
       </Dialog>
       <ShellLayout send={send}>
-        <MessageList messages={messages} />
+
+      {/* 回滚确认模态框 */}
+      {showRollbackModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+        }} onClick={() => setShowRollbackModal(null)}>
+          <div style={{
+            backgroundColor: 'var(--crai-bg)',
+            borderRadius: 12, padding: 24, minWidth: 300,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12, color: 'var(--crai-fg)' }}>
+              确认回滚
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--crai-fg-60)', marginBottom: 16, lineHeight: 1.5 }}>
+              {showRollbackModal.fileCount > 0
+                ? `将回滚 ${showRollbackModal.fileCount} 个文件并截断对话到此之前的消息。`
+                : '将截断对话到此之前的消息（无文件需要恢复）。'}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div className="text-xs" style={{ color: 'var(--crai-fg-40)', marginBottom: 6 }}>回滚范围</div>
+              {[
+                { value: 'both' as const, label: '文件 + 对话', desc: '恢复文件并截断消息' },
+                { value: 'files' as const, label: '仅文件', desc: '恢复文件，保留后续对话' },
+                { value: 'conversation' as const, label: '仅对话', desc: '截断消息，文件保持不变' },
+              ].map((opt) => (
+                <label key={opt.value} className="flex items-center gap-2 px-3 py-2 rounded cursor-pointer hover:opacity-80"
+                  style={{ backgroundColor: rollbackMode === opt.value ? 'var(--crai-bg-secondary)' : 'transparent' }}>
+                  <input type="radio" name="mode" checked={rollbackMode === opt.value}
+                    onChange={() => setRollbackMode(opt.value)}
+                    style={{ accentColor: 'var(--crai-accent)' }} />
+                  <div>
+                    <div className="text-sm" style={{ color: 'var(--crai-fg)' }}>{opt.label}</div>
+                    <div className="text-xs" style={{ color: 'var(--crai-fg-40)' }}>{opt.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowRollbackModal(null)}
+                className="px-3 py-1.5 rounded text-sm"
+                style={{ color: 'var(--crai-fg-60)', border: '1px solid var(--crai-border)' }}>
+                取消
+              </button>
+              <button onClick={() => {
+                const idx = showRollbackModal.messageIndex
+                setShowRollbackModal(null)
+                if (rollbackMode === 'both' || rollbackMode === 'conversation') {
+                  send({ type: 'checkpoint:rollback:to-index', sessionId, messageIndex: idx })
+                }
+                if (rollbackMode === 'both' || rollbackMode === 'files') {
+                  send({ type: 'checkpoint:rollback:to-index', sessionId, messageIndex: idx })
+                }
+              }}
+                className="px-3 py-1.5 rounded text-sm font-medium"
+                style={{ backgroundColor: 'var(--crai-accent)', color: '#fff' }}>
+                {rollbackMode === 'both' ? '回滚文件与对话' :
+                 rollbackMode === 'files' ? '仅回滚文件' : '仅截断对话'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+        <MessageList messages={messages} rollbackPoints={rollbackPoints} />
         {pendingConfirm && (
           <ConfirmBar
             id={pendingConfirm.id}

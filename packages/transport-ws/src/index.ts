@@ -39,6 +39,18 @@ export interface WsTransportHandlers {
   onWorkspaceSwitch?: (rootDir: string) => Promise<{ model: string; provider: string }>
   onWorkspaceConfigGet?: (rootDir: string) => WorkspaceConfig | Promise<WorkspaceConfig>
   onWorkspaceConfigSet?: (rootDir: string, config: WorkspaceConfig) => void | Promise<void>
+
+  // ── 检查点操作 ──
+  /** 列出会话的检查点。 */
+  onCheckpointList?: (sessionId: string) => Promise<Array<{ turnId: string; messageCount: number; timestamp: number; fileCount: number }>>
+  /** 回滚到指定检查点。返回截断后的消息数，或 null。 */
+  onCheckpointRollback?: (sessionId: string, turnId: string) => Promise<number | null>
+  /** 回滚到指定消息索引处的文件状态。返回截断后的消息数。 */
+  onCheckpointRollbackToIndex?: (sessionId: string, messageIndex: number) => Promise<{ messageCount: number; filesRestored: number } | null>
+  /** 获取回滚点列表（每消息快照信息）。 */
+  onCheckpointRollbackPoints?: (sessionId: string) => Promise<Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number }>>
+  /** 从检查点分叉出新会话。返回新会话 ID，或 null。 */
+  onCheckpointFork?: (sessionId: string, turnId: string, newSessionId: string) => Promise<string | null>
 }
 
 export interface WsTransportOptions {
@@ -533,6 +545,43 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
           if (keyId === msg.id) ws.close(4001, 'key revoked')
         }
         ws.send(JSON.stringify({ type: 'config:auth:revoked', id: msg.id } satisfies ServerMessage))
+        break
+      }
+
+      // ── 检查点操作 ──
+      case 'checkpoint:list': {
+        if (!handlers?.onCheckpointList) { ws.send(JSON.stringify({ type: 'error', message: 'checkpoint not available' } satisfies ServerMessage)); break }
+        const list = await handlers.onCheckpointList(msg.sessionId)
+        ws.send(JSON.stringify({ type: 'checkpoint:list:data', sessionId: msg.sessionId, checkpoints: list } satisfies ServerMessage))
+        break
+      }
+      case 'checkpoint:rollback': {
+        if (!handlers?.onCheckpointRollback) { ws.send(JSON.stringify({ type: 'error', message: 'checkpoint not available' } satisfies ServerMessage)); break }
+        const msgCount = await handlers.onCheckpointRollback(msg.sessionId, msg.turnId)
+        ws.send(JSON.stringify({ type: 'checkpoint:rollback:done', sessionId: msg.sessionId, turnId: msg.turnId, messageCount: msgCount } satisfies ServerMessage))
+        break
+      }
+      case 'checkpoint:rollback:to-index': {
+        if (!handlers?.onCheckpointRollbackToIndex) { ws.send(JSON.stringify({ type: 'error', message: 'checkpoint not available' } satisfies ServerMessage)); break }
+        const rbResult = await handlers.onCheckpointRollbackToIndex(msg.sessionId, msg.messageIndex)
+        ws.send(JSON.stringify({ type: 'checkpoint:rollback:done', sessionId: msg.sessionId, turnId: '', messageCount: rbResult?.messageCount ?? null, filesRestored: rbResult?.filesRestored ?? 0 } satisfies ServerMessage))
+        break
+      }
+      case 'checkpoint:rollback:points': {
+        if (!handlers?.onCheckpointRollbackPoints) { ws.send(JSON.stringify({ type: 'error', message: 'checkpoint not available' } satisfies ServerMessage)); break }
+        const points = await handlers.onCheckpointRollbackPoints(msg.sessionId)
+        ws.send(JSON.stringify({ type: 'checkpoint:rollback:points:data', sessionId: msg.sessionId, points } satisfies ServerMessage))
+        break
+      }
+      case 'checkpoint:fork': {
+        if (!handlers?.onCheckpointFork) { ws.send(JSON.stringify({ type: 'error', message: 'checkpoint not available' } satisfies ServerMessage)); break }
+        const newId = await handlers.onCheckpointFork(msg.sessionId, msg.turnId, msg.newSessionId)
+        if (newId) {
+          ws.send(JSON.stringify({ type: 'session:id', id: newId } satisfies ServerMessage))
+          ws.send(JSON.stringify({ type: 'checkpoint:fork:done', sessionId: msg.sessionId, turnId: msg.turnId, newSessionId: newId } satisfies ServerMessage))
+        } else {
+          ws.send(JSON.stringify({ type: 'error', message: 'fork failed' } satisfies ServerMessage))
+        }
         break
       }
 

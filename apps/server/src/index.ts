@@ -5,7 +5,7 @@
  * - 通过 Web 界面添加/删除 provider 后自动同步
  * - 从配置文件读取配，无需环境变量
  */
-import { createRuntime } from '@crai/runtime'
+import { createRuntime, CheckpointManager } from '@crai/runtime'
 import type { Extension, Logger, ModelAdapter, RuntimeHandle } from '@crai/core'
 import { createOpenAIProvider, createDeepSeekProvider, createMockProvider, listModels, DeepSeekAdapter, OpenAIAdapter } from '@crai/provider'
 import { ConsoleLogger, createSandbox } from '@crai/base'
@@ -117,6 +117,8 @@ class WorkspaceManager {
       return
     }
     const dataDir = this.config.workspaceDataDir(rootDir)
+    const checkpointsDir = resolve(dataDir, 'checkpoints')
+    const checkpointManager = new CheckpointManager(checkpointsDir)
 
     this.log.info(`ensure: provider=${eff.provider}, model=${eff.model}, apiKey=${eff.apiKey ? '***' : '(空)'}`)
 
@@ -135,6 +137,7 @@ class WorkspaceManager {
 
     const runtime = await createRuntime({
       logger: this.log,
+      checkpointManager,
       extensions: [
         provider,
         ...(VARIANT === 'dev' ? [createMockProvider({ logger: this.log })] : []),
@@ -237,6 +240,12 @@ class WorkspaceManager {
 // ── 入口 ──
 
 let gWorkspaces: WorkspaceManager | undefined
+
+/** 获取第一个活跃 runtime。与 transport 的 resolveRuntime 逻辑一致。 */
+function getFirstRuntime(): RuntimeHandle | undefined {
+  const first = gWorkspaces?.list()[0]
+  return first ? gWorkspaces?.getRuntime(first) : undefined
+}
 
 async function main() {
   const variant = await loadVariant()
@@ -379,6 +388,59 @@ async function main() {
       onAuthListKeys: () => auth.listKeys(),
       onAuthGenerateKey: (description) => auth.generateKey(description),
       onAuthRevokeKey: (id) => auth.revokeKey(id),
+
+      // ── 检查点操作 ──
+      onCheckpointList: async (sessionId) => {
+        const rt = getFirstRuntime()
+        if (!rt) return []
+        const cm = rt.getCheckpointManager?.()
+        if (!cm) return []
+        return cm.listCheckpoints(sessionId)
+      },
+      onCheckpointRollback: async (sessionId, turnId) => {
+        const rt = getFirstRuntime()
+        if (!rt) return null
+        const cm = rt.getCheckpointManager?.()
+        if (!cm) return null
+        const msgCount = await cm.rollback(sessionId, turnId)
+        if (msgCount != null) {
+          await rt.truncateMessages?.(sessionId, msgCount)
+        }
+        return msgCount
+      },
+      onCheckpointRollbackToIndex: async (sessionId, messageIndex) => {
+        const rt = getFirstRuntime()
+        if (!rt) return null
+        const cm = rt.getCheckpointManager?.()
+        if (!cm) return null
+        const result = await cm.rollbackToMessageIndex(sessionId, messageIndex)
+        if (result != null) {
+          await rt.truncateMessages?.(sessionId, result.messageCount)
+        }
+        return result
+      },
+      onCheckpointRollbackPoints: async (sessionId) => {
+        const rt = getFirstRuntime()
+        if (!rt) return []
+        const cm = rt.getCheckpointManager?.()
+        if (!cm) return []
+        return cm.getRollbackPoints(sessionId)
+      },
+      onCheckpointFork: async (sessionId, turnId, newSessionId) => {
+        const rt = getFirstRuntime()
+        if (!rt || !rt.createSession) return null
+        const cm = rt.getCheckpointManager?.()
+        if (!cm) return null
+        await cm.fork(
+          sessionId, turnId, newSessionId,
+          async (sid) => rt.listMessages(sid),
+          async (session) => { await rt.createSession?.({}, session.id) },
+          async (sid, msg) => {
+            await rt.appendMessage?.(sid, msg)
+          },
+        )
+        return newSessionId
+      },
     },
     getRuntime: (rootDir) => {
       if (rootDir) return gWorkspaces?.getRuntime(rootDir)

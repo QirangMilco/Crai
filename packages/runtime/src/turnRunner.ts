@@ -19,6 +19,7 @@ import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId, getContextWindow } from '@crai/core'
 import type { PermissionMode } from '@crai/core'
 import { guardContext, estimateMessagesTokens, estimateMessageTokens, limitToolResult, cleanOrphanedToolCalls } from '@crai/base'
+import type { CheckpointManager } from './checkpoint'
 import type { Summarizer } from '@crai/base'
 import { debugLog, DEBUG_SCOPES } from './debug'
 import { withIdleTimeout, StreamTimeoutError } from '@crai/base'
@@ -145,6 +146,8 @@ export interface TurnRunnerDeps {
   logger?: Logger
   /** 获取当前存储适配器，用于持久化压缩标记等。 */
   getStorage?: () => StorageAdapter | undefined
+  /** 检查点管理器，用于 turn 级别回滚。 */
+  checkpointManager?: CheckpointManager
 }
 
 /** 将 RuntimeInput 转换为 Message。 */
@@ -376,6 +379,16 @@ async function executeOneTool(
   await deps.hooks.run(HOOKS.TOOL_BEFORE, { session, toolCall }, { runtime: undefined as any })
   await deps.emitEvent(EVENTS.TOOL_REQUESTED, { session, toolCall })
 
+  // 记录文件修改前的原始内容（用于检查点回滚）
+  const cp = deps.checkpointManager
+  if (cp) {
+    const args = toolCall.arguments as any
+    const filePath = args?.path || args?.filePath || args?.file
+    if (typeof filePath === 'string') {
+      await cp.recordFile(session.id, turnId, filePath).catch(() => {})
+    }
+  }
+
   try {
     const result = await handler.execute(execRequest, execCtx)
     await deps.emitEvent(EVENTS.TOOL_COMPLETED, { session, result })
@@ -448,6 +461,12 @@ export async function runTurn(
   // 输入归一化
   await deps.hooks.run(HOOKS.INPUT_BEFORE, { session, input }, { runtime })
   const context = await deps.buildContext(session)
+
+  // 创建检查点（用于回滚/分叉），此时已有上下文消息数
+  const cp = deps.checkpointManager
+  if (cp) {
+    await cp.create(session.id, turnId, context.messages.length)
+  }
 
   // 将输入转换为消息并追加到上下文
   const inputAsMsg: Message = { ...inputToMessage(input, session.id), turnId }
@@ -858,6 +877,11 @@ export async function runTurn(
   }
 
   await deps.emitEvent(EVENTS.TURN_COMPLETED, { session, turnId })
+
+  // 提交检查点（turn 正常完成，保留文件供后续回滚）
+  if (cp) {
+    await cp.complete(session.id, turnId)
+  }
 
   return {
     session,

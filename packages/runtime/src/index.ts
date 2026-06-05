@@ -1,5 +1,6 @@
 /** Runtime 包统一出口。只导出核心构造与类型。 */
 export { createRuntime } from './createRuntime'
+export { CheckpointManager } from './checkpoint'
 export { createTraceCollector } from './trace'
 export { isDebugScope, debugLog, setDebugScopes, DEBUG_SCOPES } from './debug'
 export { StreamTimeoutError, withIdleTimeout, guardContext, hardTruncate, checkContext, estimateTokens, estimateTokensAccurate, estimateMessagesTokens, estimateMessageTokens, generateSummary } from '@crai/base'

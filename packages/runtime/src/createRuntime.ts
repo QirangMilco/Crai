@@ -79,6 +79,8 @@ export interface RuntimeOptions {
    * 返回 undefined 表示无法提供此模型。
    */
   onModelNotFound?(modelName: string, provider?: string): Promise<ModelAdapter | undefined>
+  /** 检查点管理器（用于 turn 级别回滚）。如果提供，会自动集成到 turn 生命周期。 */
+  checkpointManager?: import('./checkpoint').CheckpointManager
 }
 
 // ── 内部类型 ──────────────────────────────────────
@@ -98,6 +100,8 @@ interface RuntimeDeps {
   requestUserInput?: (question: string, options?: string[]) => Promise<string>
   /** 当前 turn 的 AbortController。prompt 开始时设置，结束后清除。 */
   currentAbortController?: AbortController
+  /** 检查点管理器（可选）。 */
+  checkpointManager?: import('./checkpoint').CheckpointManager
 }
 
 // ── 辅助函数 ───────────────────────────────────────
@@ -128,7 +132,7 @@ function createDeps(options?: RuntimeOptions): RuntimeDeps {
     get(_key) { return undefined },
     async set(_key, _value) {},
   }
-  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore, traceCollector, requestUserInput: options?.requestUserInput }
+  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore, traceCollector, requestUserInput: options?.requestUserInput, checkpointManager: options?.checkpointManager }
 }
 
 function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
@@ -235,6 +239,7 @@ async function handlePrompt(
     emitEvent: deps.events.emit,
     logger: deps.logger,
     middlewares: deps.middlewares,
+    checkpointManager: deps.checkpointManager,
     getStorage: () => {
       const storages = deps.registries.storages.list()
       return storages[0]?.value ?? deps.storage
@@ -523,6 +528,17 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       if (storage) await storage.deleteSession(sessionId)
       deps.sessions.delete(sessionId)
     },
+    truncateMessages: async (sessionId, count) => {
+      const storages = deps.registries.storages.list()
+      const storage = storages[0]?.value
+      if (storage?.truncateMessages) await storage.truncateMessages(sessionId, count)
+    },
+    appendMessage: async (sessionId, message) => {
+      const storages = deps.registries.storages.list()
+      const storage = storages[0]?.value
+      if (storage) await storage.appendMessage(sessionId, message)
+    },
+    getCheckpointManager: () => options?.checkpointManager,
     registerTool(tool: ToolDefinition & { execute: ToolHandler['execute'] }) {
       const provider: ToolProvider = {
         name: `builtin:${tool.name}`,

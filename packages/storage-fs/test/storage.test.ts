@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { FileStorageAdapter } from '../src/adapter'
+import type { Message } from '@crai/core'
 
 // 临时目录栈，afterEach 统一清理
 const tempDirs: string[] = []
@@ -76,5 +77,33 @@ describe('FileStorage', () => {
 
     const messages = await storage.listMessages('nonexistent')
     assert.deepEqual(messages, [])
+  })
+
+  it('truncateMessages: 截断到指定数量', async () => {
+    const { storage } = makeStorage()
+    const sid = 'test_truncate'
+    const msg1: Message = { id: 'm1', role: 'user', createdAt: 100, parts: [{ type: 'text', text: 'a' }] }
+    const msg2: Message = { id: 'm2', role: 'assistant', createdAt: 200, parts: [{ type: 'text', text: 'b' }] }
+    const msg3: Message = { id: 'm3', role: 'user', createdAt: 300, parts: [{ type: 'text', text: 'c' }] }
+    await storage.appendMessage(sid, msg1)
+    await storage.appendMessage(sid, msg2)
+    await storage.appendMessage(sid, msg3)
+
+    await storage.truncateMessages(sid, 2)
+    const msgs = await storage.listMessages(sid)
+    assert.strictEqual(msgs.length, 2)
+    assert.strictEqual(msgs[0].id, 'm1')
+    assert.strictEqual(msgs[1].id, 'm2')
+  })
+
+  it('truncateMessages: 数量不足时不截断', async () => {
+    const { storage } = makeStorage()
+    const sid = 'test_truncate_short'
+    const msg1: Message = { id: 'm1', role: 'user', createdAt: 100, parts: [{ type: 'text', text: 'x' }] }
+    await storage.appendMessage(sid, msg1)
+
+    await storage.truncateMessages(sid, 10)
+    const msgs = await storage.listMessages(sid)
+    assert.strictEqual(msgs.length, 1)
   })
 })

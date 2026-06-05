@@ -117,6 +117,14 @@ export class FileStorageAdapter implements StorageAdapter {
     return Array.from(seen.values())
   }
 
+  async truncateMessages(sessionId: ID, count: number): Promise<void> {
+    const all = await this.listMessages(sessionId)
+    if (all.length <= count) return
+    const keep = all.slice(0, count)
+    const filePath = messagesPath(this.baseDir, sessionId)
+    await writeFile(filePath, keep.map((m) => JSON.stringify(m)).join('\n') + '\n', 'utf-8')
+  }
+
   async listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp; pinned?: boolean; archived?: boolean }>> {
     const dir = join(this.baseDir, DIRS.SESSIONS)
     try {

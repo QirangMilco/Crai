@@ -14,7 +14,7 @@ interface Props {
   msg: ChatMessage
 }
 
-function Bubble({ msg }: Props) {
+function Bubble({ msg, fileCount, messageIndex }: Props & { fileCount?: number; messageIndex?: number }) {
   const isUser = msg.role === 'user'
   const isError = msg.role === 'system'
 
@@ -25,25 +25,50 @@ function Bubble({ msg }: Props) {
   return (
     <div
       className={`msg-enter flex ${isUser ? 'justify-end' : 'justify-start'}`}
-      style={{ marginBottom: 'var(--crai-msg-gap, 8px)' }}
+      style={{ marginBottom: 'calc(var(--crai-msg-gap, 8px) + 24px)' }}
       data-token-group={isUser ? 'user-msg' : 'ai-msg'}
     >
       {isUser ? (
-        <div
-          style={{
-            backgroundColor: 'var(--crai-msg-user-bg)',
-            color: 'var(--crai-msg-user-fg)',
-            borderRadius: 'var(--crai-msg-user-radius)',
-            fontSize: 'var(--crai-msg-user-font-size)',
-            lineHeight: 'var(--crai-msg-user-line-height)',
-            boxShadow: 'var(--crai-shadow-bubble)',
-            padding: 'var(--crai-msg-padding-y, 12px) var(--crai-msg-padding-x, 16px)',
-            maxWidth: 'var(--crai-msg-user-max-width)',
-          }}
-        >
-          <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-        </div>
-      ) : isError && msg.id === 'ctx-compaction' ? (
+        <div className="flex flex-col items-end" style={{ maxWidth: 'var(--crai-msg-user-max-width)' }}>
+          <div
+            style={{
+              backgroundColor: 'var(--crai-msg-user-bg)',
+              color: 'var(--crai-msg-user-fg)',
+              borderRadius: 'var(--crai-msg-user-radius)',
+              fontSize: 'var(--crai-msg-user-font-size)',
+              lineHeight: 'var(--crai-msg-user-line-height)',
+              boxShadow: 'var(--crai-shadow-bubble)',
+              padding: 'var(--crai-msg-padding-y, 12px) var(--crai-msg-padding-x, 16px)',
+            }}
+          >
+            <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+            {fileCount != null && fileCount > 0 && (
+              <div className="text-[10px] mt-1" style={{ color: 'var(--crai-fg-40)', opacity: 0.7 }}>
+                📎 {fileCount} 个文件可回滚
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1 mt-1" style={{ opacity: 0.5 }}>
+            <button onClick={() => navigator.clipboard.writeText(msg.text)}
+              className="hover:opacity-100 transition-opacity"
+              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+              title="复制消息">
+              <Icon icon={Copy} size="xs" />
+            </button>
+            <button onClick={() => window.dispatchEvent(new CustomEvent('crai:rollback', { detail: { messageIndex } }))}
+              className="hover:opacity-100 transition-opacity"
+              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+              title="回滚到此处">
+              <Icon icon={Undo2} size="xs" />
+            </button>
+            <button onClick={() => window.dispatchEvent(new CustomEvent('crai:fork', { detail: { msgId: msg.id } }))}
+              className="hover:opacity-100 transition-opacity"
+              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+              title="从此分叉">
+              <Icon icon={GitBranch} size="xs" />
+            </button>
+          </div>
+        </div>) : isError && msg.id === 'ctx-compaction' ? (
         <CompactMessage msg={msg} />
       ) : isError ? (
         <div
@@ -59,32 +84,43 @@ function Bubble({ msg }: Props) {
           {msg.text}
         </div>
       ) : (
-        <div
-          style={{
-            fontSize: 'var(--crai-msg-ai-font-size)',
-            lineHeight: 'var(--crai-msg-ai-line-height)',
-            paddingLeft: 'var(--crai-msg-padding-x, 16px)',
-            paddingRight: 'var(--crai-msg-padding-x, 16px)',
-            maxWidth: 'var(--crai-msg-max-width)',
-          }}
-        >
-          {msg.activities && msg.activities.length > 0 && (
-            <ActivityTimeline activities={msg.activities} />
-          )}
-          {msg.text ? (
-            <div className="prose prose-sm max-w-none" style={{ fontFamily: 'var(--crai-font-serif)' }}>
-              <MarkdownRenderer content={msg.text} />
+        <div className="flex flex-col items-start" style={{ maxWidth: 'var(--crai-msg-max-width)' }}>
+          <div
+            style={{
+              fontSize: 'var(--crai-msg-ai-font-size)',
+              lineHeight: 'var(--crai-msg-ai-line-height)',
+              paddingLeft: 'var(--crai-msg-padding-x, 16px)',
+              paddingRight: 'var(--crai-msg-padding-x, 16px)',
+            }}
+          >
+            {msg.activities && msg.activities.length > 0 && (
+              <ActivityTimeline activities={msg.activities} />
+            )}
+            {msg.text ? (
+              <div className="prose prose-sm max-w-none" style={{ fontFamily: 'var(--crai-font-serif)' }}>
+                <MarkdownRenderer content={msg.text} />
+              </div>
+            ) : msg.activities?.some((a) => a.status === 'running') ? (
+              <ThreeDotIndicator />
+            ) : null}
+          </div>
+          {msg.text && !msg.activities?.some((a) => a.status === 'running') && (
+            <div className="flex items-center gap-1 mt-1" style={{ opacity: 0.5 }}>
+              <button onClick={() => navigator.clipboard.writeText(msg.text)}
+                className="hover:opacity-100 transition-opacity"
+                style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                title="复制消息">
+                <Icon icon={Copy} size="xs" />
+              </button>
             </div>
-          ) : msg.activities?.some((a) => a.status === 'running') ? (
-            <ThreeDotIndicator />
-          ) : null}
+          )}
         </div>
-      )}
+          )}
     </div>
   )
 }
 
-export const MessageBubble = memo(Bubble, (prev, next) => {
+export const MessageBubble = memo(Bubble as React.FC<Props & { fileCount?: number; messageIndex?: number }>, (prev, next) => {
   return prev.msg.id === next.msg.id
     && prev.msg.text === next.msg.text
     && prev.msg.activities === next.msg.activities
@@ -109,7 +145,7 @@ function ThreeDotIndicator() {
   )
 }
 
-import { ChevronDown, ChevronRight, Archive } from 'lucide-react'
+import { ChevronDown, ChevronRight, Archive, Copy, Undo2, GitBranch } from 'lucide-react'
 import { Icon } from './ui/Icon'
 
 /** 压缩摘要消息：可折叠，显示压缩前后 token 数。 */

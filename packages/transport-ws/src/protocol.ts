@@ -196,6 +196,11 @@ export type ClientMessage =
   | ConfigAuthListMessage
   | ConfigAuthGenerateMessage
   | ConfigAuthRevokeMessage
+  | CheckpointListMessage
+  | CheckpointRollbackMessage
+  | CheckpointRollbackToIndexMessage
+  | CheckpointForkMessage
+  | CheckpointRollbackPointsMessage
 
 // ── Server → Client ───────────────────────────────
 
@@ -301,6 +306,10 @@ export type ServerMessage =
   | ConfigAuthListDataMessage
   | ConfigAuthGeneratedMessage
   | ConfigAuthRevokedMessage
+  | CheckpointListDataMessage
+  | CheckpointRollbackDoneMessage
+  | CheckpointForkDoneMessage
+  | CheckpointRollbackPointsDataMessage
 
 /** 目录浏览响应。 */
 export interface DirBrowseDataMessage {
@@ -360,4 +369,62 @@ export interface ConfigAuthGeneratedMessage {
 export interface ConfigAuthRevokedMessage {
   type: 'config:auth:revoked'
   id: string
+}
+
+// ── 检查点消息 ──
+
+export interface CheckpointListMessage {
+  type: 'checkpoint:list'
+  sessionId: string
+}
+
+export interface CheckpointListDataMessage {
+  type: 'checkpoint:list:data'
+  sessionId: string
+  checkpoints: Array<{ turnId: string; messageCount: number; timestamp: number; fileCount: number }>
+}
+
+export interface CheckpointRollbackMessage {
+  type: 'checkpoint:rollback'
+  sessionId: string
+  turnId: string
+}
+
+export interface CheckpointRollbackToIndexMessage {
+  type: 'checkpoint:rollback:to-index'
+  sessionId: string
+  messageIndex: number
+}
+
+export interface CheckpointRollbackDoneMessage {
+  type: 'checkpoint:rollback:done'
+  sessionId: string
+  turnId: string
+  messageCount: number | null
+  filesRestored?: number
+}
+
+export interface CheckpointForkMessage {
+  type: 'checkpoint:fork'
+  sessionId: string
+  turnId: string
+  newSessionId: string
+}
+
+export interface CheckpointForkDoneMessage {
+  type: 'checkpoint:fork:done'
+  sessionId: string
+  turnId: string
+  newSessionId: string
+}
+
+export interface CheckpointRollbackPointsMessage {
+  type: 'checkpoint:rollback:points'
+  sessionId: string
+}
+
+export interface CheckpointRollbackPointsDataMessage {
+  type: 'checkpoint:rollback:points:data'
+  sessionId: string
+  points: Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number }>
 }

@@ -173,6 +173,7 @@ export interface StorageAdapter {
   /** 列举所有已持久化的 session 摘要，不含完整消息列表。 */
   listSessions(): Promise<Array<{ id: ID; title?: string; createdAt: Timestamp; updatedAt: Timestamp; pinned?: boolean; archived?: boolean }>>
   deleteSession(sessionId: ID): Promise<void>
+  truncateMessages?(sessionId: ID, count: number): Promise<void>
   saveArtifact(artifact: Artifact): Promise<void>
 }
 
@@ -375,6 +376,12 @@ export interface RuntimeHandle {
   listMessages(sessionId: ID): Promise<Message[]>
   /** 删除 session 及其所有消息。 */
   deleteSession(sessionId: ID): Promise<void>
+  /** 截断 session 消息，只保留前 count 条。用于检查点回滚。 */
+  truncateMessages?(sessionId: ID, count: number): Promise<void>
+  /** 追加消息到 session。用于分叉等操作。 */
+  appendMessage?(sessionId: ID, message: Message): Promise<void>
+  /** 获取检查点管理器（如果可用）。 */
+  getCheckpointManager?(): any
   /** 中止当前正在处理的 turn。无正在处理的 turn 时无操作。 */
   abortCurrentTurn(): void
   /** 动态注册工具。返回清理函数。 */

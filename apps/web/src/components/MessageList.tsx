@@ -7,9 +7,10 @@ import { useChatStore } from '../store/chat'
 interface Props {
   messages: ChatMessage[]
   className?: string
+  rollbackPoints?: Map<number, { turnId: string; fileCount: number }>
 }
 
-export function MessageList({ messages, className = '' }: Props) {
+export function MessageList({ messages, className = '', rollbackPoints }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -107,7 +108,7 @@ export function MessageList({ messages, className = '' }: Props) {
                       }}
                     />
                   )}
-                  <MessageBubble msg={msg} />
+                  <MessageBubble msg={msg} fileCount={rollbackPoints?.get(idx)?.fileCount} messageIndex={idx} />
                 </motion.div>
               )
             })
