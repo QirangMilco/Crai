@@ -158,12 +158,16 @@ export function createFsTools(options: FsToolsOptions): Extension {
               ? resolveAllowedPath(String(args.path), rootDir)
               : rootDir
 
-            const result = spawnSync('grep', ['-rn', pattern, searchPath], {
+            const result = spawnSync('grep', ['-rn', '--exclude-dir=.git', '--exclude-dir=.crai-dev', '--exclude-dir=node_modules', pattern, searchPath], {
               encoding: 'utf-8',
               maxBuffer: 1024 * 1024,
               timeout: 10_000,
             })
-            const output = result.stdout?.trim() || result.stderr?.trim() || ''
+            let output = result.stdout?.trim() || result.stderr?.trim() || ''
+            // 限制 grep 输出不超过 50K 字符（约 12K tokens），避免撑爆上下文
+            if (output.length > 50000) {
+              output = output.slice(0, 50000) + `\n\n[输出过长已截断，仅显示前 50000 字符 / 共 ${output.length} 字符]`
+            }
             return {
               toolCallId: request.toolCall.toolCallId,
               name: 'fs_grep',

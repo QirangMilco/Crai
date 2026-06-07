@@ -285,6 +285,8 @@ export interface SessionDataMessage {
   /** 本会话累计的 token 用量。 */
   usageAccumulated?: { inputTokens: number; outputTokens: number; cachedInputTokens: number }
   lastRoundUsage?: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number }
+  /** 当前上下文窗口的 token 数（由服务端在每次模型调用后计算并持久化，刷新后可恢复）。 */
+  contextTokenCount?: number
 }
 
 export type ServerMessage =

@@ -207,16 +207,19 @@ export function useWsHandler(h: WsHandlers) {
         store.getState().mergeServerData(incoming)
         h.send({ type: 'checkpoint:rollback:points', sessionId: msg.sessionId })
 
-        // 检测压缩标记，计算标记后的上下文 token 数
+        // 使用服务端持久化的上下文 token 数（刷新后可恢复，避免客户端估算偏差）
         if (h.onContextTokenCount) {
-          const msgs = incoming
-          let ctxStart = 0
-          for (let i = msgs.length - 1; i >= 0; i--) {
-            if ((msgs[i] as any).id === 'ctx-compaction') { ctxStart = i; break }
-          }
-          if (ctxStart > 0) {
-            // 只计算压缩标记之后的消息
-            const ctxText = msgs.slice(ctxStart).map((m: any) => m.text || '').join(' ')
+          if (typeof msg.contextTokenCount === 'number') {
+            h.onContextTokenCount(msg.contextTokenCount)
+          } else if (msg.messages?.length) {
+            // 向后兼容：没有持久化值的旧 session 用字符估算
+            const msgs = incoming
+            let ctxStart = 0
+            for (let i = msgs.length - 1; i >= 0; i--) {
+              if ((msgs[i] as any).id === 'ctx-compaction') { ctxStart = i; break }
+            }
+            const ctxMsgs = msgs.slice(ctxStart)
+            const ctxText = ctxMsgs.map((m: any) => m.text || '').join(' ')
             h.onContextTokenCount(Math.ceil(ctxText.length / 4))
           }
         }

@@ -847,11 +847,22 @@ export async function runTurn(
     await deps.emitEvent(EVENTS.MODEL_COMPLETED, { session, response: finalResponse })
     await deps.emitEvent(EVENTS.MESSAGE_APPENDED, { session, message: finalResponse.message })
 
-    // 服务端为授权源，主动通知客户端当前上下文 token 数（对齐 CrystalAgents 的 usage_update 模式）。
-    // 包含本轮模型回复在内，确保压缩后或未压缩场景的计数值均正确。
-    const totalContext = [...contextWithTools.messages, finalResponse.message]
-    const finalTokens = estimateMessagesTokens(totalContext)
-    await deps.emitEvent('usage.update', { session, inputTokens: finalTokens })
+    // 服务端为授权源，主动通知客户端当前上下文 token 数（对齐 CrystalAgents / Snow-CLI）。
+    // 使用 API 实际返回的 prompt_tokens（含消息 + 工具定义），而非仅消息的估算值。
+    const apiInputTokens = finalResponse.usage?.inputTokens
+    if (typeof apiInputTokens === 'number') {
+      await deps.emitEvent('usage.update', { session, inputTokens: apiInputTokens })
+      // 持久化上下文 token 数到 session metadata（用于页面刷新后恢复显示）
+      if (!session.metadata) session.metadata = {}
+      ;(session.metadata as Record<string, unknown>).contextTokenCount = apiInputTokens
+    } else {
+      // 兜底：API 未返回 usage 时用消息估算
+      const totalContext = [...contextWithTools.messages, finalResponse.message]
+      const finalTokens = estimateMessagesTokens(totalContext)
+      await deps.emitEvent('usage.update', { session, inputTokens: finalTokens })
+      if (!session.metadata) session.metadata = {}
+      ;(session.metadata as Record<string, unknown>).contextTokenCount = finalTokens
+    }
 
     debugLog(DEBUG_SCOPES.USAGE, 'model.completed finalResponse', {
       hasUsage: !!finalResponse?.usage,
