@@ -158,7 +158,7 @@ export function createFsTools(options: FsToolsOptions): Extension {
               ? resolveAllowedPath(String(args.path), rootDir)
               : rootDir
 
-            const result = spawnSync('grep', ['-rn', '--exclude-dir=.git', '--exclude-dir=.crai-dev', '--exclude-dir=node_modules', pattern, searchPath], {
+            const result = spawnSync('grep', ['-rn', pattern, searchPath], {
               encoding: 'utf-8',
               maxBuffer: 1024 * 1024,
               timeout: 10_000,
