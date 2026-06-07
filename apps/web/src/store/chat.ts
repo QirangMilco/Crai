@@ -91,6 +91,7 @@ export const useChatStore = create<ChatStore>((set) => ({
         { id: `user-${ts}`, role: 'user', text, createdAt: ts },
         { id: `asst-${ts}`, role: 'assistant', text: '', createdAt: ts, activities: [{ id: 'think-pending', type: 'thinking', status: 'running' }] },
       ],
+      processing: true,
     }))
   },
 

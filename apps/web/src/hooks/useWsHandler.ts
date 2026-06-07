@@ -138,6 +138,10 @@ export function useWsHandler(h: WsHandlers) {
             activities: activities.length > 0 ? activities : undefined,
           }
           store.getState().mergeServerData([chatMsg])
+          // assistant 消息到达 → 本轮回复完成
+          if (appendedMsg.role === 'assistant') {
+            store.getState().setProcessing(false)
+          }
         }
         break
       }
