@@ -6,6 +6,8 @@ import { ChatInput } from './ChatInput'
 import { ConfirmBar } from './ConfirmBar'
 import { InspectorPanel } from './InspectorPanel'
 import { ConfigPanel } from './ConfigPanel'
+import { DiffModal } from './checkpoint/DiffModal'
+import { Tooltip } from './ui/Tooltip'
 import { useChatStore } from '../store/chat'
 import { debugLog, DEBUG_SCOPES } from '../utils/debug'
 import { ShellLayout } from './shell/ShellLayout'
@@ -13,6 +15,7 @@ import { registerPanels } from './shell/PanelRegistry'
 import { SessionListPanel } from './panels/SessionListPanel'
 import { FileTreePanel } from './panels/FileTreePanel'
 import { SessionNavPanel } from './panels/SessionNavPanel'
+import { VersionPanel } from './panels/VersionPanel'
 import { InfoIsland } from './shell/InfoIsland'
 import { Dialog } from './ui/Dialog'
 import { Dropdown, Icon } from './ui'
@@ -69,9 +72,10 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
   const [lastUsage, setLastUsage] = useState<{ inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; cost?: number } | null>(null)
   const [contextTokenCount, setContextTokenCount] = useState<number | null>(null)
   const [compressionStatus, setCompressionStatus] = useState<{ step: string; tokensBefore?: number; tokensAfter?: number } | null>(null)
-  const [rollbackPoints, setRollbackPoints] = useState<Map<number, { turnId: string; fileCount: number }>>(new Map())
-  const [showRollbackModal, setShowRollbackModal] = useState<{ messageIndex: number; fileCount: number } | null>(null)
+  const [rollbackPoints, setRollbackPoints] = useState<Map<number, { turnId: string; fileCount: number; filePaths?: string[]; agentFileCount?: number }>>(new Map())
+  const [showRollbackModal, setShowRollbackModal] = useState<{ messageIndex: number; fileCount: number; filePaths?: string[] } | null>(null)
   const [rollbackMode, setRollbackMode] = useState<'both' | 'files' | 'conversation'>('both')
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
   // 累计用量：跨所有 turn 的汇总（每次切换 session 时重置）
   const [accInputTokens, setAccInputTokens] = useState(0)
   const [accOutputTokens, setAccOutputTokens] = useState(0)
@@ -137,8 +141,22 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     onConfigTest: (ok, error) => setConfigTestResult({ ok, error }),
     onWorkspaceList: (current, list) => {
       setWorkspaces(list)
-      if (current) setCurrentWorkspace(current)
-      else if (list.length > 0) send({ type: 'workspace:switch', rootDir: list[0].rootDir })
+      if (current) {
+        setCurrentWorkspace(current)
+      } else if (list.length > 0) {
+        send({ type: 'workspace:switch', rootDir: list[0].rootDir })
+      } else {
+        // 没有工作区时清空会话状态
+        setCurrentWorkspace(null)
+        setSessionId(null)
+        setLastUsage(null)
+        setContextTokenCount(null)
+        setCompressionStatus(null)
+        setAccInputTokens(0)
+        setAccOutputTokens(0)
+        setAccCachedInputTokens(0)
+        store.getState().clearMessages()
+      }
     },
     onWorkspaceSwitched: (rootDir) => {
       setCurrentWorkspace(rootDir)
@@ -176,10 +194,34 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     onCompressionStatus: (status) => {
       debugLog(DEBUG_SCOPES.USAGE, 'onCompressionStatus', status)
       if (status.step === 'checking' || status.step === 'summarizing' || status.step === 'retrying') {
-        setCompressionStatus(status)
+        // 'checking' 步只表示正在检查上下文使用率，非实际压缩，不显示 UI
+        if (status.step !== 'checking') {
+          setCompressionStatus(status)
+        }
       } else if (status.step === 'done' || status.step === 'truncating') {
         setCompressionStatus(null)
       }
+    },
+    onCheckpointRollbackPoints: (points) => {
+      debugLog(DEBUG_SCOPES.USAGE, 'onCheckpointRollbackPoints', { count: points.length })
+      const map = new Map<number, { turnId: string; fileCount: number; filePaths?: string[]; agentFileCount?: number }>()
+      for (const p of points) {
+        if (p.turnId) map.set(p.messageIndex, { turnId: p.turnId, fileCount: p.fileCount, filePaths: p.filePaths, agentFileCount: p.agentFileCount })
+      }
+      setRollbackPoints(map)
+    },
+    onWorkspaceConfigData: (config) => {
+      setWorkspaceConfig(config as any)
+    },
+    onCheckpointDiffData: (entries) => {
+      debugLog(DEBUG_SCOPES.CHECKPOINT, 'onCheckpointDiffData', { count: entries.length, first: entries[0]?.path })
+      if (entries.length > 0) {
+        setDiffEntries(entries)
+      }
+      setDiffLoading(false)
+    },
+    onVersionTreeData: (nodes) => {
+      setVersionTreeNodes(nodes)
     },
   }).handler
   onMessageRef.current = wsHandler
@@ -315,6 +357,14 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
         ),
       },
       {
+        id: 'version-tree',
+        label: '版本树',
+        icon: <Icon icon={List} size="sm" />,
+        defaultSide: 'right',
+        defaultVisible: false,
+        render: () => <VersionPanel nodes={versionTreeNodes} send={send} sessionId={sessionId} />,
+      },
+      {
         id: 'session-nav',
         label: '会话导航',
         icon: <Icon icon={List} size="sm" />,
@@ -347,6 +397,53 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
+  // 监听消息操作事件（回滚 / 分叉）
+  useEffect(() => {
+    const handleRollback = (e: CustomEvent<{ messageIndex: number }>) => {
+      const { messageIndex } = e.detail
+      const rp = rollbackPoints.get(messageIndex)
+      setRollbackMode('both')
+      setSelectedFiles(new Set(rp?.filePaths ?? []))
+      setShowRollbackModal({ messageIndex, fileCount: rp?.fileCount ?? 0, filePaths: rp?.filePaths })
+    }
+    const handleFork = (e: CustomEvent<{ messageIndex: number }>) => {
+      const { messageIndex } = e.detail
+      const sorted = Array.from(rollbackPoints.entries()).filter(([idx]) => idx <= messageIndex).sort(([a], [b]) => b - a)
+      const best = sorted[0]
+      if (!best) return
+      const [, rp] = best
+      if (!sessionId) return
+      send({ type: 'checkpoint:fork', sessionId, turnId: rp.turnId })
+    }
+    window.addEventListener('crai:rollback', handleRollback as EventListener)
+    window.addEventListener('crai:fork', handleFork as EventListener)
+    return () => {
+      window.removeEventListener('crai:rollback', handleRollback as EventListener)
+      window.removeEventListener('crai:fork', handleFork as EventListener)
+    }
+  }, [rollbackPoints, sessionId, send])
+
+  const handleShowDiff = useCallback((messageIndex: number) => {
+    const rp = rollbackPoints.get(messageIndex)
+    debugLog(DEBUG_SCOPES.CHECKPOINT, 'handleShowDiff', { messageIndex, hasRp: !!rp, turnId: rp?.turnId, sessionId })
+    if (!rp || !rp.turnId || !sessionId) return
+    const prevRp = Array.from(rollbackPoints.entries())
+      .filter(([idx, p]) => idx < messageIndex && p.turnId && p.turnId !== rp.turnId)
+      .sort(([a], [b]) => b - a)[0]
+    debugLog(DEBUG_SCOPES.CHECKPOINT, 'handleShowDiff: prev', { found: !!prevRp, prevTurnId: prevRp?.[1]?.turnId })
+    setDiffLoading(true)
+    if (prevRp) {
+      const [, prev] = prevRp
+      send({ type: 'checkpoint:diff', sessionId, turnIdA: prev.turnId, turnIdB: rp.turnId })
+    } else {
+      send({ type: 'checkpoint:diff', sessionId, turnIdA: rp.turnId, turnIdB: rp.turnId })
+    }
+  }, [rollbackPoints, sessionId, send])
+
+  const [workspaceConfig, setWorkspaceConfig] = useState<{ checkpointExcludeDirs?: string[] } | null>(null)
+  const [versionTreeNodes, setVersionTreeNodes] = useState<Array<{ turnId: string; title?: string; description?: string; timestamp: number; parentTurnId?: string; files: Array<{ path: string; changeSource: string; timestamp: number }> }> | null>(null)
+  const [diffEntries, setDiffEntries] = useState<Array<{ path: string; diff: string; changeSource: string; timestampA: number; timestampB: number }> | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
   const resolveConfirm = useCallback((id: string, value: string, alwaysAllow?: boolean) => {
     send({ type: 'resolve:input', id, value })
     setPendingConfirm(null)
@@ -434,19 +531,24 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
 
         {/* 右：设置 */}
         <div className="flex items-center gap-2 justify-end" style={{ flex: 1 }}>
+          <Tooltip tip="设置" position="bottom">
           <button onClick={() => { send({ type: 'config:get' }); setShowConfig((s) => !s) }}
             className="p-1.5 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
             style={{ color: showConfig ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}>
             <Icon icon={Settings} size="xs" /></button>
+          </Tooltip>
+          <Tooltip tip="调试面板" position="bottom">
           <button onClick={() => setShowInspector((s) => !s)}
             className="p-1.5 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
             style={{ color: showInspector ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}>
             <Icon icon={Palette} size="xs" /></button>
+          </Tooltip>
+          <Tooltip tip="切换连接" position="bottom">
           <button onClick={() => setShowConnections(true)}
             className="p-1.5 rounded transition-colors duration-150 hover:bg-[var(--crai-bg-5)]"
-            style={{ color: 'var(--crai-fg-40)' }}
-            title="切换连接">
+            style={{ color: 'var(--crai-fg-40)' }}>
             <Icon icon={List} size="xs" /></button>
+          </Tooltip>
         </div>
       </header>
 
@@ -575,9 +677,31 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
             </div>
             <div style={{ fontSize: 13, color: 'var(--crai-fg-60)', marginBottom: 16, lineHeight: 1.5 }}>
               {showRollbackModal.fileCount > 0
-                ? `将回滚 ${showRollbackModal.fileCount} 个文件并截断对话到此之前的消息。`
+                ? `此检查点包含 ${showRollbackModal.fileCount} 个文件`
                 : '将截断对话到此之前的消息（无文件需要恢复）。'}
             </div>
+
+            {/* 文件选择列表（仅文件模式时显示） */}
+            {rollbackMode === 'files' && showRollbackModal.filePaths && showRollbackModal.filePaths.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div className="text-xs" style={{ color: 'var(--crai-fg-40)', marginBottom: 6 }}>选择要恢复的文件</div>
+                {showRollbackModal.filePaths.map((fp) => (
+                  <label key={fp} className="flex items-center gap-2 px-3 py-1.5 rounded cursor-pointer hover:opacity-80"
+                    style={{ backgroundColor: selectedFiles.has(fp) ? 'var(--crai-bg-secondary)' : 'transparent' }}>
+                    <input type="checkbox" checked={selectedFiles.has(fp)}
+                      onChange={() => {
+                        const next = new Set(selectedFiles)
+                        if (next.has(fp)) { next.delete(fp) } else { next.add(fp) }
+                        setSelectedFiles(next)
+                      }}
+                      style={{ accentColor: 'var(--crai-accent)' }} />
+                    <span className="text-xs truncate" style={{ color: 'var(--crai-fg)' }}>{fp.split('/').pop()}</span>
+                    <span className="text-[10px] truncate" style={{ color: 'var(--crai-fg-40)' }}>{fp}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+
             <div style={{ marginBottom: 16 }}>
               <div className="text-xs" style={{ color: 'var(--crai-fg-40)', marginBottom: 6 }}>回滚范围</div>
               {[
@@ -605,11 +729,21 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
               </button>
               <button onClick={() => {
                 const idx = showRollbackModal.messageIndex
+                const fps = showRollbackModal.filePaths
+                const selected = Array.from(selectedFiles)
                 setShowRollbackModal(null)
-                if (rollbackMode === 'both' || rollbackMode === 'conversation') {
+                if (rollbackMode === 'both') {
+                  // 文件+对话：截断消息 + 恢复全部文件
                   send({ type: 'checkpoint:rollback:to-index', sessionId, messageIndex: idx })
-                }
-                if (rollbackMode === 'both' || rollbackMode === 'files') {
+                } else if (rollbackMode === 'files') {
+                  // 仅文件：恢复选中文件，不截断消息
+                  if (selected.length === fps?.length) {
+                    send({ type: 'checkpoint:rollback:to-index', sessionId, messageIndex: idx })
+                  } else {
+                    send({ type: 'checkpoint:rollback:to-index', sessionId, messageIndex: idx, filePaths: selected })
+                  }
+                } else if (rollbackMode === 'conversation') {
+                  // 仅对话：截断消息，不恢复文件
                   send({ type: 'checkpoint:rollback:to-index', sessionId, messageIndex: idx })
                 }
               }}
@@ -622,7 +756,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
           </div>
         </div>
       )}
-        <MessageList messages={messages} rollbackPoints={rollbackPoints}  />
+        <MessageList messages={messages} rollbackPoints={rollbackPoints} onShowDiff={handleShowDiff} />
         {pendingConfirm && (
           <ConfirmBar
             id={pendingConfirm.id}
@@ -730,6 +864,15 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
         </div>
       )}
 
+      {diffLoading && (
+        <Dialog open={true} onClose={() => setDiffLoading(false)} style={{ width: 400 }} title="加载中">
+          <div className="p-6 text-center text-sm" style={{ color: 'var(--crai-fg-40)' }}>
+            <div className="animate-spin inline-block w-5 h-5 border-2 border-current border-t-transparent rounded-full mb-3" />
+            <div>正在获取文件变更…</div>
+          </div>
+        </Dialog>
+      )}
+      {diffEntries && <DiffModal entries={diffEntries} onClose={() => setDiffEntries(null)} />}
       {showInspector && <InspectorPanel onClose={() => setShowInspector(false)} />}
       {/* 配置弹窗 */}
       {showConfig && (
@@ -737,7 +880,7 @@ export function ChatView({ wsUrl, onDisconnect }: Props) {
           className="rounded-xl flex flex-col overflow-hidden"
           style={{ width: 660, height: '75vh' }}
         >
-          <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} configTestResult={configTestResult} onClearTestResult={() => setConfigTestResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} />
+          <ConfigPanel config={globalConfig} send={send} onClose={() => setShowConfig(false)} modelsFetchResult={modelsFetchResult} onClearModelsResult={() => setModelsFetchResult(null)} configTestResult={configTestResult} onClearTestResult={() => setConfigTestResult(null)} knownModels={knownModels ?? undefined} firstParty={firstPartyProviders ?? undefined} currentWorkspace={currentWorkspace} workspaceRoot={currentWorkspace} />
         </Dialog>
       )}
     </div>

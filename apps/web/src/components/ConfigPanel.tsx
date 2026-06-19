@@ -40,9 +40,14 @@ interface Props {
   onClearTestResult?: () => void
   knownModels?: Record<string, Record<string, { displayName?: string; contextWindow: number; maxOutput?: number }>>
   firstParty?: Array<{ name: string; label: string; defaultBaseURL: string }>
+  /** 当前工作区根目录，用于加载/保存工作区配置。 */
+  currentWorkspace?: string | null
+  /** 当前工作区的配置。 */
+  /** 工作区根目录。 */
+  workspaceRoot?: string | null
 }
 
-export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearModelsResult, configTestResult, onClearTestResult, knownModels, firstParty }: Props) {
+export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearModelsResult, configTestResult, onClearTestResult, knownModels, firstParty, currentWorkspace, workspaceRoot }: Props) {
   const [editing, setEditing] = useState<string | null>(null)
   const [editKey, setEditKey] = useState('')
   const [editBaseURL, setEditBaseURL] = useState('')
@@ -335,7 +340,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
       <div className="flex flex-1 overflow-hidden">
         {/* 侧栏 Tab */}
         <div className="w-32 shrink-0 border-r py-2 overflow-y-auto" style={{ borderColor: 'var(--crai-border)' }}>
-          {['providers', 'general', 'auth'].map((tab) => (
+          {[...(currentWorkspace ? ['workspace'] : []), 'providers', 'general', 'auth'].map((tab) => (
             <button
               key={tab}
               onClick={() => setConfigTab(tab)}
@@ -346,7 +351,7 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
                 fontWeight: configTab === tab ? 500 : 400,
               }}
             >
-              {{ providers: ui.tabProviders, general: ui.tabGeneral, auth: ui.tabAuth }[tab]}
+              {{ providers: ui.tabProviders, general: ui.tabGeneral, auth: ui.tabAuth, workspace: '工作区' }[tab]}
             </button>
           ))}
         </div>
@@ -512,6 +517,30 @@ export function ConfigPanel({ config, send, onClose, modelsFetchResult, onClearM
               onCurrencyChange={handleCurrencyChange}
               ui={ui as any}
             />
+          )}
+
+          {configTab === 'workspace' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="text-xs font-medium mb-4" style={{ color: 'var(--crai-fg)' }}>排除规则 (.craignore)</div>
+              <div className="text-[11px] mb-2" style={{ color: 'var(--crai-fg-40)' }}>
+                每行一个模式（语法同 .gitignore）。匹配路径不会被检查点快照记录。
+                编辑后保存到工作区根目录的 .craignore 文件。
+              </div>
+              <textarea
+                className="w-full rounded border px-3 py-2 text-xs font-mono resize-none"
+                style={{
+                  borderColor: 'var(--crai-border)',
+                  backgroundColor: 'var(--crai-bg)',
+                  color: 'var(--crai-fg)',
+                  minHeight: 120,
+                }}
+                placeholder={'.git\nnode_modules\n.crai-dev\ndist\nbuild'}
+                disabled={!workspaceRoot}
+              />
+              <div className="text-[11px] mt-2" style={{ color: 'var(--crai-fg-40)' }}>
+                正在读取 .craignore…（编辑功能暂未接入，请手动编辑文件）
+              </div>
+            </div>
           )}
 
           {configTab === 'auth' && (

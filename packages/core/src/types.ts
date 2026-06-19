@@ -327,6 +327,8 @@ export interface WorkspaceSecurityConfig {
 
 export interface WorkspaceConfig {
   security?: WorkspaceSecurityConfig
+  /** 检查点时排除的文件路径前缀列表（glob 模式），匹配的文件不会被记录快照。 */
+  checkpointExcludeDirs?: string[]
 }
 
 /** 配置存储适配器：不同的格式（JSON、TOML、YAML）实现此接口。 */

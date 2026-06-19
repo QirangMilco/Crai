@@ -3,23 +3,30 @@ import { motion } from 'framer-motion'
 import type { ChatMessage } from '../types/messages'
 import { MessageBubble } from './MessageBubble'
 import { useChatStore } from '../store/chat'
+import { ThreeDotIndicator } from './markdown/ThreeDotIndicator'
 
 interface Props {
   messages: ChatMessage[]
   className?: string
   rollbackPoints?: Map<number, { turnId: string; fileCount: number }>
+  onShowDiff?: (messageIndex: number) => void
 }
 
-export function MessageList({ messages, className = '', rollbackPoints }: Props) {
+export function MessageList({ messages, className = '', rollbackPoints, onShowDiff }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const setActiveTurnIndex = useChatStore((s) => s.setActiveTurnIndex)
-  const isStreaming = messages.some((m) => m.role !== 'user' && m.activities?.some((a) => a.status === 'running'))
+  const processing = useChatStore((s) => s.processing)
+
+  // 最后一条 assistant 消息是否已开始渲染活动（如 thinking/tool）
+  const lastAsst = messages.filter((m) => m.role === 'assistant').pop()
+  const hasPendingActivities = !!lastAsst && !!lastAsst.activities?.length
+  const showPendingIndicator = processing && !!lastAsst && !hasPendingActivities && !lastAsst.text
 
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: isStreaming ? 'instant' : 'smooth' })
+    bottomRef.current?.scrollIntoView({ behavior: showPendingIndicator ? 'instant' : 'smooth' })
   })
 
   // 会话导航跳转
@@ -109,12 +116,17 @@ export function MessageList({ messages, className = '', rollbackPoints }: Props)
                       }}
                     />
                   )}
-                  <MessageBubble msg={msg} fileCount={rollbackPoints?.get(idx)?.fileCount} messageIndex={idx} />
+                  <MessageBubble msg={msg} fileCount={rollbackPoints?.get(idx)?.fileCount} filePaths={rollbackPoints?.get(idx)?.filePaths} agentFileCount={rollbackPoints?.get(idx)?.agentFileCount} messageIndex={idx} onShowDiff={() => onShowDiff?.(idx)} />
                 </motion.div>
               )
             })
           )}
         </div>
+        {showPendingIndicator && (
+          <div className="flex items-start" style={{ paddingLeft: 'var(--crai-msg-padding-x, 16px)' }}>
+            <ThreeDotIndicator />
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
     </div>

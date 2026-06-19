@@ -85,16 +85,12 @@ export function CodeBlock({ code, language }: Props) {
   useEffect(() => {
     getHighlighter()
       .then(setHighlighter)
-      .catch(() => setError('highlighter failed'))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
   }, [])
 
   let html: string | null = null
   if (highlighter) {
-    try {
-      html = cachedHighlight(highlighter, code, lang, isDark)
-    } catch {
-      html = `<pre class="shiki"><code>${escapeHtml(code)}</code></pre>`
-    }
+    html = cachedHighlight(highlighter, code, lang, isDark)
   }
 
   return (
@@ -105,7 +101,10 @@ export function CodeBlock({ code, language }: Props) {
           style={{ backgroundColor: 'var(--crai-md-code-bg)', fontSize: 'var(--crai-md-code-font-size)' }}
           dangerouslySetInnerHTML={{ __html: html }} />
       ) : error ? (
-        <pre className="p-3 text-sm overflow-x-auto" style={{ backgroundColor: 'var(--crai-md-code-bg)', color: 'var(--crai-fg)' }}><code>{code}</code></pre>
+        <div className="p-3 text-sm overflow-x-auto" style={{ backgroundColor: 'var(--crai-md-code-bg)' }}>
+          <div className="mb-2 text-[11px]" style={{ color: 'var(--crai-destructive)' }}>语法高亮加载失败: {error}</div>
+          <pre style={{ color: 'var(--crai-fg)' }}><code>{code}</code></pre>
+        </div>
       ) : (
         <pre className="p-3 text-sm overflow-x-auto" style={{ backgroundColor: 'var(--crai-md-code-bg)', color: 'var(--crai-fg-tertiary)' }}><code>加载中…</code></pre>
       )}
@@ -118,6 +117,4 @@ export function CodeBlock({ code, language }: Props) {
   )
 }
 
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+

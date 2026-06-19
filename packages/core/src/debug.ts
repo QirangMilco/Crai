@@ -45,5 +45,6 @@ export const DEBUG_SCOPES = {
   THINKING: 'thinking',
   USAGE: 'usage',
   ABORT: 'abort',
+  CHECKPOINT: 'checkpoint',
   ALL: 'all',
 } as const

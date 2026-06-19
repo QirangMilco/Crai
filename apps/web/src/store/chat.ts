@@ -2,7 +2,7 @@
  * @crai/web — 聊天消息 Zustand store
  *
  * 核心原则：消息自创建到完成始终是同一个 messages[] 条目，不切换组件树。
- * - appendPlaceholders 创建 asst-xxx 占位消息（含 think-pending 活动）
+ * - appendPlaceholders 创建 asst-xxx 占位消息
  * - 流式 buffer 写入占位消息的 text
  * - Activity 事件写入占位消息的 activities
  * - message.appended 到达时：原地更新占位消息的数据（text + activities），不添加新条目
@@ -30,10 +30,6 @@ function flushNow(set: any) {
     const msg = s.messages[idx]
     const copy = [...s.messages]
     const activities = msg.activities ? [...msg.activities] : undefined
-    if (activities) {
-      const pi = activities.findIndex((a: any) => a.id === 'think-pending')
-      if (pi >= 0) activities.splice(pi, 1)
-    }
     copy[idx] = { ...copy[idx], text: msg.text + _sb.text, activities }
     return { messages: copy }
   })
@@ -89,7 +85,7 @@ export const useChatStore = create<ChatStore>((set) => ({
       messages: [
         ...s.messages,
         { id: `user-${ts}`, role: 'user', text, createdAt: ts },
-        { id: `asst-${ts}`, role: 'assistant', text: '', createdAt: ts, activities: [{ id: 'think-pending', type: 'thinking', status: 'running' }] },
+        { id: `asst-${ts}`, role: 'assistant', text: '', createdAt: ts },
       ],
       processing: true,
     }))
@@ -107,10 +103,6 @@ export const useChatStore = create<ChatStore>((set) => ({
       if (idx === undefined) return s
       const msg = s.messages[idx]
       const activities = [...(msg.activities || [])]
-      const pendingIdx = activities.findIndex((a) => a.id === 'think-pending')
-      if (pendingIdx >= 0 && pendingIdx < activities.length) {
-        activities.splice(pendingIdx, 1)
-      }
       const existingIdx = activities.findIndex((a) => a.id === activity.id)
       if (existingIdx >= 0) {
         activities[existingIdx] = { ...activities[existingIdx], ...activity, timestamp: Date.now() }

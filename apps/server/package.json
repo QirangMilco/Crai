@@ -13,6 +13,7 @@
     "@crai/provider": "workspace:*",
     "@crai/runtime": "workspace:*",
     "@crai/security": "workspace:*",
+    "@crai/versioning": "workspace:*",
     "@crai/storage-fs": "workspace:*",
     "@crai/transport-ws": "workspace:*",
     "@crai/tools-fs": "workspace:*",

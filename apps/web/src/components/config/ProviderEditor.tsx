@@ -4,6 +4,7 @@
  */
 
 import { ui } from '../ConfigPanel.strings'
+import { Tooltip } from '../ui/Tooltip'
 
 interface ProviderEntry {
   name: string
@@ -184,6 +185,12 @@ export function ProviderEditor({
             style={{ backgroundColor: 'var(--crai-bg-secondary)', color: 'var(--crai-fg)', border: '1px solid var(--crai-border)' }}
           />
           {onTest && (
+            <Tooltip tip={
+                testButtonState === 'ok' ? ui.connectionOk :
+                testButtonState === 'fail' ? ui.connectionFail :
+                testButtonState === 'testing' ? ui.connectionTesting :
+                ui.testConnection
+              } position="bottom">
             <button
               onClick={onTest}
               className="w-7 h-7 flex items-center justify-center rounded transition-colors shrink-0"
@@ -196,12 +203,7 @@ export function ProviderEditor({
                   'var(--crai-border)'
                 }`,
               }}
-              title={
-                testButtonState === 'ok' ? ui.connectionOk :
-                testButtonState === 'fail' ? ui.connectionFail :
-                testButtonState === 'testing' ? ui.connectionTesting :
-                ui.testConnection
-              }
+
             >
               {testButtonState === 'testing' ? (
                 <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -223,6 +225,7 @@ export function ProviderEditor({
                 </svg>
               )}
             </button>
+            </Tooltip>
           )}
         </div>
       </div>

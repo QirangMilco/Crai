@@ -21,6 +21,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Pin, PinOff } from 'lucide-react'
 import { Icon } from '../ui/Icon'
+import { Tooltip } from '../ui/Tooltip'
 import { getAllSidePanels } from './PanelRegistry'
 
 interface Props {
@@ -210,8 +211,9 @@ export function ShellLayout({ children, send }: Props) {
             }}
           >
             {panels.map(({ def }) => (
+              <Tooltip tip={def.label} position="bottom">
               <button
-                key={def.id} title={def.label}
+                key={def.id}
                 onMouseEnter={handleTabClick('left', def.id)}
                 onClick={handleTabClick('left', def.id)}
                 className="flex items-center justify-center rounded transition-all shrink-0"
@@ -223,26 +225,29 @@ export function ShellLayout({ children, send }: Props) {
               >
                 {def.icon}
               </button>
+            </Tooltip>
             ))}
             <div className="flex-1" />
-            <button title={leftPinned ? '解锁左侧' : '固定左侧'}
-              onClick={toggleLeftPin}
+            <Tooltip tip={leftPinned ? '解锁左侧' : '固定左侧'} position="bottom">
+            <button onClick={toggleLeftPin}
               className="flex items-center justify-center rounded transition-colors shrink-0"
               style={{ width: 24, height: 24, color: leftPinned ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}
             >
               <Icon icon={leftPinned ? PinOff : Pin} size="xs" />
             </button>
+            </Tooltip>
           </div>
         )}
         {/* 仅 1 面板时，Pin 按钮位于右上角 */}
         {panels.length === 1 && (
-          <button title={leftPinned ? '解锁左侧' : '固定左侧'}
-            onClick={toggleLeftPin}
+          <Tooltip tip={leftPinned ? '解锁左侧' : '固定左侧'} position="bottom">
+          <button onClick={toggleLeftPin}
             className="absolute top-1 right-1 z-10 flex items-center justify-center rounded transition-colors"
             style={{ width: 24, height: 24, color: leftPinned ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}
           >
             <Icon icon={leftPinned ? PinOff : Pin} size="xs" />
           </button>
+          </Tooltip>
         )}
 
         {/* 面板内容 */}
@@ -285,8 +290,9 @@ export function ShellLayout({ children, send }: Props) {
             }}
           >
             {panels.map(({ def }) => (
+              <Tooltip tip={def.label} position="top">
               <button
-                key={def.id} title={def.label}
+                key={def.id}
                 onMouseEnter={handleTabClick('right', def.id)}
                 onClick={handleTabClick('right', def.id)}
                 className="flex items-center justify-center rounded transition-all shrink-0"
@@ -298,15 +304,17 @@ export function ShellLayout({ children, send }: Props) {
               >
                 {def.icon}
               </button>
+            </Tooltip>
             ))}
             <div className="flex-1" />
-            <button title={rightPinned ? '解锁右侧' : '固定右侧'}
-              onClick={toggleRightPin}
+            <Tooltip tip={rightPinned ? '解锁右侧' : '固定右侧'} position="bottom">
+            <button onClick={toggleRightPin}
               className="flex items-center justify-center rounded transition-colors shrink-0"
               style={{ width: 24, height: 24, color: rightPinned ? 'var(--crai-accent)' : 'var(--crai-fg-40)' }}
             >
               <Icon icon={rightPinned ? PinOff : Pin} size="xs" />
             </button>
+            </Tooltip>
           </div>
         )}
         {/* 仅 1 面板时无额外控件 */}

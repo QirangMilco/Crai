@@ -21,7 +21,7 @@ export const MODE_ICONS: Record<string, React.ReactNode> = {
 }
 
 export const MODE_COLORS: Record<string, { base: string; bg: string; border: string }> = {
-  execute: { base: 'var(--crai-accent)', bg: 'color-mix(in oklch, var(--crai-accent) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-accent) 20%, transparent)' },
+  execute: { base: 'var(--crai-destructive)', bg: 'color-mix(in oklch, var(--crai-destructive) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-destructive) 20%, transparent)' },
   ask: { base: 'var(--crai-info)', bg: 'color-mix(in oklch, var(--crai-info) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-info) 20%, transparent)' },
   safe: { base: 'var(--crai-success)', bg: 'color-mix(in oklch, var(--crai-success) 8%, transparent)', border: 'color-mix(in oklch, var(--crai-success) 20%, transparent)' },
   plan: { base: 'var(--crai-fg)', bg: 'color-mix(in oklch, var(--crai-fg) 5%, var(--crai-bg))', border: 'var(--crai-border)' },

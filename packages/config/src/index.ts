@@ -184,6 +184,13 @@ export class ConfigManager implements ConfigStore {
     await this.saveIfDirty()
   }
 
+  async removeRecentWorkspace(rootDir: string): Promise<void> {
+    rootDir = resolve(rootDir)
+    this.global.recentWorkspaces = this.global.recentWorkspaces.filter((p) => resolve(p) !== rootDir)
+    this.dirty = true
+    await this.saveIfDirty()
+  }
+
   getEffectiveConfig(
     global: GlobalConfig,
     _workspace: WorkspaceConfig,

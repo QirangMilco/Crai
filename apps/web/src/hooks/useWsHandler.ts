@@ -28,6 +28,8 @@ interface WsHandlers {
   onKnownModels: (known: any, firstParty: any, levels: any, defaults: any) => void
   onRequestInput: (id: string, question: string, options?: string[], meta?: Record<string, unknown>) => void
   onDirBrowse: (data: BrowseData) => void
+  /** 工作区配置数据响应。 */
+  onWorkspaceConfigData?: (config: Record<string, unknown>) => void
   setCurrentModel: (m: string) => void
   /** 来自 session:data 的 lastRoundUsage。可能为旧数据或受竞态影响的偏小值。 */
   onUsage: (usage: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number; cost?: number }) => void
@@ -39,7 +41,9 @@ interface WsHandlers {
   /** 检查点操作结果。 */
   onCheckpointRollback?: (sessionId: string, messageCount: number | null, filesRestored?: number) => void
   onCheckpointFork?: (newSessionId: string) => void
-  onCheckpointRollbackPoints?: (points: Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number }>) => void
+  onCheckpointRollbackPoints?: (points: Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number; filePaths?: string[]; agentFileCount?: number }>) => void
+  onCheckpointDiffData?: (entries: Array<{ path: string; diff: string; changeSource: string; timestampA: number; timestampB: number }>) => void
+  onVersionTreeData?: (nodes: Array<{ turnId: string; title?: string; description?: string; timestamp: number; parentTurnId?: string; files: Array<{ path: string; changeSource: string; timestamp: number }> }>) => void
 }
 
 export function useWsHandler(h: WsHandlers) {
@@ -83,8 +87,7 @@ export function useWsHandler(h: WsHandlers) {
           store.getState().completeActivity(a.id, a.status, a.content, a.error)
         }
         if (msg.event === 'turn.completed' || msg.event === 'turn.failed') {
-          // turn 结束（无论是否正常中止）时清理客户端占位活动
-          store.getState().completeActivity('think-pending', 'completed')
+          // turn 结束（无论是否正常中止）时清理处理状态
           store.getState().setProcessing(false)
         }
         if (msg.event === 'turn.started') {
@@ -92,8 +95,6 @@ export function useWsHandler(h: WsHandlers) {
         }
         if (msg.event === 'model.completed') {
           store.getState().flushBuffer()
-          // 移除客户端占位的 think-pending 活动（处理尚未收到任何 server 事件的中止情况）
-          store.getState().completeActivity('think-pending', 'completed')
           const usage = msg.payload?.response?.usage
           if (usage) {
             debugLog(DEBUG_SCOPES.USAGE, 'model.completed usage', usage)
@@ -231,6 +232,9 @@ export function useWsHandler(h: WsHandlers) {
       case 'dir:browse:data':
         h.onDirBrowse({ path: msg.path, dirs: msg.dirs, files: msg.files, parent: msg.parent, error: msg.error })
         break
+      case 'workspace:config:data':
+        h.onWorkspaceConfigData?.(msg.config ?? {})
+        break
       case 'session:title':
         h.onSessionTitle(msg.sessionId, msg.title)
         break
@@ -254,6 +258,12 @@ export function useWsHandler(h: WsHandlers) {
         break
       case 'checkpoint:rollback:points:data':
         h.onCheckpointRollbackPoints?.(msg.points)
+        break
+      case 'checkpoint:diff:data':
+        h.onCheckpointDiffData?.(msg.entries)
+        break
+      case 'versioning:version-tree:data':
+        h.onVersionTreeData?.(msg.nodes)
         break
     }
   }, [])

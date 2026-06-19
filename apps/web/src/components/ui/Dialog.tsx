@@ -8,6 +8,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { X } from 'lucide-react'
 import { Icon } from '../ui/Icon'
+import { Tooltip } from './Tooltip'
 
 interface Props {
   open: boolean
@@ -65,7 +66,6 @@ export function Dialog({
         onClick={(e) => e.stopPropagation()}
         className={className}
         style={{
-          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -76,13 +76,17 @@ export function Dialog({
         }}
       >
         {showClose && (
+          <div className="flex items-center justify-end shrink-0" style={{ padding: '6px 8px', minHeight: 36 }}>
+          <Tooltip tip="关闭" position="bottom">
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 p-1 rounded transition-colors hover:bg-[var(--crai-bg-5)] z-10"
+            className="p-1 rounded transition-colors hover:bg-[var(--crai-bg-5)]"
             style={{ color: 'var(--crai-fg-40)', lineHeight: 0 }}
           >
             <Icon icon={X} size="sm" />
           </button>
+          </Tooltip>
+          </div>
         )}
         {children}
       </div>

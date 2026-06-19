@@ -61,6 +61,8 @@ export interface RuntimeOptions {
   logger?: Logger
   /** 是否允许加载声明 trust: 'full-access' 的扩展（默认 false，降级为 restricted）。 */
   allowFullAccessExtensions?: boolean
+  /** 工作区根目录，用于解析工具调用的文件路径。 */
+  rootDir?: string
   /**
    * trace 模式。
    * - `true` / `'file'` — dispose 时写入 `.crai/trace-latest.md`
@@ -102,6 +104,8 @@ interface RuntimeDeps {
   currentAbortController?: AbortController
   /** 检查点管理器（可选）。 */
   checkpointManager?: import('./checkpoint').CheckpointManager
+  /** 工作区根目录。 */
+  rootDir?: string
 }
 
 // ── 辅助函数 ───────────────────────────────────────
@@ -132,7 +136,7 @@ function createDeps(options?: RuntimeOptions): RuntimeDeps {
     get(_key) { return undefined },
     async set(_key, _value) {},
   }
-  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore, traceCollector, requestUserInput: options?.requestUserInput, checkpointManager: options?.checkpointManager }
+  return { hooks, events, registries, commands, settings, logger, sessions, storage: options?.storage, middlewares, configStore, traceCollector, requestUserInput: options?.requestUserInput, checkpointManager: options?.checkpointManager, rootDir: options?.rootDir }
 }
 
 function getFirstModel(models: Registry<ModelAdapter>): string | undefined {
@@ -240,6 +244,7 @@ async function handlePrompt(
     logger: deps.logger,
     middlewares: deps.middlewares,
     checkpointManager: deps.checkpointManager,
+    rootDir: deps.rootDir,
     getStorage: () => {
       const storages = deps.registries.storages.list()
       return storages[0]?.value ?? deps.storage
@@ -527,6 +532,8 @@ export async function createRuntime(options?: RuntimeOptions): Promise<RuntimeHa
       const storage = storages[0]?.value
       if (storage) await storage.deleteSession(sessionId)
       deps.sessions.delete(sessionId)
+      // 清理该 session 的所有检查点
+      await deps.checkpointManager?.clearAll(sessionId)
     },
     truncateMessages: async (sessionId, count) => {
       const storages = deps.registries.storages.list()

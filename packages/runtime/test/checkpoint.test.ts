@@ -88,7 +88,7 @@ describe('CheckpointManager', () => {
     assert.strictEqual(pts[3].turnId, 't1')
     assert.strictEqual(pts[3].fileCount, 0)
     assert.strictEqual(pts[6].turnId, 't2')
-    assert.strictEqual(pts[4].turnId, '')
+    assert.strictEqual(pts[4].turnId, 't1') // 关联到同一切换点（messageCount + 1）
   })
 
   it('fork 复制消息', async () => {
@@ -125,5 +125,110 @@ describe('CheckpointManager', () => {
     assert.strictEqual(list.length, 2)
     assert.strictEqual(list[0].turnId, 't1')
     assert.strictEqual(list[1].turnId, 't2')
+  })
+
+  // ── 新增功能测试 ──
+
+  it('clearAll 清理所有检查点', async () => {
+    await cm.create('sC', 't1', 1)
+    await cm.create('sC', 't2', 2)
+    await cm.clearAll('sC')
+    assert.strictEqual((await cm.listCheckpoints('sC')).length, 0)
+  })
+
+  it('complete 写入 title 和 description', async () => {
+    await cm.create('sD', 't1', 3)
+    await cm.complete('sD', 't1', { title: 'test title', description: 'test desc' })
+    const cp = await cm.load('sD', 't1')
+    assert.strictEqual(cp!.title, 'test title')
+    assert.strictEqual(cp!.description, 'test desc')
+  })
+
+  it('parentTurnId 自动建立链', async () => {
+    const cm2 = new CheckpointManager(join(baseDir, '.crai', 'cp2'))
+    await cm2.create('sE', 't1', 1)
+    await cm2.create('sE', 't2', 2)
+    const cp2 = await cm2.load('sE', 't2')
+    assert.strictEqual(cp2!.parentTurnId, 't1')
+  })
+
+  it('recordFile 接受 changeSource', async () => {
+    const cm3 = new CheckpointManager(join(baseDir, '.crai', 'cp3'))
+    const f = join(baseDir, 'cs.txt')
+    writeFileSync(f, 'test')
+    await cm3.create('sF', 't1', 0)
+    await cm3.recordFile('sF', 't1', f, 'manual')
+    const cp3 = await cm3.load('sF', 't1')
+    assert.strictEqual(cp3!.files[0].changeSource, 'manual')
+  })
+
+  it('excludePatterns 过滤文件', async () => {
+    const cm4 = new CheckpointManager(join(baseDir, '.crai', 'cp4'), { excludePatterns: ['node_modules'] })
+    await cm4.create('sG', 't1', 0)
+    await cm4.recordFile('sG', 't1', '/workspace/node_modules/pkg/index.js')
+    const cp4 = await cm4.load('sG', 't1')
+    assert.strictEqual(cp4!.files.length, 0)
+  })
+
+  it('getDiff 返回变更条目', async () => {
+    const f = join(baseDir, 'diff.txt')
+    writeFileSync(f, 'line1\nline2\n')
+    const cm5 = new CheckpointManager(join(baseDir, '.crai', 'cp5'))
+    await cm5.create('sH', 'ta', 0)
+    await cm5.recordFile('sH', 'ta', f)
+    writeFileSync(f, 'line1\nline2\nline3\n')
+    await cm5.create('sH', 'tb', 1)
+    await cm5.recordFile('sH', 'tb', f)
+    const entries = await cm5.getDiff('sH', 'ta', 'tb')
+    assert.ok(entries.length >= 1)
+    assert.ok(entries[0].diff.includes('+line3'))
+  })
+
+  it('recordFile 跳过已记录的文件', async () => {
+    const f = join(baseDir, 'dup.txt')
+    writeFileSync(f, 'v1')
+    await cm.create('sI', 't1', 0)
+    await cm.recordFile('sI', 't1', f)
+    writeFileSync(f, 'v2')
+    await cm.recordFile('sI', 't1', f)
+    const cp = await cm.load('sI', 't1')
+    assert.strictEqual(cp!.files.length, 1)
+    assert.strictEqual(cp!.files[0].content, 'v1')
+  })
+  it('rollbackToMessageIndex 只恢复指定文件', async () => {
+    const f1 = join(baseDir, 'a.txt')
+    const f2 = join(baseDir, 'b.txt')
+    writeFileSync(f1, 'old_a')
+    writeFileSync(f2, 'old_b')
+    await cm.create('sJ', 't1', 5)
+    await cm.recordFile('sJ', 't1', f1)
+    await cm.recordFile('sJ', 't1', f2)
+    writeFileSync(f1, 'new_a')
+    writeFileSync(f2, 'new_b')
+    // 只恢复 f1
+    const r = await cm.rollbackToMessageIndex('sJ', 6, [f1])
+    assert.ok(r)
+    assert.strictEqual(r.filesRestored, 1)
+    assert.strictEqual(readFileSync(f1, 'utf-8'), 'old_a')
+    assert.strictEqual(readFileSync(f2, 'utf-8'), 'new_b') // f2 未恢复
+  })
+
+  it('getDiff 输出包含 unified diff 格式', async () => {
+    const f = join(baseDir, 'unified.txt')
+    writeFileSync(f, 'line1\nline2\nline3\n')
+    await cm.create('sK', 'ta', 0)
+    await cm.recordFile('sK', 'ta', f)
+    writeFileSync(f, 'line1\nline2\nmodified\nline4\n')
+    await cm.create('sK', 'tb', 1)
+    await cm.recordFile('sK', 'tb', f)
+    const entries = await cm.getDiff('sK', 'ta', 'tb')
+    assert.ok(entries.length >= 1)
+    // 检查 unified diff 格式：必须有 @@ 行
+    assert.ok(entries[0].diff.includes('@@'), 'diff 应包含 hunk 头')
+    // 检查有删除行和新增行
+    assert.ok(entries[0].diff.includes('-line3'), 'diff 应包含删除行')
+    assert.ok(entries[0].diff.includes('+modified'), 'diff 应包含新增行')
+    // 检查有上下文行
+    assert.ok(entries[0].diff.includes(' line2'), 'diff 应包含上下文行')
   })
 })

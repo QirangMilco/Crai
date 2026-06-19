@@ -5,7 +5,7 @@
  * - 通过 Web 界面添加/删除 provider 后自动同步
  * - 从配置文件读取配，无需环境变量
  */
-import { createRuntime, CheckpointManager } from '@crai/runtime'
+import { createRuntime, CheckpointManager, loadCraignore } from '@crai/runtime'
 import type { Extension, Logger, ModelAdapter, RuntimeHandle } from '@crai/core'
 import { createOpenAIProvider, createDeepSeekProvider, createMockProvider, listModels, DeepSeekAdapter, OpenAIAdapter } from '@crai/provider'
 import { ConsoleLogger, createSandbox } from '@crai/base'
@@ -15,6 +15,7 @@ import { createWorkspaceSecurity } from '@crai/security'
 import { createFsTools } from '@crai/tools-fs'
 import { createShellTools, processManager } from '@crai/tools-shell'
 import { createWebTools } from '@crai/tools-web'
+import { createVersioningExtension } from '@crai/versioning'
 import { createWsTransport } from '@crai/transport-ws'
 import type { AppVariant } from '@crai/config'
 import { ConfigManager } from '@crai/config'
@@ -22,7 +23,7 @@ import { EVENTS } from '@crai/core'
 import { KNOWN_MODELS } from '@crai/core'
 import { join, resolve } from 'node:path'
 import { homedir } from 'node:os'
-import { readFile } from 'node:fs/promises'
+import { readFile, mkdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { createServerAuth } from './server-auth.js'
 
@@ -117,8 +118,12 @@ class WorkspaceManager {
       return
     }
     const dataDir = this.config.workspaceDataDir(rootDir)
+    // 确保数据目录结构存在（即使被手动删除也能恢复）
+    await mkdir(dataDir, { recursive: true })
     const checkpointsDir = resolve(dataDir, 'checkpoints')
-    const checkpointManager = new CheckpointManager(checkpointsDir)
+    // 从 .craignore 文件加载排除模式
+    const excludePatterns = await loadCraignore(rootDir)
+    const checkpointManager = new CheckpointManager(checkpointsDir, { excludePatterns })
 
     this.log.info(`ensure: provider=${eff.provider}, model=${eff.model}, apiKey=${eff.apiKey ? '***' : '(空)'}`)
 
@@ -137,6 +142,7 @@ class WorkspaceManager {
 
     const runtime = await createRuntime({
       logger: this.log,
+      rootDir,
       checkpointManager,
       extensions: [
         provider,
@@ -191,6 +197,7 @@ class WorkspaceManager {
             : async () => true,
         }),
         createEventForwarder(rootDir, this.onEvent),
+        createVersioningExtension({ titleModel: eff.model }),
       ],
       onModelNotFound: async (modelName, provider) => {
         if (!provider) return undefined
@@ -385,6 +392,11 @@ async function main() {
       },
       onWorkspaceConfigGet: async (rootDir) => config.loadWorkspace(rootDir || process.cwd()),
       onWorkspaceConfigSet: async (rootDir, cfg) => { await config.saveWorkspace(rootDir || process.cwd(), cfg); gWorkspaces?.sync() },
+      onWorkspaceDelete: async (rootDir) => {
+        await gWorkspaces?.stop(rootDir)
+        config.removeRecentWorkspace(rootDir)
+        await config.saveGlobal()
+      },
       onAuthListKeys: () => auth.listKeys(),
       onAuthGenerateKey: (description) => auth.generateKey(description),
       onAuthRevokeKey: (id) => auth.revokeKey(id),
@@ -408,13 +420,14 @@ async function main() {
         }
         return msgCount
       },
-      onCheckpointRollbackToIndex: async (sessionId, messageIndex) => {
+      onCheckpointRollbackToIndex: async (sessionId, messageIndex, filePaths) => {
         const rt = getFirstRuntime()
         if (!rt) return null
         const cm = rt.getCheckpointManager?.()
         if (!cm) return null
-        const result = await cm.rollbackToMessageIndex(sessionId, messageIndex)
-        if (result != null) {
+        const result = await cm.rollbackToMessageIndex(sessionId, messageIndex, filePaths)
+        if (result != null && !filePaths) {
+          // 仅全量回滚时截断消息；单文件回滚不截断
           await rt.truncateMessages?.(sessionId, result.messageCount)
         }
         return result
@@ -431,15 +444,49 @@ async function main() {
         if (!rt || !rt.createSession) return null
         const cm = rt.getCheckpointManager?.()
         if (!cm) return null
+        // 使用服务端生成的 session ID（客户端可留空）
+        const actualNewId = newSessionId || crypto.randomUUID()
         await cm.fork(
-          sessionId, turnId, newSessionId,
+          sessionId, turnId, actualNewId,
           async (sid) => rt.listMessages(sid),
           async (session) => { await rt.createSession?.({}, session.id) },
           async (sid, msg) => {
             await rt.appendMessage?.(sid, msg)
           },
         )
-        return newSessionId
+        return actualNewId
+      },
+      onCheckpointDiff: async (sessionId, turnIdA, turnIdB) => {
+        const rt = getFirstRuntime()
+        if (!rt) return []
+        const cm = rt.getCheckpointManager?.()
+        if (!cm) return []
+        return cm.getDiff(sessionId, turnIdA, turnIdB)
+      },
+      onVersionTree: async (sessionId) => {
+        const rt = getFirstRuntime()
+        if (!rt) return []
+        const cm = rt.getCheckpointManager?.()
+        if (!cm) return []
+        const checkpoints = await cm.listCheckpoints(sessionId)
+        const nodes = []
+        for (const cp of checkpoints) {
+          const full = await cm.load(sessionId, cp.turnId)
+          if (!full) continue
+          nodes.push({
+            turnId: cp.turnId,
+            title: cp.title,
+            description: full.description,
+            timestamp: cp.timestamp,
+            parentTurnId: full.parentTurnId,
+            files: full.files.map((f) => ({
+              path: f.path,
+              changeSource: f.changeSource,
+              timestamp: f.timestamp,
+            })),
+          })
+        }
+        return nodes
       },
     },
     getRuntime: (rootDir) => {

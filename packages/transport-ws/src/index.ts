@@ -13,6 +13,15 @@ import { buildActivitiesFromParts, extractResponseText } from './parts-utils'
 export type { ClientMessage, ServerMessage } from './protocol'
 export { browseDir } from './dir-browse'
 
+export interface VersionTreeNode {
+  turnId: string
+  title?: string
+  description?: string
+  timestamp: number
+  parentTurnId?: string
+  files: Array<{ path: string; changeSource: string; timestamp: number }>
+}
+
 // ── 选项 ───────────────────────────────────────────
 
 export interface WsTransportHandlers {
@@ -39,6 +48,8 @@ export interface WsTransportHandlers {
   onWorkspaceSwitch?: (rootDir: string) => Promise<{ model: string; provider: string }>
   onWorkspaceConfigGet?: (rootDir: string) => WorkspaceConfig | Promise<WorkspaceConfig>
   onWorkspaceConfigSet?: (rootDir: string, config: WorkspaceConfig) => void | Promise<void>
+  /** 从工作区列表中移除（不删除文件）。 */
+  onWorkspaceDelete?: (rootDir: string) => void | Promise<void>
 
   // ── 检查点操作 ──
   /** 列出会话的检查点。 */
@@ -46,9 +57,13 @@ export interface WsTransportHandlers {
   /** 回滚到指定检查点。返回截断后的消息数，或 null。 */
   onCheckpointRollback?: (sessionId: string, turnId: string) => Promise<number | null>
   /** 回滚到指定消息索引处的文件状态。返回截断后的消息数。 */
-  onCheckpointRollbackToIndex?: (sessionId: string, messageIndex: number) => Promise<{ messageCount: number; filesRestored: number } | null>
+  onCheckpointRollbackToIndex?: (sessionId: string, messageIndex: number, filePaths?: string[]) => Promise<{ messageCount: number; filesRestored: number } | null>
   /** 获取回滚点列表（每消息快照信息）。 */
-  onCheckpointRollbackPoints?: (sessionId: string) => Promise<Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number }>>
+  onCheckpointRollbackPoints?: (sessionId: string) => Promise<Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number; filePaths?: string[] }>>
+  /** 获取两个检查点之间的文件 diff。 */
+  onCheckpointDiff?: (sessionId: string, turnIdA: string, turnIdB: string) => Promise<Array<{ path: string; diff: string; changeSource: string; timestampA: number; timestampB: number }>>
+  /** 返回版本树数据。 */
+  onVersionTree?: (sessionId: string) => Promise<VersionTreeNode[]>
   /** 从检查点分叉出新会话。返回新会话 ID，或 null。 */
   onCheckpointFork?: (sessionId: string, turnId: string, newSessionId: string) => Promise<string | null>
 }
@@ -128,9 +143,11 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'config:auth:revoke':
       case 'workspace:list':
       case 'workspace:switch':
+      case 'workspace:delete':
       case 'workspace:config:get':
       case 'workspace:config:set':
       case 'session:list':
+      case 'versioning:version-tree':
       case 'dir:browse':
         break
       default: {
@@ -573,7 +590,7 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       }
       case 'checkpoint:rollback:to-index': {
         if (!handlers?.onCheckpointRollbackToIndex) { ws.send(JSON.stringify({ type: 'error', message: 'checkpoint not available' } satisfies ServerMessage)); break }
-        const rbResult = await handlers.onCheckpointRollbackToIndex(msg.sessionId, msg.messageIndex)
+        const rbResult = await handlers.onCheckpointRollbackToIndex(msg.sessionId, msg.messageIndex, msg.filePaths)
         ws.send(JSON.stringify({ type: 'checkpoint:rollback:done', sessionId: msg.sessionId, turnId: '', messageCount: rbResult?.messageCount ?? null, filesRestored: rbResult?.filesRestored ?? 0 } satisfies ServerMessage))
         break
       }
@@ -592,6 +609,20 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
         } else {
           ws.send(JSON.stringify({ type: 'error', message: 'fork failed' } satisfies ServerMessage))
         }
+        break
+      }
+
+      case 'checkpoint:diff': {
+        if (!handlers?.onCheckpointDiff) { ws.send(JSON.stringify({ type: 'error', message: 'checkpoint diff not available' } satisfies ServerMessage)); break }
+        const entries = await handlers.onCheckpointDiff(msg.sessionId, msg.turnIdA, msg.turnIdB)
+        ws.send(JSON.stringify({ type: 'checkpoint:diff:data', sessionId: msg.sessionId, entries } satisfies ServerMessage))
+        break
+      }
+
+      case 'versioning:version-tree': {
+        if (!handlers?.onVersionTree) { ws.send(JSON.stringify({ type: 'error', message: 'version tree not available' } satisfies ServerMessage)); break }
+        const nodes = await handlers.onVersionTree(msg.sessionId)
+        ws.send(JSON.stringify({ type: 'versioning:version-tree:data', sessionId: msg.sessionId, nodes } satisfies ServerMessage))
         break
       }
 
@@ -622,6 +653,27 @@ export function createWsTransport(options: WsTransportOptions = {}): WsTransport
       case 'workspace:config:set': {
         if (!handlers?.onWorkspaceConfigSet) { ws.send(JSON.stringify({ type: 'error', message: 'workspace config not writable' } satisfies ServerMessage)); break }
         await handlers.onWorkspaceConfigSet(currentWorkspace ?? process.cwd(), msg.config)
+        break
+      }
+
+      case 'workspace:delete': {
+        if (!handlers?.onWorkspaceDelete) { ws.send(JSON.stringify({ type: 'error', message: 'workspace delete not available' } satisfies ServerMessage)); break }
+        await handlers.onWorkspaceDelete(msg.rootDir)
+        // 当前工作区被删除时自动切换到下一个
+        if (currentWorkspace === msg.rootDir) {
+          currentWorkspace = undefined
+          if (handlers?.onWorkspaceList) {
+            const list = await handlers.onWorkspaceList()
+            if (list.length > 0 && handlers?.onWorkspaceSwitch) {
+              await handlers.onWorkspaceSwitch(list[0].rootDir)
+            }
+          }
+        }
+        // 刷新工作区列表
+        if (handlers?.onWorkspaceList) {
+          const list = await handlers.onWorkspaceList()
+          ws.send(JSON.stringify({ type: 'workspace:list:data', current: currentWorkspace ?? null, workspaces: list } satisfies ServerMessage))
+        }
         break
       }
     }

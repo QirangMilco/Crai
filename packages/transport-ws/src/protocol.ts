@@ -82,6 +82,12 @@ export interface WorkspaceSwitchMessage {
   rootDir: string
 }
 
+/** 客户端删除工作区（从列表中移除，不删文件）。 */
+export interface WorkspaceDeleteMessage {
+  type: 'workspace:delete'
+  rootDir: string
+}
+
 /** 客户端测试 provider 连接（API key + base URL 是否有效）。 */
 export interface ConfigTestMessage {
   type: 'config:test'
@@ -189,6 +195,7 @@ export type ClientMessage =
   | ConfigKnownModelsMessage
   | WorkspaceListMessage
   | WorkspaceSwitchMessage
+  | WorkspaceDeleteMessage
   | WorkspaceConfigGetMessage
   | WorkspaceConfigSetMessage
   | SessionListMessage
@@ -201,6 +208,8 @@ export type ClientMessage =
   | CheckpointRollbackToIndexMessage
   | CheckpointForkMessage
   | CheckpointRollbackPointsMessage
+  | CheckpointDiffMessage
+  | VersionTreeMessage
 
 // ── Server → Client ───────────────────────────────
 
@@ -312,6 +321,28 @@ export type ServerMessage =
   | CheckpointRollbackDoneMessage
   | CheckpointForkDoneMessage
   | CheckpointRollbackPointsDataMessage
+  | CheckpointDiffDataMessage
+  | VersionTreeDataMessage
+
+/** 版本树数据响应。 */
+export interface VersionTreeDataMessage {
+  type: 'versioning:version-tree:data'
+  sessionId: string
+  nodes: Array<{
+    turnId: string
+    title?: string
+    description?: string
+    timestamp: number
+    parentTurnId?: string
+    files: Array<{ path: string; changeSource: string; timestamp: number }>
+  }>
+}
+
+/** 客户端请求版本树。 */
+export interface VersionTreeMessage {
+  type: 'versioning:version-tree'
+  sessionId: string
+}
 
 /** 目录浏览响应。 */
 export interface DirBrowseDataMessage {
@@ -396,6 +427,8 @@ export interface CheckpointRollbackToIndexMessage {
   type: 'checkpoint:rollback:to-index'
   sessionId: string
   messageIndex: number
+  /** 只回滚指定文件路径列表（可选，不传则回滚全部）。 */
+  filePaths?: string[]
 }
 
 export interface CheckpointRollbackDoneMessage {
@@ -420,6 +453,13 @@ export interface CheckpointForkDoneMessage {
   newSessionId: string
 }
 
+export interface CheckpointDiffMessage {
+  type: 'checkpoint:diff'
+  sessionId: string
+  turnIdA: string
+  turnIdB: string
+}
+
 export interface CheckpointRollbackPointsMessage {
   type: 'checkpoint:rollback:points'
   sessionId: string
@@ -428,5 +468,12 @@ export interface CheckpointRollbackPointsMessage {
 export interface CheckpointRollbackPointsDataMessage {
   type: 'checkpoint:rollback:points:data'
   sessionId: string
-  points: Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number }>
+  points: Array<{ messageIndex: number; turnId: string; fileCount: number; timestamp: number; filePaths?: string[]; agentFileCount?: number }>
+}
+
+/** 检查点 diff 响应。 */
+export interface CheckpointDiffDataMessage {
+  type: 'checkpoint:diff:data'
+  sessionId: string
+  entries: Array<{ path: string; diff: string; changeSource: string; timestampA: number; timestampB: number }>
 }

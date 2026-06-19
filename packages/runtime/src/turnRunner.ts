@@ -17,6 +17,7 @@ import type {
 import type { HookBus, HookMap, Logger, RuntimeHandle, Session, AdapterContext, StorageAdapter } from '@crai/core'
 import type { ModelMiddlewareStore } from './bus'
 import { EVENTS, HOOKS, ERROR_CODES, MESSAGE_PART_TYPES, MESSAGE_ROLES, PERMISSION_MODES, RUNTIME_INPUT_TYPES, createId, getContextWindow } from '@crai/core'
+import { resolve } from 'node:path'
 import type { PermissionMode } from '@crai/core'
 import { guardContext, estimateMessagesTokens, estimateMessageTokens, limitToolResult, cleanOrphanedToolCalls } from '@crai/base'
 import type { CheckpointManager } from './checkpoint'
@@ -148,6 +149,8 @@ export interface TurnRunnerDeps {
   getStorage?: () => StorageAdapter | undefined
   /** 检查点管理器，用于 turn 级别回滚。 */
   checkpointManager?: CheckpointManager
+  /** 工作区根目录，用于解析文件路径。 */
+  rootDir?: string
 }
 
 /** 将 RuntimeInput 转换为 Message。 */
@@ -383,9 +386,11 @@ async function executeOneTool(
   const cp = deps.checkpointManager
   if (cp) {
     const args = toolCall.arguments as any
-    const filePath = args?.path || args?.filePath || args?.file
-    if (typeof filePath === 'string') {
-      await cp.recordFile(session.id, turnId, filePath).catch(() => {})
+    const rawPath = args?.path || args?.filePath || args?.file
+    if (typeof rawPath === 'string') {
+      // 相对于工作区根目录解析路径，与服务端 CWD 无关
+      const absPath = deps.rootDir ? resolve(deps.rootDir, rawPath) : resolve(rawPath)
+      await cp.recordFile(session.id, turnId, absPath, 'agent').catch(() => {})
     }
   }
 

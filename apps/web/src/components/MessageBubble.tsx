@@ -15,7 +15,7 @@ interface Props {
   msg: ChatMessage
 }
 
-function Bubble({ msg, fileCount, messageIndex }: Props & { fileCount?: number; messageIndex?: number }) {
+function Bubble({ msg, fileCount, agentFileCount, filePaths, messageIndex, onShowDiff }: Props & { fileCount?: number; agentFileCount?: number; filePaths?: string[]; messageIndex?: number; onShowDiff?: () => void }) {
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const isUser = msg.role === 'user'
   const isError = msg.role === 'system'
@@ -44,31 +44,36 @@ function Bubble({ msg, fileCount, messageIndex }: Props & { fileCount?: number; 
             }}
           >
             <div className="whitespace-pre-wrap break-words">{msg.text}</div>
-            {fileCount != null && fileCount > 0 && (
-              <div className="text-[10px] mt-1" style={{ color: 'var(--crai-fg-40)', opacity: 0.7 }}>
-                📎 {fileCount} 个文件可回滚
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-1 mt-1" style={{ opacity: 0.5 }}>
+            <Tooltip tip={copiedId === 'user-copy' ? '已复制' : '复制消息'} position="bottom">
             <button onClick={() => { navigator.clipboard.writeText(msg.text); setCopiedId('user-copy'); setTimeout(() => setCopiedId(null), 1500) }}
               className="hover:opacity-100 transition-opacity"
-              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-              title={copiedId === 'user-copy' ? '已复制' : '复制消息'}>
+              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
               <Icon icon={copiedId === 'user-copy' ? Check : Copy} size="xs" />
             </button>
+            </Tooltip>
+            {onShowDiff && <Tooltip tip="查看文件变更" position="bottom">
+              <button onClick={onShowDiff}
+                className="hover:opacity-100 transition-opacity"
+                style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
+                <Icon icon={FileCode} size="xs" />
+              </button>
+            </Tooltip>}
+            <Tooltip tip="回滚到此处" position="bottom">
             <button onClick={() => window.dispatchEvent(new CustomEvent('crai:rollback', { detail: { messageIndex } }))}
               className="hover:opacity-100 transition-opacity"
-              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-              title="回滚到此处">
+              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
               <Icon icon={Undo2} size="xs" />
             </button>
-            <button onClick={() => window.dispatchEvent(new CustomEvent('crai:fork', { detail: { msgId: msg.id } }))}
+            </Tooltip>
+            <Tooltip tip="从此分叉" position="bottom">
+            <button onClick={() => window.dispatchEvent(new CustomEvent('crai:fork', { detail: { msgId: msg.id, messageIndex } }))}
               className="hover:opacity-100 transition-opacity"
-              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-              title="从此分叉">
+              style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
               <Icon icon={GitBranch} size="xs" />
             </button>
+            </Tooltip>
           </div>
         </div>) : isError && msg.id === 'ctx-compaction' ? (
         <CompactMessage msg={msg} />
@@ -108,12 +113,22 @@ function Bubble({ msg, fileCount, messageIndex }: Props & { fileCount?: number; 
           </div>
           {msg.text && !msg.activities?.some((a) => a.status === 'running') && (
             <div className="flex items-center gap-1 mt-1" style={{ opacity: 0.5 }}>
+              <Tooltip tip={copiedId === 'ai-copy' ? '已复制' : '复制消息'} position="bottom">
               <button onClick={() => { navigator.clipboard.writeText(msg.text); setCopiedId('ai-copy'); setTimeout(() => setCopiedId(null), 1500) }}
                 className="hover:opacity-100 transition-opacity"
-                style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
-                title={copiedId === 'ai-copy' ? '已复制' : '复制消息'}>
+                style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
                 <Icon icon={copiedId === 'ai-copy' ? Check : Copy} size="xs" />
               </button>
+            </Tooltip>
+              {onShowDiff && <Tooltip tip="查看文件变更" position="bottom">
+                <button onClick={onShowDiff}
+                  className="hover:opacity-100 transition-opacity"
+                  style={{ color: 'var(--crai-fg-40)', background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
+                  <Icon icon={FileCode} size="xs" />
+                </button>
+              </Tooltip>}
+
+
             </div>
           )}
         </div>
@@ -122,13 +137,18 @@ function Bubble({ msg, fileCount, messageIndex }: Props & { fileCount?: number; 
   )
 }
 
-export const MessageBubble = memo(Bubble as React.FC<Props & { fileCount?: number; messageIndex?: number }>, (prev, next) => {
+export const MessageBubble = memo(Bubble as React.FC<Props & { fileCount?: number; agentFileCount?: number; filePaths?: string[]; messageIndex?: number; onShowDiff?: () => void }>, (prev, next) => {
   return prev.msg.id === next.msg.id
     && prev.msg.text === next.msg.text
     && prev.msg.activities === next.msg.activities
+    && prev.fileCount === next.fileCount
+    && prev.agentFileCount === next.agentFileCount
+    && prev.messageIndex === next.messageIndex
+    && prev.onShowDiff === next.onShowDiff
 })
 
-import { ChevronDown, ChevronRight, Archive, Copy, Undo2, GitBranch, Check } from 'lucide-react'
+import { ChevronDown, ChevronRight, Archive, Copy, Undo2, GitBranch, Check, FileCode } from 'lucide-react'
+import { Tooltip } from './ui/Tooltip'
 import { Icon } from './ui/Icon'
 
 /** 压缩摘要消息：可折叠，显示压缩前后 token 数。 */
